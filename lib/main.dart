@@ -315,7 +315,7 @@ Future<void> _pollNotificationHistory({bool showNew = true}) async {
         .toList();
 
     for (final n in newItems.reversed) {
-      await _showHistoryNotification(n);
+      await _rememberNotification(n);
     }
     await prefs.setStringList(
       'seen_notification_ids',

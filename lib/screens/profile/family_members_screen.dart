@@ -142,12 +142,47 @@ class _FamilyMembersScreenState extends State<FamilyMembersScreen> {
   }
 
   Future<void> _delete(int id) async {
-    // no delete endpoint — show toast
+    final member = _members.firstWhere(
+      (m) => m is Map && (int.tryParse((m['id'] ?? 0).toString()) ?? 0) == id,
+      orElse: () => null,
+    );
+    if (id > 0) await _authService.deleteFamily(id);
+    if (member is Map)
+      await _removeLocalFamily(Map<String, dynamic>.from(member));
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Deleted!', style: GoogleFonts.poppins()),
         backgroundColor: AppColors.green,
         duration: const Duration(seconds: 1)));
     _load();
+  }
+
+  Future<void> _removeLocalFamily(Map<String, dynamic> member) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('setup_family_members');
+    if (raw == null || raw.trim().isEmpty) return;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return;
+      final localId = member['local_id']?.toString();
+      final id = member['id']?.toString();
+      final name = member['name']?.toString().toLowerCase().trim();
+      final relation = member['relation'] is Map
+          ? member['relation']['name']?.toString().toLowerCase().trim()
+          : member['relation']?.toString().toLowerCase().trim();
+      final remaining = decoded.where((item) {
+        if (item is! Map) return true;
+        if (localId != null && item['local_id']?.toString() == localId) {
+          return false;
+        }
+        if (id != null && item['id']?.toString() == id) return false;
+        final sameName = item['name']?.toString().toLowerCase().trim() == name;
+        final itemRelation = item['relation'] is Map
+            ? item['relation']['name']?.toString().toLowerCase().trim()
+            : item['relation']?.toString().toLowerCase().trim();
+        return !(sameName && itemRelation == relation);
+      }).toList();
+      await prefs.setString('setup_family_members', jsonEncode(remaining));
+    } catch (_) {}
   }
 
   Future<void> _rescheduleFamilyAlarms(List family) async {

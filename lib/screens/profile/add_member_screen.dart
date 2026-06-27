@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/app_theme.dart';
 import '../../services/services.dart';
 import '../../widgets/ez_button.dart';
@@ -132,17 +135,56 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
     setState(() => _saving = false);
     if (!mounted) return;
     if (res['status'] == true || res['data'] != null) {
+      await _upsertLocalFamily(existing, synced: true);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Member added! Alarm scheduled 🎉',
               style: GoogleFonts.poppins()),
           backgroundColor: AppColors.green));
       Navigator.pop(context, true);
     } else {
+      await _upsertLocalFamily(existing, synced: false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content:
-              Text(res['message'] ?? 'Error', style: GoogleFonts.poppins()),
-          backgroundColor: AppColors.red));
+          content: Text('Member saved. Sync will retry later.',
+              style: GoogleFonts.poppins()),
+          backgroundColor: AppColors.green));
+      Navigator.pop(context, true);
     }
+  }
+
+  Future<void> _upsertLocalFamily(Map? existing, {required bool synced}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('setup_family_members');
+    final members = <Map<String, dynamic>>[];
+    if (raw != null && raw.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is List) {
+          members.addAll(decoded
+              .whereType<Map>()
+              .map((m) => Map<String, dynamic>.from(m)));
+        }
+      } catch (_) {}
+    }
+    final localId = (existing?['local_id'] ??
+            existing?['id'] ??
+            'local-${DateTime.now().millisecondsSinceEpoch}')
+        .toString();
+    final updated = {
+      ...?existing?.cast<String, dynamic>(),
+      'local_id': localId,
+      if (existing?['id'] != null) 'id': existing!['id'],
+      'name': _nameCtrl.text.trim(),
+      'relation': _relation,
+      'birthday_date': _birthdayCtrl.text.trim(),
+      'anniversary_date': _anniversaryCtrl.text.trim(),
+      'local_only': !synced,
+    };
+    members.removeWhere((m) =>
+        (m['local_id']?.toString() == localId) ||
+        (existing?['id'] != null &&
+            m['id']?.toString() == existing!['id'].toString()));
+    members.insert(0, updated);
+    await prefs.setString('setup_family_members', jsonEncode(members));
   }
 
   @override

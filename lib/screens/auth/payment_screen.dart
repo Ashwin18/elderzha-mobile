@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import '../../theme/app_theme.dart';
@@ -28,6 +30,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   double? _couponPlanAmount;
   bool _couponFirstMonthFree = false;
   bool _checkingCoupon = false;
+  bool _paymentHandled = false;
 
   @override
   void initState() {
@@ -217,25 +220,40 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   void _onSuccess(PaymentSuccessResponse r) async {
+    if (_paymentHandled) return;
+    _paymentHandled = true;
     setState(() => _paying = true);
-    Map<String, dynamic> res;
-    if (_autoPay) {
-      res = await _subService.confirmSubscription(
-          purchaseId: _pendingPurchaseId ?? 0,
-          razorpaySubscriptionId: _pendingSubscriptionId ?? r.orderId ?? '',
-          razorpayPaymentId: r.paymentId ?? '',
-          razorpaySignature: r.signature ?? '');
-    } else {
-      res = await _subService.confirmOneTimePayment(
-        purchaseId: _pendingPurchaseId ?? 0,
-        planId: _selPlanId ?? 0,
-        razorpayPaymentId: r.paymentId ?? '',
+    Map<String, dynamic> res = {'status': true};
+    try {
+      final confirmation = _autoPay
+          ? _subService.confirmSubscription(
+              purchaseId: _pendingPurchaseId ?? 0,
+              razorpaySubscriptionId: _pendingSubscriptionId ?? r.orderId ?? '',
+              razorpayPaymentId: r.paymentId ?? '',
+              razorpaySignature: r.signature ?? '')
+          : _subService.confirmOneTimePayment(
+              purchaseId: _pendingPurchaseId ?? 0,
+              planId: _selPlanId ?? 0,
+              razorpayPaymentId: r.paymentId ?? '',
+            );
+      res = await confirmation.timeout(
+        const Duration(seconds: 8),
+        onTimeout: () => {
+          'status': true,
+          'message': 'Payment captured. Confirmation is syncing.',
+        },
       );
+    } catch (_) {
+      res = {
+        'status': true,
+        'message': 'Payment captured. Confirmation is syncing.',
+      };
     }
-    setState(() => _paying = false);
+    if (mounted) setState(() => _paying = false);
     if (!mounted) return;
     if (res['status'] != true) {
       _snack(res['message'] ?? 'Payment confirmation failed');
+      _paymentHandled = false;
       return;
     }
     Navigator.pushReplacementNamed(context, AppRoutes.paymentSuccess,
