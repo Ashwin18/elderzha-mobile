@@ -803,27 +803,40 @@ class _DetailSheetState extends State<_DetailSheet> {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        ...replies.map(
-                          (r) => Container(
+                        ...replies.map((r) {
+                          final reply = r is Map
+                              ? Map<String, dynamic>.from(r)
+                              : <String, dynamic>{'reply': r.toString()};
+                          final replyText = _cleanText(reply['reply'] ??
+                              reply['content'] ??
+                              reply['description'] ??
+                              reply['notes'] ??
+                              reply['message'] ??
+                              '');
+                          return Container(
                             margin: const EdgeInsets.only(bottom: 8),
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               color: C.bg2,
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: Text(
-                              _cleanText(r['reply'] ??
-                                  r['content'] ??
-                                  r['description'] ??
-                                  r['notes'] ??
-                                  ''),
-                              style: GoogleFonts.poppins(
-                                fontSize: 12,
-                                color: C.txm,
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (replyText.isNotEmpty)
+                                  Text(
+                                    replyText,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      color: C.txm,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                CommunityMedia(item: reply, height: 128),
+                              ],
                             ),
-                          ),
-                        ),
+                          );
+                        }),
                       ],
                       const SizedBox(height: 20),
                       GestureDetector(

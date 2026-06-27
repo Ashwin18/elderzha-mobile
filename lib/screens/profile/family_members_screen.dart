@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/app_theme.dart';
 import '../../services/services.dart';
 import '../../alaram/family_event_scheduler.dart';
@@ -26,8 +29,9 @@ class _FamilyMembersScreenState extends State<FamilyMembersScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     final res = await _authService.getProfileWithFamily();
+    final fallback = await _loadSetupFamilyFallback();
     if (!mounted) return;
-    final family = _extractFamily(res);
+    final family = _mergeFamily(_extractFamily(res), fallback);
     setState(() {
       _members = family;
       _loading = false;
@@ -62,6 +66,46 @@ class _FamilyMembersScreenState extends State<FamilyMembersScreen> {
       }
     }
     return [];
+  }
+
+  Future<List<Map<String, dynamic>>> _loadSetupFamilyFallback() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('setup_family_members');
+    if (raw == null || raw.trim().isEmpty) return [];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        return decoded
+            .whereType<Map>()
+            .map((m) => Map<String, dynamic>.from(m))
+            .toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  List _mergeFamily(List remote, List<Map<String, dynamic>> fallback) {
+    if (fallback.isEmpty) return remote;
+    final seen = <String>{};
+    final out = <dynamic>[];
+    for (final item in [...remote, ...fallback]) {
+      if (item is! Map) continue;
+      final map = Map<String, dynamic>.from(item);
+      final key = [
+        (map['id'] ?? '').toString(),
+        (map['name'] ?? '').toString().toLowerCase().trim(),
+        (map['relation'] is Map
+                ? map['relation']['name']
+                : map['relation'] ?? '')
+            .toString()
+            .toLowerCase()
+            .trim(),
+        _birthdayDateOf(map),
+        _anniversaryDateOf(map),
+      ].join('|');
+      if (seen.add(key)) out.add(map);
+    }
+    return out;
   }
 
   String _eventTypeOf(dynamic m) {

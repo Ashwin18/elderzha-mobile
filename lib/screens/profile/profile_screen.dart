@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../services/services.dart';
@@ -42,11 +45,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _notificationService.getNotifications(),
       _alarmService.getMedicalRecords(),
     ]);
+    final fallbackFamily = await _loadSetupFamilyFallback();
     if (!mounted) return;
+    final family = _mergeFamily(_extractFamily(results[1]), fallbackFamily);
     setState(() {
       _plan = _extractMap(results[0]);
       _profile = _extractProfile(results[1]);
-      _familyCount = _extractFamily(results[1]).length;
+      _familyCount = family.length;
       _notificationCount =
           _extractList(results[2], ['data', 'notifications', 'today', 'unread'])
               .length;
@@ -102,6 +107,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     }
     return [];
+  }
+
+  Future<List<Map<String, dynamic>>> _loadSetupFamilyFallback() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('setup_family_members');
+    if (raw == null || raw.trim().isEmpty) return [];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        return decoded
+            .whereType<Map>()
+            .map((m) => Map<String, dynamic>.from(m))
+            .toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  List _mergeFamily(List remote, List<Map<String, dynamic>> fallback) {
+    if (fallback.isEmpty) return remote;
+    final seen = <String>{};
+    final out = <dynamic>[];
+    for (final item in [...remote, ...fallback]) {
+      if (item is! Map) continue;
+      final map = Map<String, dynamic>.from(item);
+      final relation = map['relation'] is Map
+          ? (map['relation']['name'] ?? '')
+          : (map['relation'] ?? '');
+      final key = [
+        (map['id'] ?? '').toString(),
+        (map['name'] ?? '').toString().toLowerCase().trim(),
+        relation.toString().toLowerCase().trim(),
+        (map['birthday_date'] ?? map['birthday'] ?? map['date'] ?? '')
+            .toString()
+            .trim(),
+        (map['anniversary_date'] ?? map['anniversary'] ?? '').toString().trim(),
+      ].join('|');
+      if (seen.add(key)) out.add(map);
+    }
+    return out;
   }
 
   List _extractList(Map<String, dynamic>? res, List<String> keys) {
@@ -172,20 +217,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
         color: AppColors.yellowDark,
         child: Column(children: [
           Container(
-            color: AppColors.yellow,
+            width: double.infinity,
+            decoration: const BoxDecoration(
+              color: AppColors.yellow,
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(28),
+                bottomRight: Radius.circular(28),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Color(0x14000000),
+                  blurRadius: 18,
+                  offset: Offset(0, 8),
+                ),
+              ],
+            ),
             child: SafeArea(
               bottom: false,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(0, 16, 0, 24),
-                child: Column(children: [
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+                child: Row(children: [
                   Container(
-                    width: 72,
-                    height: 72,
+                    width: 78,
+                    height: 78,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.3),
+                      color: Colors.white.withOpacity(0.34),
                       shape: BoxShape.circle,
-                      border: Border.all(
-                          color: Colors.white.withOpacity(0.5), width: 3),
+                      border: Border.all(color: Colors.white, width: 3),
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: photoUrl.isNotEmpty
@@ -193,38 +251,53 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => const Icon(
                                 Icons.person_rounded,
-                                size: 34,
+                                size: 36,
                                 color: AppColors.ink))
                         : const Icon(Icons.person_rounded,
-                            size: 34, color: AppColors.ink),
+                            size: 36, color: AppColors.ink),
                   ),
-                  const SizedBox(height: 10),
-                  Text(auth.userName,
-                      style: GoogleFonts.poppins(
-                          fontSize: 19,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.ink)),
-                  Text(
-                    auth.userPhone.isNotEmpty
-                        ? '+91 ${auth.userPhone}'
-                        : 'Mobile not available',
-                    style: GoogleFonts.poppins(
-                        fontSize: 12, color: AppColors.yellowDeep),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('My profile',
+                              style: GoogleFonts.poppins(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.yellowDeep)),
+                          const SizedBox(height: 2),
+                          Text(auth.userName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.poppins(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.ink)),
+                          const SizedBox(height: 2),
+                          Text(
+                            auth.userPhone.isNotEmpty
+                                ? '+91 ${auth.userPhone}'
+                                : 'Mobile not available',
+                            style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.yellowDeep),
+                          ),
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: _headerPill(_subscriptionHeaderText),
+                          ),
+                        ]),
                   ),
-                  const SizedBox(height: 8),
-                  _headerPill(_subscriptionHeaderText),
                 ]),
               ),
             ),
           ),
           Expanded(
             child: Container(
-              decoration: const BoxDecoration(
-                color: AppColors.bg,
-                borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(28),
-                    topRight: Radius.circular(28)),
-              ),
+              color: AppColors.bg,
               child: _loading
                   ? const Center(
                       child: CircularProgressIndicator(

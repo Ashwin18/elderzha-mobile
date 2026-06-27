@@ -1,6 +1,13 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../alaram/daily_scheduler.dart';
 import '../../alaram/family_event_scheduler.dart';
@@ -8,6 +15,8 @@ import '../../api/models/fetch_profile_model.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_routes.dart';
 import '../../services/services.dart';
+
+const MethodChannel _alarmSetupChannel = MethodChannel('alarm_service');
 
 class AlarmSetupScreen extends StatefulWidget {
   const AlarmSetupScreen({super.key});
@@ -22,6 +31,16 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
   bool _foodEnabled = true;
   final _alarmService = AlarmService();
   final _authService = AuthService();
+  final _picker = ImagePicker();
+  File? _medImage;
+  File? _foodImage;
+  String? _tonePath;
+  String? _recordedPreviewPath;
+  bool _recording = false;
+  bool _previewPlaying = false;
+  bool _timePickerOpen = false;
+  int _recordSeconds = 0;
+  Timer? _recordTimer;
 
   // Medical
   final Map<String, String> _med = {
@@ -54,18 +73,57 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
   // Family members added locally
   final List<Map<String, String>> _family = [];
 
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedTone();
+  }
+
+  @override
+  void dispose() {
+    _recordTimer?.cancel();
+    _stopTonePreview();
+    super.dispose();
+  }
+
+  Future<void> _loadSavedTone() async {
+    final prefs = await SharedPreferences.getInstance();
+    final tone = prefs.getString('alarm_tone');
+    if (!mounted || tone == null || tone.isEmpty) return;
+    setState(() => _tonePath = tone);
+  }
+
   Future<void> _pickTime(String key, Map<String, String> map) async {
-    final t = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.now(),
-      builder: (ctx, child) => Theme(
-        data: ThemeData.light().copyWith(
-          colorScheme: const ColorScheme.light(primary: C.yellowDark),
+    if (_timePickerOpen) return;
+    _timePickerOpen = true;
+    try {
+      final t = await showTimePicker(
+        context: context,
+        initialTime: _parseDisplayTime(map[key]) ?? TimeOfDay.now(),
+        builder: (ctx, child) => Theme(
+          data: ThemeData.light().copyWith(
+            colorScheme: const ColorScheme.light(primary: C.yellowDark),
+          ),
+          child: child ?? const SizedBox.shrink(),
         ),
-        child: child!,
-      ),
-    );
-    if (t != null && mounted) setState(() => map[key] = t.format(context));
+      );
+      if (t != null && mounted) setState(() => map[key] = t.format(context));
+    } finally {
+      _timePickerOpen = false;
+    }
+  }
+
+  TimeOfDay? _parseDisplayTime(String? value) {
+    if (value == null) return null;
+    final match = RegExp(r'^(\d{1,2}):(\d{2})\s*(AM|PM)$', caseSensitive: false)
+        .firstMatch(value.trim());
+    if (match == null) return null;
+    var hour = int.tryParse(match.group(1) ?? '') ?? 0;
+    final minute = int.tryParse(match.group(2) ?? '') ?? 0;
+    final suffix = (match.group(3) ?? '').toUpperCase();
+    if (suffix == 'PM' && hour != 12) hour += 12;
+    if (suffix == 'AM' && hour == 12) hour = 0;
+    return TimeOfDay(hour: hour, minute: minute);
   }
 
   Widget _setupMetric(String value, String label, IconData icon) => Expanded(
@@ -267,6 +325,379 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
             crossAxisAlignment: CrossAxisAlignment.start, children: children),
       );
 
+  Future<void> _pickImage(String type) async {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Gallery'),
+              onTap: () async {
+                Navigator.pop(context);
+                final f = await _picker.pickImage(
+                  source: ImageSource.gallery,
+                  imageQuality: 85,
+                );
+                if (f == null) return;
+                final stored = await _persistImage(f.path);
+                if (!mounted) return;
+                setState(() {
+                  if (type == 'medical') {
+                    _medImage = stored;
+                  } else {
+                    _foodImage = stored;
+                  }
+                });
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined),
+              title: const Text('Camera'),
+              onTap: () async {
+                Navigator.pop(context);
+                final f = await _picker.pickImage(
+                  source: ImageSource.camera,
+                  imageQuality: 85,
+                );
+                if (f == null) return;
+                final stored = await _persistImage(f.path);
+                if (!mounted) return;
+                setState(() {
+                  if (type == 'medical') {
+                    _medImage = stored;
+                  } else {
+                    _foodImage = stored;
+                  }
+                });
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<File> _persistImage(String sourcePath) async {
+    final src = File(sourcePath);
+    final dir = await getApplicationDocumentsDirectory();
+    final ext = sourcePath.split('.').last;
+    final target = File(
+      '${dir.path}/elderzha_setup_alarm_image_${DateTime.now().millisecondsSinceEpoch}.$ext',
+    );
+    return src.copy(target.path);
+  }
+
+  Future<void> _pickTone() async {
+    await Permission.audio.request();
+    final picked = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['mp3', 'wav', 'aac', 'm4a', 'ogg'],
+    );
+    if (picked == null || picked.files.single.path == null) return;
+    final src = File(picked.files.single.path!);
+    final dir = await getApplicationDocumentsDirectory();
+    final target = '${dir.path}/${picked.files.single.name}';
+    if (await File(target).exists()) await File(target).delete();
+    await src.copy(target);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('alarm_tone', target);
+    await _stopTonePreview();
+    if (!mounted) return;
+    setState(() {
+      _tonePath = target;
+      _recordedPreviewPath = null;
+    });
+  }
+
+  Future<void> _toggleVoiceRecording() async {
+    final status = await Permission.microphone.request();
+    if (!status.isGranted) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Microphone permission is required',
+              style: poppins(12, c: Colors.white)),
+          backgroundColor: C.red,
+        ),
+      );
+      return;
+    }
+    if (!_recording) {
+      await _stopTonePreview();
+      await _alarmSetupChannel.invokeMethod<String>('startVoiceRecording');
+      if (!mounted) return;
+      setState(() {
+        _recording = true;
+        _recordedPreviewPath = null;
+        _recordSeconds = 0;
+      });
+      _recordTimer?.cancel();
+      _recordTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (!mounted) return;
+        final next = _recordSeconds + 1;
+        setState(() => _recordSeconds = next);
+        if (next >= 15) _finishVoiceRecording();
+      });
+    } else {
+      await _finishVoiceRecording();
+    }
+  }
+
+  Future<void> _finishVoiceRecording() async {
+    if (!_recording) return;
+    _recordTimer?.cancel();
+    final path =
+        await _alarmSetupChannel.invokeMethod<String>('stopVoiceRecording');
+    if (!mounted) return;
+    setState(() {
+      _recording = false;
+      if (path != null && path.isNotEmpty) _recordedPreviewPath = path;
+    });
+  }
+
+  Future<void> _previewTone(String? path) async {
+    if (path == null || path.isEmpty) return;
+    if (_previewPlaying) {
+      await _stopTonePreview();
+      return;
+    }
+    await _alarmSetupChannel.invokeMethod('playTonePreview', {'path': path});
+    if (mounted) setState(() => _previewPlaying = true);
+  }
+
+  Future<void> _stopTonePreview() async {
+    try {
+      await _alarmSetupChannel.invokeMethod('stopTonePreview');
+    } catch (_) {}
+    if (mounted) setState(() => _previewPlaying = false);
+  }
+
+  Future<void> _useRecordedTone() async {
+    final path = _recordedPreviewPath;
+    if (path == null || path.isEmpty) return;
+    await _stopTonePreview();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('alarm_tone', path);
+    if (!mounted) return;
+    setState(() {
+      _tonePath = path;
+      _recordedPreviewPath = null;
+    });
+  }
+
+  Future<void> _discardRecording() async {
+    await _stopTonePreview();
+    final path = _recordedPreviewPath;
+    if (path != null && path.isNotEmpty) {
+      try {
+        final file = File(path);
+        if (await file.exists()) await file.delete();
+      } catch (_) {}
+    }
+    if (mounted) setState(() => _recordedPreviewPath = null);
+  }
+
+  Widget _alarmMediaPanel({required bool medical}) {
+    final image = medical ? _medImage : _foodImage;
+    final title = medical ? 'Medical alarm media' : 'Food alarm media';
+    return _premiumPanel([
+      Row(children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: C.yellowMid,
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: Icon(
+            medical ? Icons.medication_rounded : Icons.restaurant_rounded,
+            color: C.yellowDeep,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: poppins(15, w: FontWeight.w800, c: C.ink)),
+              const SizedBox(height: 2),
+              Text('Photo and custom alarm tone',
+                  style: poppins(11, w: FontWeight.w600, c: C.txl)),
+            ],
+          ),
+        ),
+      ]),
+      const SizedBox(height: 12),
+      GestureDetector(
+        onTap: () => _pickImage(medical ? 'medical' : 'food'),
+        child: Container(
+          height: 136,
+          width: double.infinity,
+          clipBehavior: Clip.hardEdge,
+          decoration: BoxDecoration(
+            color: C.bg2,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: C.bd),
+          ),
+          child: image == null
+              ? Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.add_photo_alternate_outlined,
+                        color: C.txl, size: 30),
+                    const SizedBox(height: 6),
+                    Text('Upload alarm image',
+                        style: poppins(12, w: FontWeight.w700, c: C.txm)),
+                  ],
+                )
+              : Image.file(image, fit: BoxFit.cover),
+        ),
+      ),
+      const SizedBox(height: 12),
+      _toneCard(),
+    ]);
+  }
+
+  Widget _toneCard() => Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: C.yellowMid,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: C.yellowBorder),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Alarm tone', style: poppins(13, w: FontWeight.w800, c: C.ink)),
+          const SizedBox(height: 9),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            decoration: BoxDecoration(
+              color: C.white,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(children: [
+              const Icon(Icons.music_note_rounded, color: C.yellowDark),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  _recordedPreviewPath?.split(RegExp(r'[/\\]')).last ??
+                      _tonePath?.split(RegExp(r'[/\\]')).last ??
+                      'Select tone',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: poppins(
+                    12,
+                    w: FontWeight.w700,
+                    c: _tonePath == null && _recordedPreviewPath == null
+                        ? C.txl
+                        : C.ink,
+                  ),
+                ),
+              ),
+              if (_tonePath != null || _recordedPreviewPath != null)
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () =>
+                      _previewTone(_recordedPreviewPath ?? _tonePath),
+                  icon: Icon(
+                    _previewPlaying
+                        ? Icons.stop_circle_rounded
+                        : Icons.play_circle_fill_rounded,
+                    color: C.yellowDark,
+                  ),
+                ),
+            ]),
+          ),
+          if (_recording) ...[
+            const SizedBox(height: 8),
+            LinearProgressIndicator(
+              value: (_recordSeconds.clamp(0, 15)) / 15,
+              minHeight: 6,
+              borderRadius: BorderRadius.circular(999),
+              backgroundColor: C.white,
+              color: C.red,
+            ),
+            const SizedBox(height: 6),
+            Text('Recording... ${15 - _recordSeconds.clamp(0, 15)}s left',
+                style: poppins(11, w: FontWeight.w700, c: C.red)),
+          ],
+          if (_recordedPreviewPath != null && !_recording) ...[
+            const SizedBox(height: 8),
+            Row(children: [
+              Expanded(
+                child: _toneAction(
+                  _previewPlaying ? 'Stop' : 'Preview',
+                  _previewPlaying
+                      ? Icons.stop_rounded
+                      : Icons.play_arrow_rounded,
+                  () => _previewTone(_recordedPreviewPath),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _toneAction('Use', Icons.check_rounded, _useRecordedTone,
+                    filled: true),
+              ),
+              IconButton(
+                onPressed: _discardRecording,
+                icon: const Icon(Icons.close_rounded, color: C.red),
+              ),
+            ]),
+          ],
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(
+              child: _toneAction(
+                  'Upload tone', Icons.upload_file_rounded, _pickTone,
+                  filled: true),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _toneAction(
+                _recording ? 'Stop' : 'Record voice',
+                _recording ? Icons.stop_rounded : Icons.mic_rounded,
+                _toggleVoiceRecording,
+                danger: _recording,
+              ),
+            ),
+          ]),
+        ]),
+      );
+
+  Widget _toneAction(String label, IconData icon, FutureOr<void> Function() tap,
+          {bool filled = false, bool danger = false}) =>
+      GestureDetector(
+        onTap: () => tap(),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+          decoration: BoxDecoration(
+            color: danger
+                ? C.red
+                : filled
+                    ? C.ink
+                    : C.white,
+            borderRadius: BorderRadius.circular(13),
+            border: Border.all(
+                color: danger || filled ? Colors.transparent : C.yellowBorder),
+          ),
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(icon,
+                size: 16,
+                color: danger || filled ? Colors.white : C.yellowDark),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: poppins(12,
+                      w: FontWeight.w800,
+                      c: danger || filled ? Colors.white : C.ink)),
+            ),
+          ]),
+        ),
+      );
+
   Widget _medStep() => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -316,6 +747,8 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
               ),
             ),
           ),
+          const SizedBox(height: 12),
+          _alarmMediaPanel(medical: true),
         ],
       );
 
@@ -469,6 +902,8 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
               ]),
             ),
           ),
+          const SizedBox(height: 12),
+          _alarmMediaPanel(medical: false),
         ],
       );
 
@@ -616,7 +1051,15 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
     }
     // Final step — save alarms and proceed to payment
     setState(() => _saving = true);
-    await _alarmService.saveMedicalSettings(_alarmPayload());
+    await _alarmService.saveMedicalSettingsMultipart(
+      payload: _alarmPayload(),
+      medicalFile: _medImage,
+      foodFile: _foodImage,
+      alarmTone: _tonePath != null && File(_tonePath!).existsSync()
+          ? File(_tonePath!)
+          : null,
+    );
+    await _saveSetupFamilyFallback();
     for (final member in _family) {
       await _authService.addFamily(
         name: member['name'] ?? '',
@@ -635,6 +1078,11 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
     setState(() => _saving = false);
     if (!mounted) return;
     Navigator.pushReplacementNamed(context, AppRoutes.payment);
+  }
+
+  Future<void> _saveSetupFamilyFallback() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('setup_family_members', jsonEncode(_family));
   }
 
   bool _isMedOn(String key) => _medicalEnabled && (_medOn[key] ?? false);
@@ -812,6 +1260,8 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
           time,
           'ElderZha • $label',
           'daily',
+          soundUrl: _tonePath,
+          imageUrl: _medImage?.path,
         );
       }
     }
@@ -831,6 +1281,8 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
           time,
           'ElderZha • $label',
           'daily',
+          soundUrl: _tonePath,
+          imageUrl: _foodImage?.path,
         );
       }
     }

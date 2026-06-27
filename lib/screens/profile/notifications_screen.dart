@@ -66,7 +66,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     final map = Map<String, dynamic>.from(value);
     final nextGroup = (map['date'] ?? map['group_date'])?.toString();
-    if (_looksLikeNotification(map)) {
+    if (!_isApiEnvelope(map) && _looksLikeNotification(map)) {
       out.add({
         ...map,
         if (groupDate != null && map['group_date'] == null)
@@ -95,6 +95,26 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         _collectNotifications(child, out, groupDate: nextGroup ?? groupDate);
       }
     }
+  }
+
+  bool _isApiEnvelope(Map map) {
+    final hasListChild = [
+      'data',
+      'notifications',
+      'notification_history',
+      'histories',
+      'items',
+      'list',
+      'history',
+      'today',
+      'yesterday',
+      'earlier',
+      'unread',
+      'read',
+    ].any((key) => map[key] is List || map[key] is Map);
+    final hasStatusMessage = map.containsKey('status') &&
+        (map.containsKey('message') || map.containsKey('msg'));
+    return hasListChild && hasStatusMessage;
   }
 
   bool _looksLikeNotification(Map map) {
@@ -441,6 +461,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         !combined.contains('exception') &&
         !combined.contains('invalid_grant') &&
         !combined.contains('firebase token missing') &&
+        !combined.contains('notification history fetched successfully') &&
+        !combined.contains('fetched successfully') &&
         !combined.contains('network error');
   }
 }
