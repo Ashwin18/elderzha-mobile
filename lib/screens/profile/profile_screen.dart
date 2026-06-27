@@ -29,6 +29,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Map<String, dynamic>? _alarm;
   int _familyCount = 0;
   int _notificationCount = 0;
+  bool _localMedicalConfigured = false;
+  bool _localFoodConfigured = false;
 
   @override
   void initState() {
@@ -46,6 +48,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _alarmService.getMedicalRecords(),
     ]);
     final fallbackFamily = await _loadSetupFamilyFallback();
+    final localAlarmState = await _loadLocalAlarmState();
     if (!mounted) return;
     final family = _mergeFamily(_extractFamily(results[1]), fallbackFamily);
     setState(() {
@@ -56,6 +59,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _extractList(results[2], ['data', 'notifications', 'today', 'unread'])
               .length;
       _alarm = _extractMap(results[3]);
+      _localMedicalConfigured = localAlarmState.$1;
+      _localFoodConfigured = localAlarmState.$2;
       _loading = false;
     });
   }
@@ -123,6 +128,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     } catch (_) {}
     return [];
+  }
+
+  Future<(bool, bool)> _loadLocalAlarmState() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('setup_alarm_summary');
+    if (raw == null || raw.trim().isEmpty) return (false, false);
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return (false, false);
+      var medical = false;
+      var food = false;
+      for (final item in decoded) {
+        if (item is! Map) continue;
+        final label = (item['label'] ?? '').toString().toLowerCase();
+        final icon = (item['icon'] ?? '').toString();
+        if (label.contains('medication') || icon.contains('💊')) {
+          medical = true;
+        }
+        if (label.contains('breakfast') ||
+            label.contains('lunch') ||
+            label.contains('dinner') ||
+            icon.contains('🍳') ||
+            icon.contains('🍱') ||
+            icon.contains('🍽')) {
+          food = true;
+        }
+      }
+      return (medical, food);
+    } catch (_) {
+      return (false, false);
+    }
   }
 
   List _mergeFamily(List remote, List<Map<String, dynamic>> fallback) {
@@ -206,8 +242,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
-    final medicalConfigured = _truthy(_alarm?['medical_alarm']);
-    final foodConfigured = _truthy(_alarm?['food_alarm']);
+    final medicalConfigured =
+        _truthy(_alarm?['medical_alarm']) || _localMedicalConfigured;
+    final foodConfigured =
+        _truthy(_alarm?['food_alarm']) || _localFoodConfigured;
     final photoUrl = _profilePhotoUrl(auth.user);
 
     return Scaffold(

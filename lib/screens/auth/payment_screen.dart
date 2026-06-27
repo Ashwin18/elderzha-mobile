@@ -125,14 +125,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
         return;
       }
       final data = res['data'] is Map ? res['data'] : res;
-      Navigator.pushReplacementNamed(context, AppRoutes.paymentSuccess,
-          arguments: {
-            'plan_name': data['plan_name'] ?? _planName(_selPlan),
-            'payment_id': data['transaction_id'],
-            'auto_pay': _autoPay,
-            'first_month_free': true,
-            'recurring_amount': _formatAmount(_couponPlanAmount ?? _planAmount),
-          });
+      _goSuccess({
+        'plan_name': data['plan_name'] ?? _planName(_selPlan),
+        'payment_id': data['transaction_id'],
+        'auto_pay': _autoPay,
+        'first_month_free': true,
+        'recurring_amount': _formatAmount(_couponPlanAmount ?? _planAmount),
+      });
       return;
     }
     if (_autoPay) {
@@ -184,15 +183,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
         return;
       }
       if (data['activate_without_payment'] == true || amount <= 0) {
-        Navigator.pushReplacementNamed(context, AppRoutes.paymentSuccess,
-            arguments: {
-              'plan_name': data['plan_name'] ?? _planName(_selPlan),
-              'payment_id': data['transaction_id'],
-              'auto_pay': false,
-              'first_month_free': _couponFirstMonthFree,
-              'recurring_amount':
-                  _formatAmount(_couponPlanAmount ?? _planAmount),
-            });
+        _goSuccess({
+          'plan_name': data['plan_name'] ?? _planName(_selPlan),
+          'payment_id': data['transaction_id'],
+          'auto_pay': false,
+          'first_month_free': _couponFirstMonthFree,
+          'recurring_amount': _formatAmount(_couponPlanAmount ?? _planAmount),
+        });
         return;
       }
       _pendingPurchaseId = purchaseId;
@@ -256,14 +253,23 @@ class _PaymentScreenState extends State<PaymentScreen> {
       _paymentHandled = false;
       return;
     }
-    Navigator.pushReplacementNamed(context, AppRoutes.paymentSuccess,
-        arguments: {
-          'plan_name': _planName(_selPlan),
-          'payment_id': r.paymentId,
-          'auto_pay': _autoPay,
-          'first_month_free': _couponFirstMonthFree,
-          'recurring_amount': _formatAmount(_couponPlanAmount ?? _planAmount),
-        });
+    _goSuccess({
+      'plan_name': _planName(_selPlan),
+      'payment_id': r.paymentId,
+      'auto_pay': _autoPay,
+      'first_month_free': _couponFirstMonthFree,
+      'recurring_amount': _formatAmount(_couponPlanAmount ?? _planAmount),
+    });
+  }
+
+  Future<void> _goSuccess(Map<String, dynamic> args) async {
+    await Future<void>.delayed(const Duration(milliseconds: 450));
+    if (!mounted) return;
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      AppRoutes.paymentSuccess,
+      (route) => false,
+      arguments: args,
+    );
   }
 
   void _onError(PaymentFailureResponse r) {
