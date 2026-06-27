@@ -376,10 +376,8 @@ class _CheckInScreenState extends State<CheckInScreen> {
                               // Q4: Weather + sleep + notes
                               if (_q == 4) ...[
                                 _iconGrid(_weatherOpts, _weather, null, false),
-                                const SizedBox(height: 10),
-                                _inputRow(Icons.bedtime_outlined,
-                                    'Sleep time (e.g. 10:30 PM)',
-                                    onChanged: (v) => _sleep = v),
+                                const SizedBox(height: 14),
+                                _sleepPicker(),
                                 const SizedBox(height: 8),
                                 _inputRow(
                                     Icons.notes_rounded, 'Notes about today...',
@@ -543,6 +541,69 @@ class _CheckInScreenState extends State<CheckInScreen> {
         )),
       ]),
     );
+  }
+
+  Widget _sleepPicker() {
+    const options = ['9:30 PM', '10:00 PM', '10:30 PM', '11:00 PM'];
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        const Icon(Icons.bedtime_outlined, size: 16, color: C.yellowDark),
+        const SizedBox(width: 6),
+        Text('Sleep time', style: poppins(12, w: FontWeight.w800, c: C.ink)),
+        const Spacer(),
+        GestureDetector(
+          onTap: _pickSleepTime,
+          child: Text('Pick time',
+              style: poppins(12, w: FontWeight.w800, c: C.yellowDeep)),
+        ),
+      ]),
+      const SizedBox(height: 8),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          ...options.map((time) => _sleepChip(time)),
+          if (_sleep.isNotEmpty && !options.contains(_sleep))
+            _sleepChip(_sleep),
+        ],
+      ),
+    ]);
+  }
+
+  Widget _sleepChip(String time) {
+    final selected = _sleep == time;
+    return GestureDetector(
+      onTap: () => setState(() => _sleep = time),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? C.yellowMid : C.bg2,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+              color: selected ? C.yellow : C.bd, width: selected ? 2 : 1),
+        ),
+        child: Text(time,
+            style: poppins(12,
+                w: FontWeight.w800, c: selected ? C.yellowDeep : C.txm)),
+      ),
+    );
+  }
+
+  Future<void> _pickSleepTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: const TimeOfDay(hour: 22, minute: 0),
+      builder: (ctx, child) => Theme(
+        data: ThemeData.light().copyWith(
+          colorScheme: const ColorScheme.light(primary: C.yellowDark),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null && mounted) {
+      setState(() => _sleep = picked.format(context));
+    }
   }
 
   Widget _pill(String label, Color bg, Color fg) => Container(

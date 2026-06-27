@@ -47,9 +47,9 @@ class CommunityService {
         '/user/feed/pools',
       ]);
       final activities = await _firstListResponse([
-        '/user/activities/home',
         '/user/activity/list',
         '/user/feed/activities',
+        '/user/activities/home',
       ]);
       return {
         'status': true,
@@ -70,11 +70,11 @@ class CommunityService {
       if (normalized == 'all') '/user/feed/all',
       if (normalized == 'all') '/user/feed/post',
       if (normalized == 'polls') '/user/get/pools-list',
-      if (normalized == 'activities') '/user/activities/home',
       if (normalized == 'activities') '/user/activity/list',
+      if (normalized == 'activities') '/user/feed/activities',
+      if (normalized == 'activities') '/user/activities/home',
       '/user/feed/$feedType',
       if (normalized == 'polls') '/user/feed/poll',
-      if (normalized == 'activities') '/user/feed/post',
     ];
 
     Map<String, dynamic>? firstEmpty;

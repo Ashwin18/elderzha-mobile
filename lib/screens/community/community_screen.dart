@@ -419,7 +419,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                   MaterialPageRoute(
                     builder: (_) => ActivityDetailScreen(
                       activityId: id,
-                      autoOpenReply: true,
+                      autoOpenReply: false,
                     ),
                   ),
                 ),
@@ -493,7 +493,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
         const SizedBox(height: 10),
         if (text.isNotEmpty)
           Text(text, style: poppins(14, w: FontWeight.w700, c: C.ink, h: 1.45)),
-        CommunityMedia(item: p, height: 190),
+        CommunityMedia(item: p, height: 240),
       ]),
     );
   }

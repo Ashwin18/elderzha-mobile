@@ -33,15 +33,35 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra(AlarmActivity.EXTRA_NOTES, notes)
             putExtra(AlarmActivity.EXTRA_SOUND_URL, soundUrl)
             putExtra(AlarmActivity.EXTRA_IMAGE_URL, imageUrl)
+            putExtra(AlarmActivity.EXTRA_PLAY_SOUND, true)
         }
         context.startActivity(alarmIntent)
 
         showNotification(context, id, title, notes, imageUrl, soundUrl)
 
-        if (type.lowercase() == "daily" && triggerAt > 0L) {
-            val nextTriggerAt = triggerAt + AlarmManager.INTERVAL_DAY
+        val nextTriggerAt = nextTriggerAt(triggerAt, type.lowercase())
+        if (nextTriggerAt > 0L) {
             schedule(context, id, nextTriggerAt, title, type, notes, soundUrl, imageUrl)
         }
+    }
+
+    private fun nextTriggerAt(triggerAt: Long, type: String): Long {
+        if (triggerAt <= 0L) return 0L
+        val cal = java.util.Calendar.getInstance().apply { timeInMillis = triggerAt }
+        when (type) {
+            "daily" -> cal.add(java.util.Calendar.DAY_OF_YEAR, 1)
+            "monthly" -> cal.add(java.util.Calendar.MONTH, 1)
+            "yearly" -> cal.add(java.util.Calendar.YEAR, 1)
+            else -> return 0L
+        }
+        while (cal.timeInMillis <= System.currentTimeMillis()) {
+            when (type) {
+                "daily" -> cal.add(java.util.Calendar.DAY_OF_YEAR, 1)
+                "monthly" -> cal.add(java.util.Calendar.MONTH, 1)
+                "yearly" -> cal.add(java.util.Calendar.YEAR, 1)
+            }
+        }
+        return cal.timeInMillis
     }
 
     private fun showNotification(
@@ -71,6 +91,7 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra(AlarmActivity.EXTRA_NOTES, notes)
             putExtra(AlarmActivity.EXTRA_SOUND_URL, soundUrl)
             putExtra(AlarmActivity.EXTRA_IMAGE_URL, imageUrl)
+            putExtra(AlarmActivity.EXTRA_PLAY_SOUND, false)
         }
         val fullScreenIntent = PendingIntent.getActivity(
             context,

@@ -177,6 +177,7 @@ Future<void> _handleNotifData(RemoteMessage msg, {bool delayed = false}) async {
     if (msg.notification?.body != null) 'body': msg.notification!.body,
   };
   debugPrint('Notification data: $data');
+  if (!_isUsableNotification(data)) return;
   await _rememberNotification(data);
   _openNotificationTarget(data);
 }
@@ -187,7 +188,8 @@ Future<void> _onNotifTap(NotificationResponse res) async {
   try {
     final decoded = jsonDecode(res.payload!);
     if (decoded is Map) {
-      _openNotificationTarget(Map<String, dynamic>.from(decoded));
+      final data = Map<String, dynamic>.from(decoded);
+      if (_isUsableNotification(data)) _openNotificationTarget(data);
     }
   } catch (e) {
     debugPrint('Notification payload decode error: $e');
@@ -236,6 +238,7 @@ Future<void> _showRemoteMessageNotification(RemoteMessage msg) async {
     'body': body,
     'created_at': DateTime.now().toIso8601String(),
   };
+  if (!_isUsableNotification(payload)) return;
   await _rememberNotification(payload);
 
   await _localNotifs.show(
@@ -270,7 +273,7 @@ void _openNotificationTarget(Map<String, dynamic> data) {
   nav.pushNamedAndRemoveUntil(
     AppRoutes.notifications,
     (route) => false,
-    arguments: {'notification': data},
+    arguments: {'notification': data, 'fromPush': true},
   );
 }
 
@@ -291,7 +294,8 @@ Future<void> _pollNotificationHistory({bool showNew = true}) async {
     if (authToken.isEmpty) return;
 
     final res = await NotificationService().getNotifications();
-    final notifications = _extractNotificationItems(res);
+    final notifications =
+        _extractNotificationItems(res).where(_isUsableNotification).toList();
     if (notifications.isEmpty) return;
 
     final seen = prefs.getStringList('seen_notification_ids')?.toSet() ?? {};
@@ -325,6 +329,7 @@ Future<void> _pollNotificationHistory({bool showNew = true}) async {
 }
 
 Future<void> _showHistoryNotification(Map<String, dynamic> n) async {
+  if (!_isUsableNotification(n)) return;
   final title = _firstText([
         n['title'],
         n['type'],
@@ -365,6 +370,7 @@ Future<void> _showHistoryNotification(Map<String, dynamic> n) async {
 }
 
 Future<void> _rememberNotification(Map<String, dynamic> n) async {
+  if (!_isUsableNotification(n)) return;
   final prefs = await SharedPreferences.getInstance();
   final existing = prefs.getStringList('local_notification_history') ?? [];
   final id = _notificationId(n) ??
@@ -386,6 +392,11 @@ Future<void> _rememberNotification(Map<String, dynamic> n) async {
   await prefs.setStringList(
     'local_notification_history',
     [encoded, ...filtered].take(100).toList(),
+  );
+  final seen = prefs.getStringList('seen_notification_ids')?.toSet() ?? {};
+  await prefs.setStringList(
+    'seen_notification_ids',
+    {...seen, id}.take(150).toList(),
   );
 }
 
@@ -444,6 +455,7 @@ void _collectNotificationItems(
 }
 
 bool _looksLikeNotificationItem(Map map) {
+  if (!_isUsableNotification(Map<String, dynamic>.from(map))) return false;
   const keys = [
     'title',
     'message',
@@ -464,6 +476,26 @@ bool _looksLikeNotificationItem(Map map) {
 }
 
 String? _notificationId(Map<String, dynamic> n) {
+  final moduleType = _firstText([
+    n['module_type'],
+    n['notification_type'],
+    n['type'],
+    n['category'],
+    n['data'] is Map ? n['data']['module_type'] : null,
+  ]);
+  final moduleId = _firstText([
+    n['module_id'],
+    n['feed_id'],
+    n['post_id'],
+    n['poll_id'],
+    n['activity_id'],
+    n['offer_id'],
+    n['coupon_id'],
+    n['data'] is Map ? n['data']['module_id'] : null,
+  ]);
+  if (moduleType != null && moduleId != null) {
+    return '${moduleType.toLowerCase()}|$moduleId';
+  }
   final id = _firstText([
     n['id'],
     n['notification_id'],
@@ -473,6 +505,25 @@ String? _notificationId(Map<String, dynamic> n) {
   final body = _firstText([n['message'], n['body'], n['title']]);
   if (id == null && body == null) return null;
   return '${id ?? ''}|${body ?? ''}';
+}
+
+bool _isUsableNotification(Map<String, dynamic> n) {
+  final title = _firstText([n['title'], n['notification_title'], n['heading']]);
+  final body = _firstText([
+    n['body'],
+    n['message'],
+    n['notification'],
+    n['description'],
+    n['response'],
+  ]);
+  final combined = '${title ?? ''} ${body ?? ''}'.toLowerCase();
+  if (combined.trim().isEmpty) return true;
+  return !combined.contains('server error') &&
+      !combined.contains('client error') &&
+      !combined.contains('exception') &&
+      !combined.contains('invalid_grant') &&
+      !combined.contains('firebase token missing') &&
+      !combined.contains('network error');
 }
 
 String? _firstText(List values) {

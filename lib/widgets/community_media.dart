@@ -205,50 +205,128 @@ class _VideoPreviewState extends State<_VideoPreview> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(top: 10),
-      height: widget.height,
-      width: double.infinity,
-      clipBehavior: Clip.hardEdge,
-      decoration: BoxDecoration(
-        color: Colors.black,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: !_ready
-          ? const Center(child: CircularProgressIndicator(color: C.yellow))
-          : Stack(
-              alignment: Alignment.center,
-              children: [
-                AspectRatio(
-                  aspectRatio: _controller.value.aspectRatio,
-                  child: VideoPlayer(_controller),
-                ),
-                GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _controller.value.isPlaying
-                          ? _controller.pause()
-                          : _controller.play();
-                    });
-                  },
-                  child: Container(
-                    width: 54,
-                    height: 54,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(.55),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      _controller.value.isPlaying
-                          ? Icons.pause_rounded
-                          : Icons.play_arrow_rounded,
-                      color: Colors.white,
-                      size: 34,
+    return GestureDetector(
+      onTap: _ready ? () => _openFullScreen(context) : null,
+      child: Container(
+        margin: const EdgeInsets.only(top: 10),
+        height: widget.height,
+        width: double.infinity,
+        clipBehavior: Clip.hardEdge,
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: !_ready
+            ? const Center(child: CircularProgressIndicator(color: C.yellow))
+            : Stack(
+                fit: StackFit.expand,
+                alignment: Alignment.center,
+                children: [
+                  FittedBox(
+                    fit: BoxFit.cover,
+                    child: SizedBox(
+                      width: _controller.value.size.width,
+                      height: _controller.value.size.height,
+                      child: VideoPlayer(_controller),
                     ),
                   ),
+                  Container(color: Colors.black.withOpacity(.12)),
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(.58),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.fullscreen_rounded,
+                        color: Colors.white, size: 34),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  Future<void> _openFullScreen(BuildContext context) async {
+    _controller.pause();
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _FullScreenVideo(url: widget.url),
+      ),
+    );
+  }
+}
+
+class _FullScreenVideo extends StatefulWidget {
+  const _FullScreenVideo({required this.url});
+  final String url;
+
+  @override
+  State<_FullScreenVideo> createState() => _FullScreenVideoState();
+}
+
+class _FullScreenVideoState extends State<_FullScreenVideo> {
+  late final VideoPlayerController _controller;
+  bool _ready = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.url))
+      ..initialize().then((_) {
+        if (!mounted) return;
+        setState(() => _ready = true);
+        _controller.play();
+      });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
+      body: Center(
+        child: !_ready
+            ? const CircularProgressIndicator(color: C.yellow)
+            : GestureDetector(
+                onTap: () => setState(() {
+                  _controller.value.isPlaying
+                      ? _controller.pause()
+                      : _controller.play();
+                }),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    AspectRatio(
+                      aspectRatio: _controller.value.aspectRatio,
+                      child: VideoPlayer(_controller),
+                    ),
+                    if (!_controller.value.isPlaying)
+                      Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(.56),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.play_arrow_rounded,
+                            color: Colors.white, size: 42),
+                      ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+      ),
     );
   }
 }

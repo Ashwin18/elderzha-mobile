@@ -72,6 +72,7 @@ class AlarmService {
     required String type, // 'medical' | 'food' | 'family' | 'custom'
     String? date, // for one-time reminders
     bool repeat = true,
+    String repeatType = 'once',
   }) async {
     final res = await _api.safePost('/user/reminder/store', data: {
       'title': title,
@@ -79,6 +80,7 @@ class AlarmService {
       'type': type,
       if (date != null) 'date': date,
       'repeat': repeat ? 1 : 0,
+      'repeat_type': repeatType,
     });
     return res ?? {'status': false, 'message': 'Network error'};
   }
@@ -93,11 +95,14 @@ class AlarmService {
     String? title,
     String? time,
     bool? enabled,
+    String? repeatType,
   }) async {
     final res = await _api.safePost('/user/reminder/update/$id', data: {
       if (title != null) 'title': title,
       if (time != null) 'time': time,
       if (enabled != null) 'is_active': enabled ? 1 : 0,
+      if (repeatType != null) 'repeat_type': repeatType,
+      if (repeatType != null) 'repeat': repeatType == 'once' ? 0 : 1,
     });
     return res ?? {'status': false, 'message': 'Network error'};
   }

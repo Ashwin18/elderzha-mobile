@@ -210,6 +210,12 @@ class _ReminderScreenState extends State<ReminderScreen> {
     final date = (item['date'] ?? item['reminder_date'] ?? '').toString();
     final time = (item['time'] ?? '').toString();
     final type = (item['type'] ?? 'custom').toString();
+    final repeat = _repeatLabel((item['repeat_type'] ??
+            item['repeat'] ??
+            item['schedule_type'] ??
+            item['recurrence'] ??
+            'once')
+        .toString());
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
@@ -242,18 +248,10 @@ class _ReminderScreenState extends State<ReminderScreen> {
                 style: GoogleFonts.poppins(
                     fontSize: 12, color: AppColors.inkLight)),
             const SizedBox(height: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-              decoration: BoxDecoration(
-                color: AppColors.greenLight,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(type,
-                  style: GoogleFonts.poppins(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.green)),
-            ),
+            Wrap(spacing: 6, runSpacing: 5, children: [
+              _tag(type, AppColors.greenLight, AppColors.green),
+              _tag(repeat, AppColors.yellowSoft, AppColors.yellowDeep),
+            ]),
           ]),
         ),
         IconButton(
@@ -266,6 +264,23 @@ class _ReminderScreenState extends State<ReminderScreen> {
         ),
       ]),
     );
+  }
+
+  Widget _tag(String text, Color bg, Color fg) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+        decoration:
+            BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
+        child: Text(text,
+            style: GoogleFonts.poppins(
+                fontSize: 10, fontWeight: FontWeight.w800, color: fg)),
+      );
+
+  String _repeatLabel(String raw) {
+    final text = raw.toLowerCase().trim();
+    if (text == '1' || text.contains('year')) return 'Every year';
+    if (text.contains('month')) return 'Every month';
+    if (text.contains('daily')) return 'Daily';
+    return 'Once';
   }
 }
 
@@ -283,6 +298,7 @@ class _ReminderSheetState extends State<_ReminderSheet> {
   final _eventCtrl = TextEditingController();
   DateTime? _date;
   TimeOfDay? _time;
+  String _repeat = 'once';
   bool _saving = false;
 
   @override
@@ -297,6 +313,12 @@ class _ReminderSheetState extends State<_ReminderSheet> {
       _date = _parseDate(
           (existing['date'] ?? existing['reminder_date'] ?? '').toString());
       _time = _parseTime((existing['time'] ?? '').toString());
+      _repeat = _parseRepeat((existing['repeat_type'] ??
+              existing['repeat'] ??
+              existing['schedule_type'] ??
+              existing['recurrence'] ??
+              'once')
+          .toString());
     }
   }
 
@@ -362,20 +384,22 @@ class _ReminderSheetState extends State<_ReminderSheet> {
             title: title,
             time: time,
             enabled: true,
+            repeatType: _repeat,
           )
         : await _alarmService.storeReminder(
             title: title,
             time: time,
             type: event.isEmpty ? 'custom' : event,
             date: date,
-            repeat: false,
+            repeat: _repeat != 'once',
+            repeatType: _repeat,
           );
     await DailyScheduler.scheduleReminder(
       AlarmType.food,
       date,
       time,
       'ElderZha • $title',
-      'once',
+      _repeat,
       notes: event,
     );
     if (!mounted) return;
@@ -452,6 +476,24 @@ class _ReminderSheetState extends State<_ReminderSheet> {
             ),
           ),
         ]),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text('Repeat',
+              style: GoogleFonts.poppins(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.inkLight,
+                  letterSpacing: .4)),
+        ),
+        const SizedBox(height: 8),
+        Row(children: [
+          Expanded(child: _repeatChip('once', 'Once')),
+          const SizedBox(width: 8),
+          Expanded(child: _repeatChip('monthly', 'Every month')),
+          const SizedBox(width: 8),
+          Expanded(child: _repeatChip('yearly', 'Every year')),
+        ]),
         const SizedBox(height: 18),
         GestureDetector(
           onTap: _saving ? null : _save,
@@ -478,6 +520,32 @@ class _ReminderSheetState extends State<_ReminderSheet> {
           ),
         ),
       ]),
+    );
+  }
+
+  Widget _repeatChip(String value, String label) {
+    final selected = _repeat == value;
+    return GestureDetector(
+      onTap: () => setState(() => _repeat = value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        height: 44,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? AppColors.yellowSoft : AppColors.bgMuted,
+          borderRadius: BorderRadius.circular(13),
+          border: Border.all(
+            color: selected ? AppColors.yellowDark : AppColors.border,
+            width: selected ? 1.6 : 1,
+          ),
+        ),
+        child: Text(label,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                color: selected ? AppColors.yellowDeep : AppColors.inkMuted)),
+      ),
     );
   }
 
@@ -530,6 +598,14 @@ class _ReminderSheetState extends State<_ReminderSheet> {
     final m = int.tryParse(parts[1]);
     if (h == null || m == null) return null;
     return TimeOfDay(hour: h, minute: m);
+  }
+
+  String _parseRepeat(String raw) {
+    final text = raw.toLowerCase().trim();
+    if (text.contains('year')) return 'yearly';
+    if (text.contains('month')) return 'monthly';
+    if (text == '1' || text == 'true') return 'yearly';
+    return 'once';
   }
 
   String _apiDate(DateTime d) =>

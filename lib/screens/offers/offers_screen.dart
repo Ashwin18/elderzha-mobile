@@ -240,10 +240,7 @@ class _OffersScreenState extends State<OffersScreen> {
               ]),
               if (desc.isNotEmpty) ...[
                 const SizedBox(height: 10),
-                Text(desc,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: poppins(12, c: C.txm, h: 1.45)),
+                _detailLine(Icons.notes_rounded, 'Details', desc),
               ],
               const SizedBox(height: 12),
               Wrap(spacing: 8, runSpacing: 8, children: [
@@ -251,7 +248,7 @@ class _OffersScreenState extends State<OffersScreen> {
                   _miniInfo(Icons.inventory_2_outlined, '$qty available'),
                 if (start.isNotEmpty || end.isNotEmpty)
                   _miniInfo(Icons.event_available_rounded,
-                      '${start.isNotEmpty ? start : 'Now'} - ${end.isNotEmpty ? end : 'Open'}'),
+                      'Valid ${start.isNotEmpty ? start : 'now'} to ${end.isNotEmpty ? end : 'open'}'),
                 if (location.isNotEmpty)
                   _miniInfo(Icons.location_on_outlined, location),
               ]),
@@ -323,6 +320,30 @@ class _OffersScreenState extends State<OffersScreen> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: poppins(10, w: FontWeight.w700, c: C.txm)),
+          ),
+        ]),
+      );
+
+  Widget _detailLine(IconData icon, String label, String text) => Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: C.bg2,
+          borderRadius: BorderRadius.circular(13),
+        ),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(icon, size: 16, color: C.yellowDark),
+          const SizedBox(width: 8),
+          Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(label.toUpperCase(),
+                  style: poppins(9, w: FontWeight.w800, c: C.txl)),
+              const SizedBox(height: 2),
+              Text(text,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: poppins(12, c: C.txm, h: 1.45)),
+            ]),
           ),
         ]),
       );

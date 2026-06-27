@@ -224,13 +224,19 @@ class _OfferDetailsScreenState extends State<OfferDetailsScreen> {
         Wrap(spacing: 8, runSpacing: 8, children: [
           if (qty.isNotEmpty)
             _infoChip(Icons.inventory_2_outlined, '$qty available'),
-          if (start.isNotEmpty) _infoChip(Icons.play_arrow_rounded, start),
-          if (end.isNotEmpty) _infoChip(Icons.event_available_rounded, end),
+          if (start.isNotEmpty)
+            _infoChip(Icons.play_arrow_rounded, 'Starts $start'),
+          if (end.isNotEmpty)
+            _infoChip(Icons.event_available_rounded, 'Ends $end'),
           if (location.isNotEmpty)
             _infoChip(Icons.location_on_outlined, location),
         ]),
         if (desc.isNotEmpty) ...[
           const SizedBox(height: 16),
+          Text('Description',
+              style: GoogleFonts.poppins(
+                  fontSize: 12, fontWeight: FontWeight.w800, color: C.ink)),
+          const SizedBox(height: 4),
           Text(desc,
               style:
                   GoogleFonts.poppins(fontSize: 14, color: C.txm, height: 1.6)),

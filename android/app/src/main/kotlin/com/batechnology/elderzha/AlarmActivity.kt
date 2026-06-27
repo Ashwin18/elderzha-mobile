@@ -44,9 +44,10 @@ class AlarmActivity : Activity() {
         val notes = intent.getStringExtra(EXTRA_NOTES) ?: ""
         val imageUrl = intent.getStringExtra(EXTRA_IMAGE_URL) ?: ""
         val soundUrl = intent.getStringExtra(EXTRA_SOUND_URL) ?: ""
+        val playSound = intent.getBooleanExtra(EXTRA_PLAY_SOUND, true)
 
         setContentView(buildView(title, notes, imageUrl))
-        playSound(soundUrl)
+        if (playSound) playSound(soundUrl)
     }
 
     private fun buildView(title: String, notes: String, imageUrl: String): ViewGroup {
@@ -213,5 +214,6 @@ class AlarmActivity : Activity() {
         const val EXTRA_NOTES = "notes"
         const val EXTRA_SOUND_URL = "soundUrl"
         const val EXTRA_IMAGE_URL = "imageUrl"
+        const val EXTRA_PLAY_SOUND = "playSound"
     }
 }

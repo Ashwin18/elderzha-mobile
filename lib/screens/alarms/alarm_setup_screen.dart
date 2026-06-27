@@ -512,52 +512,65 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
           else
             ..._family.map(
               (m) => Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: C.white,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(18),
                   border: Border.all(color: C.bd),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: C.yellowMid,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Center(
-                        child: Text(
-                          m['name']![0].toUpperCase(),
-                          style:
-                              poppins(16, w: FontWeight.w700, c: C.yellowDeep),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            m['name']!,
-                            style: poppins(13, w: FontWeight.w700, c: C.ink),
-                          ),
-                          Text(
-                            '${m['relation']} · ${m['event_type']} · ${m['date']}',
-                            style: poppins(11, c: C.txl),
-                          ),
-                        ],
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () => setState(() => _family.remove(m)),
-                      child: const Icon(Icons.close, size: 18, color: C.txl),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x0F000000),
+                      blurRadius: 12,
+                      offset: Offset(0, 6),
                     ),
                   ],
                 ),
+                child: Row(children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: const BoxDecoration(
+                      color: C.yellowMid,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        (m['name']?.isNotEmpty == true ? m['name']![0] : 'F')
+                            .toUpperCase(),
+                        style: poppins(16, w: FontWeight.w800, c: C.yellowDeep),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(m['name'] ?? 'Family member',
+                              style: poppins(13, w: FontWeight.w800, c: C.ink)),
+                          if ((m['relation'] ?? '').isNotEmpty)
+                            Text(m['relation']!, style: poppins(11, c: C.txl)),
+                          const SizedBox(height: 6),
+                          Wrap(spacing: 6, runSpacing: 5, children: [
+                            if ((m['birthday_date'] ?? '').isNotEmpty)
+                              _familyChip(
+                                  '🎂 Birthday · ${m['birthday_date']}',
+                                  const Color(0xFFFCE4EC),
+                                  const Color(0xFFC2185B)),
+                            if ((m['anniversary_date'] ?? '').isNotEmpty)
+                              _familyChip(
+                                  '💍 Anniversary · ${m['anniversary_date']}',
+                                  C.blueLight,
+                                  const Color(0xFF0D47A1)),
+                          ]),
+                        ]),
+                  ),
+                  GestureDetector(
+                    onTap: () => setState(() => _family.remove(m)),
+                    child: const Icon(Icons.close, size: 18, color: C.txl),
+                  ),
+                ]),
               ),
             ),
           const SizedBox(height: 12),
@@ -608,10 +621,12 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
       await _authService.addFamily(
         name: member['name'] ?? '',
         relation: member['relation'] ?? '',
-        birthdayDate:
-            member['event_type'] == 'anniversary' ? null : member['date'],
-        anniversaryDate:
-            member['event_type'] == 'anniversary' ? member['date'] : null,
+        birthdayDate: member['birthday_date']?.isEmpty == true
+            ? null
+            : member['birthday_date'],
+        anniversaryDate: member['anniversary_date']?.isEmpty == true
+            ? null
+            : member['anniversary_date'],
       );
     }
     await _saveAlarmSummary();
@@ -742,9 +757,12 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
         },
       ..._family.map(
         (m) => {
-          'label': '${m['name']} ${m['event_type']}',
-          'time': m['date'],
-          'icon': m['event_type'] == 'anniversary' ? '💍' : '🎂',
+          'label': '${m['name']} family event',
+          'time': [
+            if ((m['birthday_date'] ?? '').isNotEmpty) m['birthday_date'],
+            if ((m['anniversary_date'] ?? '').isNotEmpty) m['anniversary_date'],
+          ].join(' · '),
+          'icon': '🎂',
         },
       ),
     ];
@@ -830,24 +848,35 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
 
   Future<void> _scheduleLocalFamilyEvents() async {
     if (_family.isEmpty) return;
-    final members = _family.asMap().entries.map((entry) {
+    final members = <FamilyMember>[];
+    for (final entry in _family.asMap().entries) {
       final m = entry.value;
-      final eventType = m['event_type'] ?? 'birthday';
-      return FamilyMember(
-        id: 'setup-${entry.key}',
-        type: '',
-        status: '1',
-        name: m['name'] ?? '',
-        eventDate: m['date'] ?? '',
-        relation: Event(id: '0', name: m['relation'] ?? ''),
-        event: Event(
-          id: eventType == 'anniversary' ? '2' : '1',
-          name: eventType == 'anniversary' ? 'Anniversary' : 'Birthday',
-        ),
-      );
-    }).toList(growable: false);
+      void add(String suffix, String eventName, String date) {
+        if (date.trim().isEmpty) return;
+        members.add(FamilyMember(
+          id: 'setup-${entry.key}-$suffix',
+          type: '',
+          status: '1',
+          name: m['name'] ?? '',
+          eventDate: date,
+          relation: Event(id: '0', name: m['relation'] ?? ''),
+          event:
+              Event(id: suffix == 'anniversary' ? '2' : '1', name: eventName),
+        ));
+      }
+
+      add('birthday', 'Birthday', m['birthday_date'] ?? '');
+      add('anniversary', 'Anniversary', m['anniversary_date'] ?? '');
+    }
     await FamilyEventScheduler.syncFamilyEventReminders(members);
   }
+
+  Widget _familyChip(String text, Color bg, Color fg) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration:
+            BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
+        child: Text(text, style: poppins(10, w: FontWeight.w800, c: fg)),
+      );
 
   final _stepLabels = ['Medical Alarm', 'Food Alarm', 'Family Members'];
   final _stepDescs = [
@@ -1096,10 +1125,11 @@ class _AddFamilySheet extends StatefulWidget {
 
 class _AddFamilySheetState extends State<_AddFamilySheet> {
   final _nameCtrl = TextEditingController();
-  final _dateCtrl = TextEditingController();
-  DateTime? _selectedDate;
+  final _birthdayCtrl = TextEditingController();
+  final _anniversaryCtrl = TextEditingController();
+  DateTime? _birthdayDate;
+  DateTime? _anniversaryDate;
   String _relation = 'Spouse';
-  String _event = 'birthday';
   final _relations = [
     'Spouse',
     'Child',
@@ -1109,10 +1139,22 @@ class _AddFamilySheetState extends State<_AddFamilySheet> {
     'Other',
   ];
 
-  Future<void> _pickDate() async {
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _birthdayCtrl.dispose();
+    _anniversaryCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDate({
+    required TextEditingController ctrl,
+    required ValueChanged<DateTime?> onPicked,
+    required DateTime? initialDate,
+  }) async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: _selectedDate ?? DateTime.now(),
+      initialDate: initialDate ?? DateTime.now(),
       firstDate: DateTime(DateTime.now().year - 120),
       lastDate: DateTime(DateTime.now().year + 20),
       builder: (ctx, child) => Theme(
@@ -1124,9 +1166,8 @@ class _AddFamilySheetState extends State<_AddFamilySheet> {
     );
     if (picked == null) return;
     setState(() {
-      _selectedDate = picked;
-      _dateCtrl.text =
-          '${picked.day.toString().padLeft(2, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.year}';
+      onPicked(picked);
+      ctrl.text = _formatDate(picked);
     });
   }
 
@@ -1196,92 +1237,54 @@ class _AddFamilySheetState extends State<_AddFamilySheet> {
             ),
           ),
           const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => setState(() => _event = 'birthday'),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: _event == 'birthday' ? C.yellowLight : C.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: _event == 'birthday' ? C.yellow : C.bd,
-                        width: _event == 'birthday' ? 2 : 1,
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        const Text('🎂', style: TextStyle(fontSize: 22)),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Birthday',
-                          style: poppins(
-                            11,
-                            w: FontWeight.w700,
-                            c: _event == 'birthday' ? C.yellowDeep : C.txm,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+          Row(children: [
+            Expanded(
+              child: _dateTile(
+                emoji: '🎂',
+                title: 'Birthday',
+                ctrl: _birthdayCtrl,
+                onTap: () => _pickDate(
+                  ctrl: _birthdayCtrl,
+                  initialDate: _birthdayDate,
+                  onPicked: (d) => _birthdayDate = d,
                 ),
+                onClear: () => setState(() {
+                  _birthdayCtrl.clear();
+                  _birthdayDate = null;
+                }),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => setState(() => _event = 'anniversary'),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: _event == 'anniversary' ? C.yellowLight : C.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: _event == 'anniversary' ? C.yellow : C.bd,
-                        width: _event == 'anniversary' ? 2 : 1,
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        const Text('💍', style: TextStyle(fontSize: 22)),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Anniversary',
-                          style: poppins(
-                            11,
-                            w: FontWeight.w700,
-                            c: _event == 'anniversary' ? C.yellowDeep : C.txm,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _dateCtrl,
-            readOnly: true,
-            onTap: _pickDate,
-            decoration: InputDecoration(
-              hintText: _event == 'anniversary'
-                  ? 'Select anniversary date'
-                  : 'Select birthday date',
-              prefixIcon: const Icon(Icons.calendar_today_rounded),
             ),
-          ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _dateTile(
+                emoji: '💍',
+                title: 'Anniversary',
+                ctrl: _anniversaryCtrl,
+                onTap: () => _pickDate(
+                  ctrl: _anniversaryCtrl,
+                  initialDate: _anniversaryDate,
+                  onPicked: (d) => _anniversaryDate = d,
+                ),
+                onClear: () => setState(() {
+                  _anniversaryCtrl.clear();
+                  _anniversaryDate = null;
+                }),
+              ),
+            ),
+          ]),
           const SizedBox(height: 14),
           GestureDetector(
             onTap: () {
-              if (_nameCtrl.text.isEmpty || _dateCtrl.text.isEmpty) return;
+              if (_nameCtrl.text.trim().isEmpty ||
+                  (_birthdayCtrl.text.isEmpty &&
+                      _anniversaryCtrl.text.isEmpty)) {
+                return;
+              }
               Navigator.pop(context, {
-                'name': _nameCtrl.text,
+                'name': _nameCtrl.text.trim(),
                 'relation': _relation,
-                'event_type': _event,
-                'date': _dateCtrl.text,
+                'birthday_date': _birthdayCtrl.text,
+                'anniversary_date': _anniversaryCtrl.text,
               });
             },
             child: Container(
@@ -1304,4 +1307,51 @@ class _AddFamilySheetState extends State<_AddFamilySheet> {
       ),
     );
   }
+
+  Widget _dateTile({
+    required String emoji,
+    required String title,
+    required TextEditingController ctrl,
+    required VoidCallback onTap,
+    required VoidCallback onClear,
+  }) {
+    final hasDate = ctrl.text.trim().isNotEmpty;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: hasDate ? C.yellowLight : C.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: hasDate ? C.yellow : C.bd,
+            width: hasDate ? 2 : 1,
+          ),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Text(emoji, style: const TextStyle(fontSize: 22)),
+            const Spacer(),
+            if (hasDate)
+              GestureDetector(
+                onTap: onClear,
+                child: const Icon(Icons.close_rounded, size: 16, color: C.txl),
+              ),
+          ]),
+          const SizedBox(height: 6),
+          Text(title,
+              style: poppins(11,
+                  w: FontWeight.w800, c: hasDate ? C.yellowDeep : C.txm)),
+          const SizedBox(height: 5),
+          Text(hasDate ? ctrl.text : 'Select date',
+              style:
+                  poppins(10, w: FontWeight.w600, c: hasDate ? C.ink : C.txl)),
+        ]),
+      ),
+    );
+  }
+
+  String _formatDate(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}-${d.month.toString().padLeft(2, '0')}-${d.year}';
 }

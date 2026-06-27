@@ -28,7 +28,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final res = await _svc.getNotifications();
     final local = await _loadLocalNotifications();
     if (!mounted) return;
-    final all = _dedupeNotifications([...local, ..._extractList(res)]);
+    final all = _dedupeNotifications([...local, ..._extractList(res)])
+        .where(_isUsableNotification)
+        .toList();
     final now = DateTime.now();
     setState(() {
       _today = all
@@ -97,6 +99,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   bool _looksLikeNotification(Map map) {
     if (map['status'] == false) return false;
+    if (!_isUsableNotification(Map<String, dynamic>.from(map))) return false;
     const keys = [
       'title',
       'message',
@@ -136,7 +139,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       if (item is! Map) continue;
       final map = Map<String, dynamic>.from(item);
       final moduleKey =
-          '${map['module_type'] ?? map['type'] ?? ''}:${map['module_id'] ?? ''}';
+          '${map['module_type'] ?? map['notification_type'] ?? map['type'] ?? ''}:${map['module_id'] ?? map['feed_id'] ?? map['post_id'] ?? map['poll_id'] ?? map['activity_id'] ?? map['offer_id'] ?? map['coupon_id'] ?? ''}';
       final id = _cleanText(map['id'] ??
           map['notification_id'] ??
           (moduleKey == ':' ? null : moduleKey) ??
@@ -422,4 +425,22 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       .replaceAll(RegExp(r'<[^>]*>'), '')
       .replaceAll('&nbsp;', ' ')
       .trim();
+
+  bool _isUsableNotification(Map<String, dynamic> n) {
+    final title = _cleanText(n['title'] ?? n['notification_title'] ?? '');
+    final body = _cleanText(n['body'] ??
+        n['message'] ??
+        n['notification'] ??
+        n['description'] ??
+        n['response'] ??
+        '');
+    final combined = '$title $body'.toLowerCase();
+    if (combined.trim().isEmpty) return true;
+    return !combined.contains('server error') &&
+        !combined.contains('client error') &&
+        !combined.contains('exception') &&
+        !combined.contains('invalid_grant') &&
+        !combined.contains('firebase token missing') &&
+        !combined.contains('network error');
+  }
 }
