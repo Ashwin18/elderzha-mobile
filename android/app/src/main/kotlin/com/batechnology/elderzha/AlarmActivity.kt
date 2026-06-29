@@ -2,6 +2,7 @@ package com.batechnology.elderzha
 
 import android.app.Activity
 import android.media.AudioAttributes
+import android.media.AudioManager
 import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Build
@@ -21,6 +22,8 @@ import kotlin.concurrent.thread
 
 class AlarmActivity : Activity() {
     private var player: MediaPlayer? = null
+    private var audioManager: AudioManager? = null
+    private var previousAlarmVolume: Int? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -135,6 +138,7 @@ class AlarmActivity : Activity() {
 
     private fun playSound(soundUrl: String) {
         try {
+            boostAlarmVolume()
             val uri = when {
                 soundUrl.startsWith("http://") || soundUrl.startsWith("https://") -> Uri.parse(soundUrl)
                 soundUrl.startsWith("file://") -> Uri.parse(soundUrl)
@@ -150,16 +154,34 @@ class AlarmActivity : Activity() {
                 )
                 setDataSource(this@AlarmActivity, uri)
                 isLooping = true
+                setVolume(1f, 1f)
                 prepare()
                 start()
             }
         } catch (_: Exception) {
             try {
+                boostAlarmVolume()
                 player = MediaPlayer.create(this, android.provider.Settings.System.DEFAULT_ALARM_ALERT_URI)
                 player?.isLooping = true
+                player?.setVolume(1f, 1f)
                 player?.start()
             } catch (_: Exception) {
             }
+        }
+    }
+
+    private fun boostAlarmVolume() {
+        val manager = getSystemService(AUDIO_SERVICE) as AudioManager
+        audioManager = manager
+        if (previousAlarmVolume == null) {
+            previousAlarmVolume = manager.getStreamVolume(AudioManager.STREAM_ALARM)
+        }
+        try {
+            val max = manager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
+            if (max > 0) {
+                manager.setStreamVolume(AudioManager.STREAM_ALARM, max, 0)
+            }
+        } catch (_: Exception) {
         }
     }
 
@@ -190,6 +212,14 @@ class AlarmActivity : Activity() {
         }
         player?.release()
         player = null
+        val previous = previousAlarmVolume
+        if (previous != null) {
+            try {
+                audioManager?.setStreamVolume(AudioManager.STREAM_ALARM, previous, 0)
+            } catch (_: Exception) {
+            }
+        }
+        previousAlarmVolume = null
     }
 
     override fun onDestroy() {

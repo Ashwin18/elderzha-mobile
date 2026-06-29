@@ -1,3 +1,5 @@
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'api_client.dart';
 
 /// ALL subscription + autopay endpoints from api.php
@@ -19,7 +21,71 @@ import 'api_client.dart';
 ///   POST /user/subscription/cancel     → cancel subscription
 
 class SubscriptionService {
+  static const String localActiveKey = 'subscription_active_local';
   final _api = ApiClient();
+
+  static Future<void> markSubscriptionActiveLocal() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(localActiveKey, true);
+  }
+
+  static Future<void> clearSubscriptionActiveLocal() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(localActiveKey);
+  }
+
+  Future<bool> hasActiveSubscription() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(localActiveKey) == true) return true;
+
+    final plan = await getPurchasedPlan();
+    if (_looksActive(plan)) {
+      await prefs.setBool(localActiveKey, true);
+      return true;
+    }
+
+    final status = await getSubscriptionStatus();
+    if (_looksActive(status)) {
+      await prefs.setBool(localActiveKey, true);
+      return true;
+    }
+    return false;
+  }
+
+  bool _looksActive(dynamic value) {
+    if (value == null) return false;
+    if (value is List) return value.any(_looksActive);
+    if (value is! Map) {
+      final text = value.toString().toLowerCase();
+      return text == 'active' || text == 'subscribed';
+    }
+    final map = Map<String, dynamic>.from(value);
+    final explicit = [
+      map['is_active'],
+      map['active'],
+      map['is_subscribed'],
+      map['subscribed'],
+    ];
+    for (final item in explicit) {
+      final text = item?.toString().toLowerCase().trim();
+      if (text == '1' || text == 'true' || text == 'active') return true;
+    }
+    final status = [
+      map['status'],
+      map['subscription_status'],
+      map['payment_status'],
+      map['plan_status'],
+    ].map((e) => e?.toString().toLowerCase().trim()).whereType<String>();
+    if (status.any((s) =>
+        s == 'active' ||
+        s == 'subscribed' ||
+        s == 'paid' ||
+        s == 'success' ||
+        s == 'completed')) {
+      return true;
+    }
+    return map.values.any(_looksActive);
+  }
 
   // ── GET /user/razorpay/credentials ───────────────────────
   // PUBLIC — no auth needed. Returns { key_id: "rzp_live_xxx" }

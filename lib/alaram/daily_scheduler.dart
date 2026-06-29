@@ -12,17 +12,18 @@ enum AlarmType { medical, food }
 class DailyScheduler {
   static Future<void> cancelAllAlarms() async {
     final prefs = await SharedPreferences.getInstance();
+    final alarms = prefs.getStringList('scheduled_alarms') ?? [];
     try {
       await _alarmChannel.invokeMethod('cancelAllAlarms');
     } catch (_) {
-      final alarms = prefs.getStringList('scheduled_alarms') ?? [];
+      // Native cancelAll is best-effort; stored ids are still cancelled below.
+    }
 
-      for (final alarmString in alarms) {
-        final alarm = jsonDecode(alarmString);
-        final triggerAt = alarm['triggerAt'];
-        if (triggerAt is int) {
-          await _alarmChannel.invokeMethod('cancelAlarm', {'id': triggerAt});
-        }
+    for (final alarmString in alarms) {
+      final alarm = jsonDecode(alarmString);
+      final triggerAt = alarm['triggerAt'];
+      if (triggerAt is int) {
+        await _alarmChannel.invokeMethod('cancelAlarm', {'id': triggerAt});
       }
     }
 

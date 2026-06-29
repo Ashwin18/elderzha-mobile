@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../alaram/daily_scheduler.dart';
+import '../../alaram/family_event_scheduler.dart';
 import '../../services/services.dart';
 import '../../theme/app_theme.dart';
 
@@ -25,14 +26,46 @@ class _ReminderScreenState extends State<ReminderScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final res = await _alarmService.listReminders();
+    final results = await Future.wait([
+      _alarmService.listReminders(),
+      FamilyEventScheduler.getStoredReminderItems(),
+    ]);
+    final res = results[0] as Map<String, dynamic>?;
+    final family = results[1] as List;
     if (!mounted) return;
+    final customItems = _extractList(res)
+        .where((item) => !_isDisabled(item))
+        .map((item) =>
+            item is Map ? Map<String, dynamic>.from(item) : <String, dynamic>{})
+        .where((item) => item.isNotEmpty)
+        .toList(growable: true);
+    final familyItems = family.map((item) {
+      final dynamic reminder = item;
+      return <String, dynamic>{
+        'id': 'family_${reminder.id}',
+        'title': reminder.title,
+        'date': reminder.date,
+        'time': reminder.time,
+        'type': 'family',
+        'repeat_type': 'yearly',
+        'notes': reminder.notes,
+        'is_family': true,
+      };
+    }).toList(growable: false);
     setState(() {
-      _items = _extractList(res)
-          .where((item) => !_isDisabled(item))
-          .toList(growable: false);
+      _items = [...customItems, ...familyItems]..sort(_compareItems);
       _loading = false;
     });
+  }
+
+  int _compareItems(dynamic a, dynamic b) {
+    final aMap = a is Map ? a : const {};
+    final bMap = b is Map ? b : const {};
+    final aDate = '${aMap['date'] ?? aMap['reminder_date'] ?? ''} '
+        '${aMap['time'] ?? ''}';
+    final bDate = '${bMap['date'] ?? bMap['reminder_date'] ?? ''} '
+        '${bMap['time'] ?? ''}';
+    return aDate.compareTo(bDate);
   }
 
   List _extractList(Map<String, dynamic>? res) {
@@ -120,6 +153,13 @@ class _ReminderScreenState extends State<ReminderScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.bg,
+      floatingActionButton: FloatingActionButton(
+        heroTag: 'add_reminder_fab',
+        onPressed: () => _openSheet(),
+        backgroundColor: AppColors.ink,
+        foregroundColor: AppColors.yellow,
+        child: const Icon(Icons.add_rounded, size: 30),
+      ),
       body: Column(children: [
         Container(
           width: double.infinity,
@@ -144,19 +184,6 @@ class _ReminderScreenState extends State<ReminderScreen> {
                               fontWeight: FontWeight.w600,
                               color: AppColors.yellowDeep)),
                     ],
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () => _openSheet(),
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: AppColors.ink,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: const Icon(Icons.add_rounded,
-                        color: AppColors.yellow, size: 26),
                   ),
                 ),
               ]),
@@ -210,6 +237,7 @@ class _ReminderScreenState extends State<ReminderScreen> {
     final date = (item['date'] ?? item['reminder_date'] ?? '').toString();
     final time = (item['time'] ?? '').toString();
     final type = (item['type'] ?? 'custom').toString();
+    final isFamily = item['is_family'] == true;
     final repeat = _repeatLabel((item['repeat_type'] ??
             item['repeat'] ??
             item['schedule_type'] ??
@@ -254,14 +282,30 @@ class _ReminderScreenState extends State<ReminderScreen> {
             ]),
           ]),
         ),
-        IconButton(
-          onPressed: () => _openSheet(item),
-          icon: const Icon(Icons.edit_outlined, color: AppColors.inkMuted),
-        ),
-        IconButton(
-          onPressed: () => _delete(item),
-          icon: const Icon(Icons.delete_outline_rounded, color: AppColors.red),
-        ),
+        if (isFamily)
+          Tooltip(
+            message: 'Manage this from Family members',
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.blueLight,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.people_alt_rounded,
+                  color: AppColors.blue, size: 20),
+            ),
+          )
+        else ...[
+          IconButton(
+            onPressed: () => _openSheet(item),
+            icon: const Icon(Icons.edit_outlined, color: AppColors.inkMuted),
+          ),
+          IconButton(
+            onPressed: () => _delete(item),
+            icon:
+                const Icon(Icons.delete_outline_rounded, color: AppColors.red),
+          ),
+        ],
       ]),
     );
   }

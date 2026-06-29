@@ -156,6 +156,7 @@ class AuthProvider extends ChangeNotifier {
     }
     await prefs.remove('fcm_device_token');
     await prefs.remove('seen_notification_ids');
+    await SubscriptionService.clearSubscriptionActiveLocal();
     _isLoggedIn = false;
     _user = null;
     notifyListeners();

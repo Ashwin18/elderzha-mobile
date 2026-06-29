@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
+import '../services/services.dart';
+import '../utils/app_routes.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/community/community_screen.dart';
 import '../screens/reminders/reminder_screen.dart';
@@ -46,6 +48,16 @@ class _MainScaffoldState extends State<MainScaffold> {
     super.initState();
     _i = widget.initialIndex.clamp(0, 4);
     _communityInitialTab = widget.communityInitialTab.clamp(0, 3);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _guardSubscription());
+  }
+
+  Future<void> _guardSubscription() async {
+    final active = await SubscriptionService().hasActiveSubscription();
+    if (!mounted || active) return;
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      AppRoutes.payment,
+      (route) => false,
+    );
   }
 
   @override

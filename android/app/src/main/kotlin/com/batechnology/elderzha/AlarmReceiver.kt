@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
@@ -73,6 +74,7 @@ class AlarmReceiver : BroadcastReceiver() {
         soundUrl: String,
     ) {
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val alarmSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
@@ -81,12 +83,21 @@ class AlarmReceiver : BroadcastReceiver() {
             ).apply {
                 description = "Medical, food, and family reminders"
                 enableVibration(true)
-                setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM), null)
+                setSound(
+                    alarmSound,
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build(),
+                )
             }
             manager.createNotificationChannel(channel)
         }
 
         val launchIntent = Intent(context, AlarmActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra(AlarmActivity.EXTRA_TITLE, title)
             putExtra(AlarmActivity.EXTRA_NOTES, notes)
             putExtra(AlarmActivity.EXTRA_SOUND_URL, soundUrl)
@@ -109,7 +120,7 @@ class AlarmReceiver : BroadcastReceiver() {
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setAutoCancel(true)
-            .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM))
+            .setSound(alarmSound)
             .setVibrate(longArrayOf(0, 600, 250, 600))
             .setContentIntent(fullScreenIntent)
             .setFullScreenIntent(fullScreenIntent, true)
@@ -147,7 +158,7 @@ class AlarmReceiver : BroadcastReceiver() {
     }
 
     companion object {
-        private const val CHANNEL_ID = "elderzha_alarm_channel"
+        private const val CHANNEL_ID = "elderzha_alarm_channel_v2"
         private const val EXTRA_ID = "id"
         private const val EXTRA_TRIGGER_AT = "triggerAt"
         private const val EXTRA_TITLE = "title"

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
+import '../../services/services.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_routes.dart';
 
@@ -44,10 +45,17 @@ class _SplashScreenState extends State<SplashScreen>
   Future<void> _routeAfterSplash() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token') ?? '';
+    final isSubscribed = token.isNotEmpty
+        ? await SubscriptionService().hasActiveSubscription()
+        : false;
     if (!mounted) return;
     Navigator.pushReplacementNamed(
       context,
-      token.isNotEmpty ? AppRoutes.home : AppRoutes.onboarding,
+      token.isEmpty
+          ? AppRoutes.onboarding
+          : isSubscribed
+              ? AppRoutes.home
+              : AppRoutes.payment,
     );
   }
 
