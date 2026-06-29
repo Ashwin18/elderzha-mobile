@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../providers/auth_provider.dart';
+import '../../alaram/alarm_config_store.dart';
 import '../../services/services.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_routes.dart';
@@ -131,6 +132,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<(bool, bool)> _loadLocalAlarmState() async {
+    final config = await AlarmConfigStore.load();
+    if (config.isNotEmpty) {
+      return (
+        AlarmConfigStore.hasMedical(config),
+        AlarmConfigStore.hasFood(config)
+      );
+    }
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString('setup_alarm_summary');
     if (raw == null || raw.trim().isEmpty) return (false, false);

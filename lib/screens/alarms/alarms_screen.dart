@@ -12,6 +12,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../alaram/daily_scheduler.dart';
+import '../../alaram/alarm_config_store.dart';
 import '../../alaram/alarm_permission_service.dart';
 import '../../services/services.dart';
 import '../../theme/app_theme.dart';
@@ -95,63 +96,90 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
     setState(() => _loading = true);
     final prefs = await SharedPreferences.getInstance();
     _tonePath = prefs.getString('alarm_tone');
+    final local = await AlarmConfigStore.load();
 
     final res = await _alarmSvc.getMedicalRecords();
     if (!mounted) return;
 
     final d = res?['data'];
-    if (d != null && d is Map) {
-      setState(() {
-        medicalAlarmSwitch = (d['medical_alarm'] ?? 1) == 1;
-        foodAlarmSwitch = (d['food_alarm'] ?? 1) == 1;
-        medMorningBeforeOn =
-            _firstValue(d, ['morning_before_food', 'm_before_food']).isNotEmpty;
-        medMorningAfterOn =
-            _firstValue(d, ['morning_after_food', 'm_after_food']).isNotEmpty;
-        medNoonBeforeOn =
-            _firstValue(d, ['afternoon_before_food', 'af_before_food'])
-                .isNotEmpty;
-        medNoonAfterOn =
-            _firstValue(d, ['afternoon_after_food', 'af_after_food'])
-                .isNotEmpty;
-        medNightBeforeOn =
-            _firstValue(d, ['night_before_food', 'n_before_food']).isNotEmpty;
-        medNightAfterOn =
-            _firstValue(d, ['night_after_food', 'n_after_food']).isNotEmpty;
-        foodBreakfastOn = (d['breakfast_status'] ?? 1) == 1;
-        foodLunchOn = (d['lunch_status'] ?? 1) == 1;
-        foodDinnerOn = (d['dinner_status'] ?? 1) == 1;
-        morningBefore = _parseT(
-            _firstValue(d, ['morning_before_food', 'm_before_food']),
-            morningBefore);
-        morningAfter = _parseT(
-            _firstValue(d, ['morning_after_food', 'm_after_food']),
-            morningAfter);
-        noonBefore = _parseT(
-            _firstValue(d, ['afternoon_before_food', 'af_before_food']),
-            noonBefore);
-        noonAfter = _parseT(
-            _firstValue(d, ['afternoon_after_food', 'af_after_food']),
-            noonAfter);
-        nightBefore = _parseT(
-            _firstValue(d, ['night_before_food', 'n_before_food']),
-            nightBefore);
-        nightAfter = _parseT(
-            _firstValue(d, ['night_after_food', 'n_after_food']), nightAfter);
-        foodBreakfastTime = _parseT(
-            _firstValue(d, ['breakfast_time', 'bf_time']), foodBreakfastTime);
-        foodLunchTime =
-            _parseT(_firstValue(d, ['lunch_time', 'l_time']), foodLunchTime);
-        foodDinnerTime =
-            _parseT(_firstValue(d, ['dinner_time', 'd_time']), foodDinnerTime);
-        _medImageUrl = d['medical_file']?.toString();
-        _foodImageUrl = d['food_file']?.toString();
-        _tonePath = prefs.getString('alarm_tone') ??
-            d['alaram_tone']?.toString() ??
-            d['alarmTone']?.toString();
-      });
+    final remote =
+        d is Map ? Map<String, dynamic>.from(d) : <String, dynamic>{};
+    final merged = _mergeAlarmData(local, remote);
+    if (merged.isNotEmpty) {
+      setState(() => _applyAlarmData(merged, prefs.getString('alarm_tone')));
     }
     setState(() => _loading = false);
+  }
+
+  Map<String, dynamic> _mergeAlarmData(
+    Map<String, dynamic> local,
+    Map<String, dynamic> remote,
+  ) {
+    final merged = <String, dynamic>{...local};
+    remote.forEach((key, value) {
+      final text = value?.toString().trim() ?? '';
+      if (text.isNotEmpty && text.toLowerCase() != 'null') {
+        merged[key] = value;
+      }
+    });
+    return merged;
+  }
+
+  void _applyAlarmData(Map data, String? savedTone) {
+    medicalAlarmSwitch = _truthy(data['medical_alarm'], fallback: true);
+    foodAlarmSwitch =
+        _truthy(data['food_alarm'] ?? data['food_alaram'], fallback: true);
+    medMorningBeforeOn =
+        _firstValue(data, ['morning_before_food', 'm_before_food']).isNotEmpty;
+    medMorningAfterOn =
+        _firstValue(data, ['morning_after_food', 'm_after_food']).isNotEmpty;
+    medNoonBeforeOn =
+        _firstValue(data, ['afternoon_before_food', 'af_before_food'])
+            .isNotEmpty;
+    medNoonAfterOn =
+        _firstValue(data, ['afternoon_after_food', 'af_after_food']).isNotEmpty;
+    medNightBeforeOn =
+        _firstValue(data, ['night_before_food', 'n_before_food']).isNotEmpty;
+    medNightAfterOn =
+        _firstValue(data, ['night_after_food', 'n_after_food']).isNotEmpty;
+    foodBreakfastOn = _truthy(data['breakfast_status'], fallback: true);
+    foodLunchOn = _truthy(data['lunch_status'], fallback: true);
+    foodDinnerOn = _truthy(data['dinner_status'], fallback: true);
+    morningBefore = _parseT(
+        _firstValue(data, ['morning_before_food', 'm_before_food']),
+        morningBefore);
+    morningAfter = _parseT(
+        _firstValue(data, ['morning_after_food', 'm_after_food']),
+        morningAfter);
+    noonBefore = _parseT(
+        _firstValue(data, ['afternoon_before_food', 'af_before_food']),
+        noonBefore);
+    noonAfter = _parseT(
+        _firstValue(data, ['afternoon_after_food', 'af_after_food']),
+        noonAfter);
+    nightBefore = _parseT(
+        _firstValue(data, ['night_before_food', 'n_before_food']), nightBefore);
+    nightAfter = _parseT(
+        _firstValue(data, ['night_after_food', 'n_after_food']), nightAfter);
+    foodBreakfastTime = _parseT(
+        _firstValue(data, ['breakfast_time', 'bf_time']), foodBreakfastTime);
+    foodLunchTime =
+        _parseT(_firstValue(data, ['lunch_time', 'l_time']), foodLunchTime);
+    foodDinnerTime =
+        _parseT(_firstValue(data, ['dinner_time', 'd_time']), foodDinnerTime);
+    _medImageUrl = _firstValue(data, ['medical_file', 'medical_image']);
+    _foodImageUrl = _firstValue(data, ['food_file', 'food_image']);
+    _tonePath = savedTone ??
+        _firstValue(data, ['alaram_tone', 'alarm_tone', 'alarmTone']);
+  }
+
+  bool _truthy(dynamic value, {bool fallback = false}) {
+    if (value == null) return fallback;
+    if (value == true) return true;
+    if (value is num) return value != 0;
+    final text = value.toString().toLowerCase().trim();
+    if (text.isEmpty || text == 'null') return fallback;
+    return text == '1' || text == 'true' || text == 'yes' || text == 'active';
   }
 
   String _firstValue(Map data, List<String> keys) {
@@ -228,6 +256,18 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
           ? File(_tonePath!)
           : null,
     );
+    await AlarmConfigStore.save({
+      ...payload,
+      if (_medImage != null) 'medical_file': _medImage!.path,
+      if (_medImageUrl != null && _medImageUrl!.isNotEmpty)
+        'medical_file': _medImageUrl,
+      if (_foodImage != null) 'food_file': _foodImage!.path,
+      if (_foodImageUrl != null && _foodImageUrl!.isNotEmpty)
+        'food_file': _foodImageUrl,
+      if (_tonePath != null && _tonePath!.isNotEmpty) 'alaram_tone': _tonePath,
+      'saved_from': 'profile_alarm_settings',
+      'saved_at': DateTime.now().toIso8601String(),
+    });
 
     // 2. Clear old native alarms
     await DailyScheduler.cancelAllAlarms();

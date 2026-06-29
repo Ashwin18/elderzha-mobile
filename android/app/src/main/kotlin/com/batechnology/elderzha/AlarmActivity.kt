@@ -1,6 +1,8 @@
 package com.batechnology.elderzha
 
 import android.app.Activity
+import android.app.NotificationManager
+import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.MediaPlayer
@@ -48,12 +50,13 @@ class AlarmActivity : Activity() {
         val imageUrl = intent.getStringExtra(EXTRA_IMAGE_URL) ?: ""
         val soundUrl = intent.getStringExtra(EXTRA_SOUND_URL) ?: ""
         val playSound = intent.getBooleanExtra(EXTRA_PLAY_SOUND, true)
+        val notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, 0)
 
-        setContentView(buildView(title, notes, imageUrl))
+        setContentView(buildView(title, notes, imageUrl, notificationId))
         if (playSound) playSound(soundUrl)
     }
 
-    private fun buildView(title: String, notes: String, imageUrl: String): ViewGroup {
+    private fun buildView(title: String, notes: String, imageUrl: String, notificationId: Int): ViewGroup {
         val root = FrameLayout(this).apply {
             setBackgroundColor(0xAA000000.toInt())
         }
@@ -110,6 +113,7 @@ class AlarmActivity : Activity() {
             setTextColor(0xFF191725.toInt())
             background = roundedYellow()
             setOnClickListener {
+                cancelNotification(notificationId)
                 stopSound()
                 finish()
             }
@@ -134,6 +138,15 @@ class AlarmActivity : Activity() {
             Gravity.CENTER
         ))
         return root
+    }
+
+    private fun cancelNotification(notificationId: Int) {
+        if (notificationId == 0) return
+        try {
+            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            manager.cancel(notificationId)
+        } catch (_: Exception) {
+        }
     }
 
     private fun playSound(soundUrl: String) {
@@ -245,5 +258,6 @@ class AlarmActivity : Activity() {
         const val EXTRA_SOUND_URL = "soundUrl"
         const val EXTRA_IMAGE_URL = "imageUrl"
         const val EXTRA_PLAY_SOUND = "playSound"
+        const val EXTRA_NOTIFICATION_ID = "notificationId"
     }
 }

@@ -35,6 +35,7 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra(AlarmActivity.EXTRA_SOUND_URL, soundUrl)
             putExtra(AlarmActivity.EXTRA_IMAGE_URL, imageUrl)
             putExtra(AlarmActivity.EXTRA_PLAY_SOUND, true)
+            putExtra(AlarmActivity.EXTRA_NOTIFICATION_ID, id)
         }
         context.startActivity(alarmIntent)
 
@@ -103,6 +104,7 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra(AlarmActivity.EXTRA_SOUND_URL, soundUrl)
             putExtra(AlarmActivity.EXTRA_IMAGE_URL, imageUrl)
             putExtra(AlarmActivity.EXTRA_PLAY_SOUND, false)
+            putExtra(AlarmActivity.EXTRA_NOTIFICATION_ID, id)
         }
         val fullScreenIntent = PendingIntent.getActivity(
             context,

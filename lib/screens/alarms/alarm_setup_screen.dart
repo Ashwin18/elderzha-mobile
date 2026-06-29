@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../alaram/daily_scheduler.dart';
+import '../../alaram/alarm_config_store.dart';
 import '../../alaram/family_event_scheduler.dart';
 import '../../api/models/fetch_profile_model.dart';
 import '../../theme/app_theme.dart';
@@ -1051,14 +1052,16 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
     }
     // Final step — save alarms and proceed to payment
     setState(() => _saving = true);
+    final payload = _alarmPayload();
     await _alarmService.saveMedicalSettingsMultipart(
-      payload: _alarmPayload(),
+      payload: payload,
       medicalFile: _medImage,
       foodFile: _foodImage,
       alarmTone: _tonePath != null && File(_tonePath!).existsSync()
           ? File(_tonePath!)
           : null,
     );
+    await _saveLocalAlarmConfig(payload);
     await _saveSetupFamilyFallback();
     for (final member in _family) {
       await _authService.addFamily(
@@ -1083,6 +1086,17 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
   Future<void> _saveSetupFamilyFallback() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('setup_family_members', jsonEncode(_family));
+  }
+
+  Future<void> _saveLocalAlarmConfig(Map<String, dynamic> payload) async {
+    await AlarmConfigStore.save({
+      ...payload,
+      if (_medImage != null) 'medical_file': _medImage!.path,
+      if (_foodImage != null) 'food_file': _foodImage!.path,
+      if (_tonePath != null && _tonePath!.isNotEmpty) 'alaram_tone': _tonePath,
+      'saved_from': 'first_time_setup',
+      'saved_at': DateTime.now().toIso8601String(),
+    });
   }
 
   bool _isMedOn(String key) => _medicalEnabled && (_medOn[key] ?? false);
