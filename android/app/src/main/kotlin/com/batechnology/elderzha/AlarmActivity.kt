@@ -152,12 +152,6 @@ class AlarmActivity : Activity() {
     private fun playSound(soundUrl: String) {
         try {
             boostAlarmVolume()
-            val uri = when {
-                soundUrl.startsWith("http://") || soundUrl.startsWith("https://") -> Uri.parse(soundUrl)
-                soundUrl.startsWith("file://") -> Uri.parse(soundUrl)
-                soundUrl.isNotBlank() && File(soundUrl).exists() -> Uri.fromFile(File(soundUrl))
-                else -> android.provider.Settings.System.DEFAULT_ALARM_ALERT_URI
-            }
             player = MediaPlayer().apply {
                 setAudioAttributes(
                     AudioAttributes.Builder()
@@ -165,7 +159,7 @@ class AlarmActivity : Activity() {
                         .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                         .build()
                 )
-                setDataSource(this@AlarmActivity, uri)
+                setAlarmDataSource(soundUrl)
                 isLooping = true
                 setVolume(1f, 1f)
                 prepare()
@@ -180,6 +174,26 @@ class AlarmActivity : Activity() {
                 player?.start()
             } catch (_: Exception) {
             }
+        }
+    }
+
+    private fun MediaPlayer.setAlarmDataSource(soundUrl: String) {
+        val raw = soundUrl.trim()
+        when {
+            raw.startsWith("http://") || raw.startsWith("https://") ->
+                setDataSource(this@AlarmActivity, Uri.parse(raw))
+            raw.startsWith("file://") -> {
+                val file = File(Uri.parse(raw).path ?: raw.removePrefix("file://"))
+                if (file.exists()) {
+                    setDataSource(file.absolutePath)
+                } else {
+                    setDataSource(this@AlarmActivity, android.provider.Settings.System.DEFAULT_ALARM_ALERT_URI)
+                }
+            }
+            raw.isNotBlank() && File(raw).exists() ->
+                setDataSource(File(raw).absolutePath)
+            else ->
+                setDataSource(this@AlarmActivity, android.provider.Settings.System.DEFAULT_ALARM_ALERT_URI)
         }
     }
 

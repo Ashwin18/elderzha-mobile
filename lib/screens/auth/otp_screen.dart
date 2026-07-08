@@ -95,6 +95,31 @@ class _OtpScreenState extends State<OtpScreen> {
     _verify();
   }
 
+  void _goBack() {
+    if (Navigator.canPop(context)) {
+      Navigator.pop(context);
+      return;
+    }
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      AppRoutes.register,
+      (route) => false,
+    );
+  }
+
+  KeyEventResult _handleOtpKey(int index, KeyEvent event) {
+    if (event is! KeyDownEvent ||
+        event.logicalKey != LogicalKeyboardKey.backspace) {
+      return KeyEventResult.ignored;
+    }
+    if (_ctrls[index].text.isEmpty && index > 0) {
+      _ctrls[index - 1].clear();
+      _focusNodes[index - 1].requestFocus();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
   void _verify() async {
     if (_otp.length < 4 || _loading) return;
     setState(() => _loading = true);
@@ -196,14 +221,18 @@ class _OtpScreenState extends State<OtpScreen> {
 
   bool _isProfileComplete(Map<String, dynamic>? user) {
     if (user == null) return false;
-    final explicit = user['is_profile_updated'] ??
+    final explicit =
+        user['is_profile_updated'] ??
         user['profile_completed'] ??
         user['profile_status'];
     if (_truthy(explicit)) return true;
-    final percent = int.tryParse((user['profile_updated_percentage'] ??
-                user['profile_percentage'] ??
-                '')
-            .toString()) ??
+    final percent =
+        int.tryParse(
+          (user['profile_updated_percentage'] ??
+                  user['profile_percentage'] ??
+                  '')
+              .toString(),
+        ) ??
         0;
     if (percent >= 60) return true;
     bool hasAny(List<String> keys) =>
@@ -413,180 +442,203 @@ class _OtpScreenState extends State<OtpScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: C.bg,
-      body: Column(
-        children: [
-          Container(
-            width: double.infinity,
-            color: C.yellow,
-            child: SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(18, 16, 18, 26),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: const Icon(
-                        Icons.arrow_back_ios_new_rounded,
-                        size: 20,
-                        color: C.ink,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (_, __) => _goBack(),
+      child: Scaffold(
+        backgroundColor: C.bg,
+        body: Column(
+          children: [
+            Container(
+              width: double.infinity,
+              color: C.yellow,
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 16, 18, 26),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      GestureDetector(
+                        onTap: _goBack,
+                        child: const Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          size: 20,
+                          color: C.ink,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      'Verify your\nnumber',
-                      style: GoogleFonts.poppins(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w800,
-                        color: C.ink,
-                        height: 1.2,
+                      const SizedBox(height: 14),
+                      Text(
+                        'Verify your\nnumber',
+                        style: GoogleFonts.poppins(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w800,
+                          color: C.ink,
+                          height: 1.2,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '+91 $_phone',
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: C.yellowDeep,
+                      const SizedBox(height: 6),
+                      Text(
+                        '+91 $_phone',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: C.yellowDeep,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          Expanded(
-            child: Container(
-              decoration: const BoxDecoration(
-                color: C.white,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(28),
-                  topRight: Radius.circular(28),
+            Expanded(
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: C.white,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(28),
+                    topRight: Radius.circular(28),
+                  ),
                 ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 28),
-                    Text(
-                      'Enter 4-digit OTP',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: C.ink,
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 28),
+                      Text(
+                        'Enter 4-digit OTP',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: C.ink,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Sent via SMS to your mobile number',
-                      style: GoogleFonts.poppins(fontSize: 12, color: C.txl),
-                    ),
-                    const SizedBox(height: 28),
-                    AutofillGroup(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: List.generate(
-                          4,
-                          (i) => SizedBox(
-                            width: 62,
-                            height: 68,
-                            child: TextField(
-                              controller: _ctrls[i],
-                              focusNode: _focusNodes[i],
-                              textAlign: TextAlign.center,
-                              keyboardType: TextInputType.number,
-                              autofillHints: const [AutofillHints.oneTimeCode],
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
-                                LengthLimitingTextInputFormatter(
-                                    i == 0 ? 4 : 1),
-                              ],
-                              style: GoogleFonts.poppins(
-                                fontSize: 26,
-                                fontWeight: FontWeight.w700,
-                                color: C.ink,
-                              ),
-                              decoration: InputDecoration(
-                                counterText: '',
-                                filled: true,
-                                fillColor: C.bg2,
-                                contentPadding: EdgeInsets.zero,
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                  borderSide: const BorderSide(
-                                    color: C.bd,
-                                    width: 1.5,
+                      const SizedBox(height: 6),
+                      Text(
+                        'Sent via SMS to your mobile number',
+                        style: GoogleFonts.poppins(fontSize: 12, color: C.txl),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Use backspace to correct a digit',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: C.yellowDeep,
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                      AutofillGroup(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: List.generate(
+                            4,
+                            (i) => SizedBox(
+                              width: 66,
+                              height: 74,
+                              child: Focus(
+                                onKeyEvent: (_, event) =>
+                                    _handleOtpKey(i, event),
+                                child: TextField(
+                                  controller: _ctrls[i],
+                                  focusNode: _focusNodes[i],
+                                  textAlign: TextAlign.center,
+                                  keyboardType: TextInputType.number,
+                                  textInputAction: i == 3
+                                      ? TextInputAction.done
+                                      : TextInputAction.next,
+                                  autofillHints: const [
+                                    AutofillHints.oneTimeCode,
+                                  ],
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                    LengthLimitingTextInputFormatter(
+                                      i == 0 ? 4 : 1,
+                                    ),
+                                  ],
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 30,
+                                    fontWeight: FontWeight.w800,
+                                    color: C.ink,
                                   ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                  borderSide: const BorderSide(
-                                    color: C.yellow,
-                                    width: 2.5,
+                                  decoration: InputDecoration(
+                                    counterText: '',
+                                    filled: true,
+                                    fillColor: C.bg2,
+                                    contentPadding: EdgeInsets.zero,
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                      borderSide: const BorderSide(
+                                        color: C.bd,
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                      borderSide: const BorderSide(
+                                        color: C.yellow,
+                                        width: 2.5,
+                                      ),
+                                    ),
                                   ),
+                                  onChanged: (v) => _onChange(i, v),
                                 ),
                               ),
-                              onChanged: (v) => _onChange(i, v),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 28),
-                    _loading
-                        ? const CircularProgressIndicator(color: C.ink)
-                        : GestureDetector(
-                            onTap: _verify,
-                            child: Container(
-                              width: double.infinity,
-                              height: 50,
-                              decoration: BoxDecoration(
-                                color: C.ink,
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  'Verify OTP',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white,
+                      const SizedBox(height: 28),
+                      _loading
+                          ? const CircularProgressIndicator(color: C.ink)
+                          : GestureDetector(
+                              onTap: _verify,
+                              child: Container(
+                                width: double.infinity,
+                                height: 50,
+                                decoration: BoxDecoration(
+                                  color: C.ink,
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    'Verify OTP',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                    const SizedBox(height: 20),
-                    _cd > 0
-                        ? Text(
-                            'Resend OTP in $_cd s',
-                            style: GoogleFonts.poppins(
-                              fontSize: 13,
-                              color: C.txl,
-                            ),
-                          )
-                        : GestureDetector(
-                            onTap: _resend,
-                            child: Text(
-                              'Resend OTP',
+                      const SizedBox(height: 20),
+                      _cd > 0
+                          ? Text(
+                              'Resend OTP in $_cd s',
                               style: GoogleFonts.poppins(
                                 fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: C.yellowDeep,
+                                color: C.txl,
+                              ),
+                            )
+                          : GestureDetector(
+                              onTap: _resend,
+                              child: Text(
+                                'Resend OTP',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: C.yellowDeep,
+                                ),
                               ),
                             ),
-                          ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
