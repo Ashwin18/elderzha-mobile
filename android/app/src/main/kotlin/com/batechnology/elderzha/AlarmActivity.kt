@@ -3,10 +3,6 @@ package com.batechnology.elderzha
 import android.app.Activity
 import android.app.NotificationManager
 import android.content.Context
-import android.media.AudioAttributes
-import android.media.AudioManager
-import android.media.MediaPlayer
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
@@ -23,10 +19,6 @@ import java.net.URL
 import kotlin.concurrent.thread
 
 class AlarmActivity : Activity() {
-    private var player: MediaPlayer? = null
-    private var audioManager: AudioManager? = null
-    private var previousAlarmVolume: Int? = null
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -53,7 +45,7 @@ class AlarmActivity : Activity() {
         val notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, 0)
 
         setContentView(buildView(title, notes, imageUrl, notificationId))
-        if (playSound) playSound(soundUrl)
+        if (playSound) AlarmSoundService.start(this, notificationId, soundUrl, title, notes)
     }
 
     private fun buildView(title: String, notes: String, imageUrl: String, notificationId: Int): ViewGroup {
@@ -114,7 +106,7 @@ class AlarmActivity : Activity() {
             background = roundedYellow()
             setOnClickListener {
                 cancelNotification(notificationId)
-                stopSound()
+                AlarmSoundService.stop(this)
                 finish()
             }
         }
@@ -149,69 +141,6 @@ class AlarmActivity : Activity() {
         }
     }
 
-    private fun playSound(soundUrl: String) {
-        try {
-            boostAlarmVolume()
-            player = MediaPlayer().apply {
-                setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ALARM)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                        .build()
-                )
-                setAlarmDataSource(soundUrl)
-                isLooping = true
-                setVolume(1f, 1f)
-                prepare()
-                start()
-            }
-        } catch (_: Exception) {
-            try {
-                boostAlarmVolume()
-                player = MediaPlayer.create(this, android.provider.Settings.System.DEFAULT_ALARM_ALERT_URI)
-                player?.isLooping = true
-                player?.setVolume(1f, 1f)
-                player?.start()
-            } catch (_: Exception) {
-            }
-        }
-    }
-
-    private fun MediaPlayer.setAlarmDataSource(soundUrl: String) {
-        val raw = soundUrl.trim()
-        when {
-            raw.startsWith("http://") || raw.startsWith("https://") ->
-                setDataSource(this@AlarmActivity, Uri.parse(raw))
-            raw.startsWith("file://") -> {
-                val file = File(Uri.parse(raw).path ?: raw.removePrefix("file://"))
-                if (file.exists()) {
-                    setDataSource(file.absolutePath)
-                } else {
-                    setDataSource(this@AlarmActivity, android.provider.Settings.System.DEFAULT_ALARM_ALERT_URI)
-                }
-            }
-            raw.isNotBlank() && File(raw).exists() ->
-                setDataSource(File(raw).absolutePath)
-            else ->
-                setDataSource(this@AlarmActivity, android.provider.Settings.System.DEFAULT_ALARM_ALERT_URI)
-        }
-    }
-
-    private fun boostAlarmVolume() {
-        val manager = getSystemService(AUDIO_SERVICE) as AudioManager
-        audioManager = manager
-        if (previousAlarmVolume == null) {
-            previousAlarmVolume = manager.getStreamVolume(AudioManager.STREAM_ALARM)
-        }
-        try {
-            val max = manager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
-            if (max > 0) {
-                manager.setStreamVolume(AudioManager.STREAM_ALARM, max, 0)
-            }
-        } catch (_: Exception) {
-        }
-    }
-
     private fun loadImage(imageUrl: String, target: ImageView) {
         if (imageUrl.isBlank()) return
         thread {
@@ -230,28 +159,6 @@ class AlarmActivity : Activity() {
             }
             if (bmp != null) runOnUiThread { target.setImageBitmap(bmp) }
         }
-    }
-
-    private fun stopSound() {
-        try {
-            player?.stop()
-        } catch (_: Exception) {
-        }
-        player?.release()
-        player = null
-        val previous = previousAlarmVolume
-        if (previous != null) {
-            try {
-                audioManager?.setStreamVolume(AudioManager.STREAM_ALARM, previous, 0)
-            } catch (_: Exception) {
-            }
-        }
-        previousAlarmVolume = null
-    }
-
-    override fun onDestroy() {
-        stopSound()
-        super.onDestroy()
     }
 
     private fun roundedWhite() = android.graphics.drawable.GradientDrawable().apply {

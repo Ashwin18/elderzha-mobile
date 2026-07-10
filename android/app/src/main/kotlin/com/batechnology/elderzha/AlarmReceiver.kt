@@ -1,6 +1,7 @@
 package com.batechnology.elderzha
 
 import android.app.AlarmManager
+import android.app.KeyguardManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -23,21 +24,26 @@ class AlarmReceiver : BroadcastReceiver() {
         val triggerAt = intent.getLongExtra(EXTRA_TRIGGER_AT, 0L)
         val soundUrl = intent.getStringExtra(EXTRA_SOUND_URL) ?: ""
         val imageUrl = intent.getStringExtra(EXTRA_IMAGE_URL) ?: ""
+        val keyguardManager = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+        val isLocked = keyguardManager.isKeyguardLocked
 
-        val alarmIntent = Intent(context, AlarmActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                Intent.FLAG_ACTIVITY_SINGLE_TOP
-            putExtra(AlarmActivity.EXTRA_TITLE, title)
-            putExtra(AlarmActivity.EXTRA_NOTES, notes)
-            putExtra(AlarmActivity.EXTRA_SOUND_URL, soundUrl)
-            putExtra(AlarmActivity.EXTRA_IMAGE_URL, imageUrl)
-            putExtra(AlarmActivity.EXTRA_PLAY_SOUND, true)
-            putExtra(AlarmActivity.EXTRA_NOTIFICATION_ID, id)
+        AlarmSoundService.start(context, id, soundUrl, title, notes)
+        showNotification(context, id, title, notes, imageUrl, soundUrl, isLocked)
+
+        if (isLocked) {
+            val alarmIntent = Intent(context, AlarmActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP
+                putExtra(AlarmActivity.EXTRA_TITLE, title)
+                putExtra(AlarmActivity.EXTRA_NOTES, notes)
+                putExtra(AlarmActivity.EXTRA_SOUND_URL, soundUrl)
+                putExtra(AlarmActivity.EXTRA_IMAGE_URL, imageUrl)
+                putExtra(AlarmActivity.EXTRA_PLAY_SOUND, false)
+                putExtra(AlarmActivity.EXTRA_NOTIFICATION_ID, id)
+            }
+            context.startActivity(alarmIntent)
         }
-        context.startActivity(alarmIntent)
-
-        showNotification(context, id, title, notes, imageUrl, soundUrl)
 
         val nextTriggerAt = nextTriggerAt(triggerAt, type.lowercase())
         if (nextTriggerAt > 0L) {
@@ -71,6 +77,7 @@ class AlarmReceiver : BroadcastReceiver() {
         notes: String,
         imageUrl: String,
         soundUrl: String,
+        isLocked: Boolean,
     ) {
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -113,10 +120,13 @@ class AlarmReceiver : BroadcastReceiver() {
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setAutoCancel(true)
-            .setSilent(true)
             .setVibrate(longArrayOf(0, 600, 250, 600))
             .setContentIntent(fullScreenIntent)
-            .setFullScreenIntent(fullScreenIntent, true)
+            .setOnlyAlertOnce(true)
+
+        if (isLocked) {
+            builder.setFullScreenIntent(fullScreenIntent, true)
+        }
 
         if (image != null) {
             builder
@@ -151,7 +161,7 @@ class AlarmReceiver : BroadcastReceiver() {
     }
 
     companion object {
-        private const val CHANNEL_ID = "elderzha_alarm_channel_v3"
+        private const val CHANNEL_ID = "elderzha_alarm_channel_v4"
         private const val EXTRA_ID = "id"
         private const val EXTRA_TRIGGER_AT = "triggerAt"
         private const val EXTRA_TITLE = "title"
