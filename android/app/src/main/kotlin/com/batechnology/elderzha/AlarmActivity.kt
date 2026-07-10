@@ -106,7 +106,7 @@ class AlarmActivity : Activity() {
             background = roundedYellow()
             setOnClickListener {
                 cancelNotification(notificationId)
-                AlarmSoundService.stop(this)
+                AlarmSoundService.stop(this@AlarmActivity)
                 finish()
             }
         }
