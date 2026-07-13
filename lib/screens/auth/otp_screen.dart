@@ -174,9 +174,6 @@ class _OtpScreenState extends State<OtpScreen> {
       return;
     }
 
-    // ── POST LOGIN: Schedule all alarms ─────────────────────────────────────
-    _scheduleAlarmsAfterLogin();
-
     await auth.loadUser();
     final profileRes = await AuthService().getProfileWithFamily();
     final profile = _extractUser(profileRes) ?? auth.user;
@@ -209,6 +206,7 @@ class _OtpScreenState extends State<OtpScreen> {
         : await SubscriptionService().hasActiveSubscription();
     if (!mounted) return;
     if (hasActiveSubscription) {
+      _scheduleAlarmsAfterLogin();
       Navigator.pushReplacementNamed(context, AppRoutes.home);
     } else {
       Navigator.pushReplacementNamed(context, AppRoutes.payment);

@@ -9,10 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../alaram/daily_scheduler.dart';
 import '../../alaram/alarm_config_store.dart';
-import '../../alaram/family_event_scheduler.dart';
-import '../../api/models/fetch_profile_model.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_routes.dart';
 import '../../services/services.dart';
@@ -1076,8 +1073,6 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
       );
     }
     await _saveAlarmSummary();
-    await _scheduleLocalAlarms();
-    await _scheduleLocalFamilyEvents();
     setState(() => _saving = false);
     if (!mounted) return;
     Navigator.pushReplacementNamed(context, AppRoutes.payment);
@@ -1231,112 +1226,6 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
       ),
     ];
     await prefs.setString('setup_alarm_summary', jsonEncode(items));
-  }
-
-  Future<void> _scheduleLocalAlarms() async {
-    await DailyScheduler.cancelAllAlarms();
-    await DailyScheduler.clearStoredAlarms();
-    if (_medicalEnabled) {
-      for (final item in [
-        [
-          'morning_before_food',
-          'Morning medication before food',
-          AlarmType.medical
-        ],
-        [
-          'morning_after_food',
-          'Morning medication after food',
-          AlarmType.medical
-        ],
-        [
-          'afternoon_before_food',
-          'Afternoon medication before food',
-          AlarmType.medical
-        ],
-        [
-          'afternoon_after_food',
-          'Afternoon medication after food',
-          AlarmType.medical
-        ],
-        [
-          'night_before_food',
-          'Night medication before food',
-          AlarmType.medical
-        ],
-        ['night_after_food', 'Night medication after food', AlarmType.medical],
-      ]) {
-        final key = item[0] as String;
-        if (!_isMedOn(key)) continue;
-        final label = item[1] as String;
-        final type = item[2] as AlarmType;
-        final time = _apiTime(_med[key]!);
-        await DailyScheduler.scheduleReminder(
-          type,
-          _schedDate(time),
-          time,
-          'ElderZha • $label',
-          'daily',
-          soundUrl: _tonePath,
-          imageUrl: _medImage?.path,
-        );
-      }
-    }
-    if (_foodEnabled) {
-      for (final item in [
-        ['breakfast_time', 'Breakfast reminder'],
-        ['lunch_time', 'Lunch reminder'],
-        ['dinner_time', 'Dinner reminder'],
-      ]) {
-        final key = item[0];
-        if (!_isFoodOn(key)) continue;
-        final label = item[1];
-        final time = _apiTime(_food[key]!);
-        await DailyScheduler.scheduleReminder(
-          AlarmType.food,
-          _schedDate(time),
-          time,
-          'ElderZha • $label',
-          'daily',
-          soundUrl: _tonePath,
-          imageUrl: _foodImage?.path,
-        );
-      }
-    }
-  }
-
-  String _schedDate(String time) {
-    final parts = time.split(':');
-    final hour = int.tryParse(parts.first) ?? 0;
-    final minute = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
-    var dt = DateTime(DateTime.now().year, DateTime.now().month,
-        DateTime.now().day, hour, minute);
-    if (dt.isBefore(DateTime.now())) dt = dt.add(const Duration(days: 1));
-    return '${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
-  }
-
-  Future<void> _scheduleLocalFamilyEvents() async {
-    if (_family.isEmpty) return;
-    final members = <FamilyMember>[];
-    for (final entry in _family.asMap().entries) {
-      final m = entry.value;
-      void add(String suffix, String eventName, String date) {
-        if (date.trim().isEmpty) return;
-        members.add(FamilyMember(
-          id: 'setup-${entry.key}-$suffix',
-          type: '',
-          status: '1',
-          name: m['name'] ?? '',
-          eventDate: date,
-          relation: Event(id: '0', name: m['relation'] ?? ''),
-          event:
-              Event(id: suffix == 'anniversary' ? '2' : '1', name: eventName),
-        ));
-      }
-
-      add('birthday', 'Birthday', m['birthday_date'] ?? '');
-      add('anniversary', 'Anniversary', m['anniversary_date'] ?? '');
-    }
-    await FamilyEventScheduler.syncFamilyEventReminders(members);
   }
 
   Widget _familyChip(String text, Color bg, Color fg) => Container(
