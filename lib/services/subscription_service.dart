@@ -53,7 +53,7 @@ class SubscriptionService {
     if (prefs.getBool(localActiveKey) == true) return true;
 
     final plan = await getPurchasedPlan();
-    if (_looksActive(plan)) {
+    if (_looksActive(plan) || _hasPurchasedPlan(plan)) {
       await prefs.setBool(localActiveKey, true);
       await prefs.setBool(paymentGateCompletedKey, true);
       return true;
@@ -66,6 +66,39 @@ class SubscriptionService {
       return true;
     }
     return false;
+  }
+
+  bool _hasPurchasedPlan(dynamic value) {
+    if (value == null) return false;
+    if (value is List) return value.any(_hasPurchasedPlan);
+    if (value is! Map) return value.toString().trim().isNotEmpty;
+
+    final map = Map<String, dynamic>.from(value);
+    final statusText =
+        (map['status'] ?? map['success'])?.toString().toLowerCase().trim();
+    if (statusText == 'false' || statusText == '0') return false;
+
+    final data = map['data'];
+    if (data is List) return data.isNotEmpty;
+    if (data is Map) return _hasPurchasedPlan(data);
+
+    const purchaseKeys = [
+      'purchase_id',
+      'plan_id',
+      'subscription_id',
+      'transaction_id',
+      'payment_id',
+      'plan_name',
+      'name',
+      'amount',
+      'price',
+      'start_date',
+      'end_date',
+    ];
+    return purchaseKeys.any((key) {
+      final text = map[key]?.toString().trim() ?? '';
+      return text.isNotEmpty && text.toLowerCase() != 'null';
+    });
   }
 
   bool _looksActive(dynamic value) {

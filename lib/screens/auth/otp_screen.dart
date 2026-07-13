@@ -248,10 +248,39 @@ class _OtpScreenState extends State<OtpScreen> {
     dynamic data = res?['data'] ?? res;
     if (data is Map && data['data'] is Map) data = data['data'];
     if (data is! Map) return false;
-    return _truthy(data['medical_alarm']) ||
-        _truthy(data['food_alarm']) ||
-        data['morning_before_food'] != null ||
-        data['breakfast_time'] != null;
+    final map = Map<String, dynamic>.from(data);
+    final hasMedical = _truthy(map['medical_alarm']) &&
+        _hasAnyFilled(map, const [
+          'morning_before_food',
+          'morning_after_food',
+          'm_before_food',
+          'm_after_food',
+          'afternoon_before_food',
+          'afternoon_after_food',
+          'af_before_food',
+          'af_after_food',
+          'night_before_food',
+          'night_after_food',
+          'n_before_food',
+          'n_after_food',
+        ]);
+    final hasFood = _truthy(map['food_alarm'] ?? map['food_alaram']) &&
+        _hasAnyFilled(map, const [
+          'breakfast_time',
+          'bf_time',
+          'lunch_time',
+          'l_time',
+          'dinner_time',
+          'd_time',
+        ]);
+    return hasMedical || hasFood;
+  }
+
+  bool _hasAnyFilled(Map<String, dynamic> map, List<String> keys) {
+    return keys.any((key) {
+      final text = map[key]?.toString().trim() ?? '';
+      return text.isNotEmpty && text.toLowerCase() != 'null';
+    });
   }
 
   bool _truthy(dynamic value) {
