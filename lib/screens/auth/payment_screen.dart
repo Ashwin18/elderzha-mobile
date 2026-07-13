@@ -124,6 +124,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         _snack(res['message'] ?? 'Failed to activate coupon');
         return;
       }
+      await SubscriptionService.markSubscriptionActiveLocal();
       final data = res['data'] is Map ? res['data'] : res;
       _goSuccess({
         'plan_name': data['plan_name'] ?? _planName(_selPlan),
@@ -183,6 +184,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         return;
       }
       if (data['activate_without_payment'] == true || amount <= 0) {
+        await SubscriptionService.markSubscriptionActiveLocal();
         _goSuccess({
           'plan_name': data['plan_name'] ?? _planName(_selPlan),
           'payment_id': data['transaction_id'],
@@ -253,6 +255,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       _paymentHandled = false;
       return;
     }
+    await SubscriptionService.markSubscriptionActiveLocal();
     _goSuccess({
       'plan_name': _planName(_selPlan),
       'payment_id': r.paymentId,

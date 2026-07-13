@@ -1097,6 +1097,8 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
       'saved_from': 'first_time_setup',
       'saved_at': DateTime.now().toIso8601String(),
     });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('first_time_alarm_setup_completed', true);
   }
 
   bool _isMedOn(String key) => _medicalEnabled && (_medOn[key] ?? false);

@@ -202,12 +202,16 @@ class _OtpScreenState extends State<OtpScreen> {
       return;
     }
 
-    final plan = await SubscriptionService().getPurchasedPlan();
+    final paymentGateCompleted =
+        await SubscriptionService.hasCompletedPaymentGate();
+    final hasActiveSubscription = paymentGateCompleted
+        ? true
+        : await SubscriptionService().hasActiveSubscription();
     if (!mounted) return;
-    if (!_hasPlan(plan)) {
-      Navigator.pushReplacementNamed(context, AppRoutes.payment);
-    } else {
+    if (hasActiveSubscription) {
       Navigator.pushReplacementNamed(context, AppRoutes.home);
+    } else {
+      Navigator.pushReplacementNamed(context, AppRoutes.payment);
     }
   }
 
@@ -221,13 +225,11 @@ class _OtpScreenState extends State<OtpScreen> {
 
   bool _isProfileComplete(Map<String, dynamic>? user) {
     if (user == null) return false;
-    final explicit =
-        user['is_profile_updated'] ??
+    final explicit = user['is_profile_updated'] ??
         user['profile_completed'] ??
         user['profile_status'];
     if (_truthy(explicit)) return true;
-    final percent =
-        int.tryParse(
+    final percent = int.tryParse(
           (user['profile_updated_percentage'] ??
                   user['profile_percentage'] ??
                   '')
@@ -250,14 +252,6 @@ class _OtpScreenState extends State<OtpScreen> {
         _truthy(data['food_alarm']) ||
         data['morning_before_food'] != null ||
         data['breakfast_time'] != null;
-  }
-
-  bool _hasPlan(Map<String, dynamic>? res) {
-    final data = res?['data'];
-    if (data == null) return false;
-    if (data is List) return data.isNotEmpty;
-    if (data is Map) return data.isNotEmpty;
-    return true;
   }
 
   bool _truthy(dynamic value) {

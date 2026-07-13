@@ -45,9 +45,12 @@ class _SplashScreenState extends State<SplashScreen>
   Future<void> _routeAfterSplash() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token') ?? '';
-    final isSubscribed = token.isNotEmpty
-        ? await SubscriptionService().hasActiveSubscription()
+    final paymentGateCompleted = token.isNotEmpty
+        ? await SubscriptionService.hasCompletedPaymentGate()
         : false;
+    final isSubscribed = token.isNotEmpty && !paymentGateCompleted
+        ? await SubscriptionService().hasActiveSubscription()
+        : paymentGateCompleted;
     if (!mounted) return;
     Navigator.pushReplacementNamed(
       context,

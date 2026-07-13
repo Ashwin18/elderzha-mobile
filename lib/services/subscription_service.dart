@@ -22,16 +22,30 @@ import 'api_client.dart';
 
 class SubscriptionService {
   static const String localActiveKey = 'subscription_active_local';
+  static const String paymentGateCompletedKey = 'payment_gate_completed';
   final _api = ApiClient();
 
   static Future<void> markSubscriptionActiveLocal() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(localActiveKey, true);
+    await prefs.setBool(paymentGateCompletedKey, true);
   }
 
   static Future<void> clearSubscriptionActiveLocal() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(localActiveKey);
+    await prefs.remove(paymentGateCompletedKey);
+  }
+
+  static Future<bool> hasLocalActiveSubscription() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(localActiveKey) == true;
+  }
+
+  static Future<bool> hasCompletedPaymentGate() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(paymentGateCompletedKey) == true ||
+        prefs.getBool(localActiveKey) == true;
   }
 
   Future<bool> hasActiveSubscription() async {
@@ -41,12 +55,14 @@ class SubscriptionService {
     final plan = await getPurchasedPlan();
     if (_looksActive(plan)) {
       await prefs.setBool(localActiveKey, true);
+      await prefs.setBool(paymentGateCompletedKey, true);
       return true;
     }
 
     final status = await getSubscriptionStatus();
     if (_looksActive(status)) {
       await prefs.setBool(localActiveKey, true);
+      await prefs.setBool(paymentGateCompletedKey, true);
       return true;
     }
     return false;
