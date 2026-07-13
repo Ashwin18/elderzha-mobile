@@ -45,7 +45,9 @@ class AlarmActivity : Activity() {
         val notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, 0)
 
         setContentView(buildView(title, notes, imageUrl, notificationId))
-        if (playSound) AlarmSoundService.start(this, notificationId, soundUrl, title, notes)
+        if (playSound) {
+            AlarmSoundService.start(this, notificationId, soundUrl, title, notes, imageUrl)
+        }
     }
 
     private fun buildView(title: String, notes: String, imageUrl: String, notificationId: Int): ViewGroup {

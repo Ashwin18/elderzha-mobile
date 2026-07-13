@@ -3,6 +3,7 @@ package com.batechnology.elderzha
 import android.app.Service
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
@@ -32,7 +33,11 @@ class AlarmSoundService : Service() {
                 val soundUrl = intent?.getStringExtra(EXTRA_SOUND_URL) ?: ""
                 val title = intent?.getStringExtra(EXTRA_TITLE) ?: "ElderZha reminder"
                 val notes = intent?.getStringExtra(EXTRA_NOTES) ?: "Alarm is ringing."
-                startForeground(alarmId.coerceAtLeast(1), notification(title, notes))
+                val imageUrl = intent?.getStringExtra(EXTRA_IMAGE_URL) ?: ""
+                startForeground(
+                    alarmId.coerceAtLeast(1),
+                    notification(alarmId, title, notes, soundUrl, imageUrl),
+                )
                 if (player == null || activeAlarmId != alarmId) {
                     activeAlarmId = alarmId
                     play(soundUrl)
@@ -78,7 +83,13 @@ class AlarmSoundService : Service() {
         }
     }
 
-    private fun notification(title: String, notes: String): android.app.Notification {
+    private fun notification(
+        alarmId: Int,
+        title: String,
+        notes: String,
+        soundUrl: String,
+        imageUrl: String,
+    ): android.app.Notification {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
@@ -92,6 +103,31 @@ class AlarmSoundService : Service() {
             }
             manager.createNotificationChannel(channel)
         }
+        val contentIntent = PendingIntent.getActivity(
+            this,
+            alarmId,
+            Intent(this, AlarmActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP
+                putExtra(AlarmActivity.EXTRA_TITLE, title)
+                putExtra(AlarmActivity.EXTRA_NOTES, notes)
+                putExtra(AlarmActivity.EXTRA_SOUND_URL, soundUrl)
+                putExtra(AlarmActivity.EXTRA_IMAGE_URL, imageUrl)
+                putExtra(AlarmActivity.EXTRA_PLAY_SOUND, false)
+                putExtra(AlarmActivity.EXTRA_NOTIFICATION_ID, alarmId)
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val dismissIntent = PendingIntent.getBroadcast(
+            this,
+            alarmId + DISMISS_REQUEST_OFFSET,
+            Intent(this, AlarmReceiver::class.java).apply {
+                action = ACTION_DISMISS
+                putExtra("id", alarmId)
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(title)
@@ -99,7 +135,9 @@ class AlarmSoundService : Service() {
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setOngoing(true)
+            .setContentIntent(contentIntent)
+            .setDeleteIntent(dismissIntent)
+            .setAutoCancel(false)
             .setOnlyAlertOnce(true)
             .build()
     }
@@ -160,8 +198,11 @@ class AlarmSoundService : Service() {
 
     companion object {
         private const val ACTION_STOP = "com.batechnology.elderzha.STOP_ALARM_SOUND"
+        private const val ACTION_DISMISS = "com.batechnology.elderzha.DISMISS_ALARM"
+        private const val DISMISS_REQUEST_OFFSET = 500_000
         private const val EXTRA_ALARM_ID = "alarmId"
         private const val EXTRA_SOUND_URL = "soundUrl"
+        private const val EXTRA_IMAGE_URL = "imageUrl"
         private const val EXTRA_TITLE = "title"
         private const val EXTRA_NOTES = "notes"
         private const val CHANNEL_ID = "elderzha_alarm_channel_v4"
@@ -172,10 +213,12 @@ class AlarmSoundService : Service() {
             soundUrl: String,
             title: String = "ElderZha reminder",
             notes: String = "Alarm is ringing.",
+            imageUrl: String = "",
         ) {
             val intent = Intent(context, AlarmSoundService::class.java).apply {
                 putExtra(EXTRA_ALARM_ID, alarmId)
                 putExtra(EXTRA_SOUND_URL, soundUrl)
+                putExtra(EXTRA_IMAGE_URL, imageUrl)
                 putExtra(EXTRA_TITLE, title)
                 putExtra(EXTRA_NOTES, notes)
             }
@@ -190,7 +233,7 @@ class AlarmSoundService : Service() {
             val intent = Intent(context, AlarmSoundService::class.java).apply {
                 action = ACTION_STOP
             }
-            context.startService(intent)
+            context.stopService(intent)
         }
     }
 }

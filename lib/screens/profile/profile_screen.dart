@@ -250,21 +250,68 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ? 'Subscription pending'
       : 'Subscription active';
 
+  bool _hasAlarmValue(Map<String, dynamic>? source, List<String> keys) {
+    if (source == null) return false;
+    for (final key in keys) {
+      final value = source[key];
+      final text = value?.toString().trim().toLowerCase() ?? '';
+      if (value is bool && value) return true;
+      if (value is num && value != 0) return true;
+      if (text.isNotEmpty &&
+          text != '0' &&
+          text != 'false' &&
+          text != 'null' &&
+          text != 'no') {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool get _remoteMedicalConfigured => _hasAlarmValue(_alarm, [
+        'medical_alarm',
+        'morning_before_food',
+        'm_before_food',
+        'morning_after_food',
+        'm_after_food',
+        'afternoon_before_food',
+        'af_before_food',
+        'afternoon_after_food',
+        'af_after_food',
+        'night_before_food',
+        'n_before_food',
+        'night_after_food',
+        'n_after_food',
+      ]);
+
+  bool get _remoteFoodConfigured => _hasAlarmValue(_alarm, [
+        'food_alarm',
+        'food_alaram',
+        'breakfast_status',
+        'breakfast_time',
+        'bf_time',
+        'lunch_status',
+        'lunch_time',
+        'l_time',
+        'dinner_status',
+        'dinner_time',
+        'd_time',
+      ]);
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final medicalConfigured =
-        _truthy(_alarm?['medical_alarm']) || _localMedicalConfigured;
-    final foodConfigured =
-        _truthy(_alarm?['food_alarm']) || _localFoodConfigured;
+        _remoteMedicalConfigured || _localMedicalConfigured;
+    final foodConfigured = _remoteFoodConfigured || _localFoodConfigured;
     final photoUrl = _profilePhotoUrl(auth.user);
     final myBirthday = auth.userDob.isNotEmpty
         ? auth.userDob
         : (_profile?['dob'] ??
-                  _profile?['date_of_birth'] ??
-                  _profile?['birth_date'] ??
-                  '')
-              .toString();
+                _profile?['date_of_birth'] ??
+                _profile?['birth_date'] ??
+                '')
+            .toString();
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -495,6 +542,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     () => Navigator.pushNamed(
                                       context,
                                       AppRoutes.alarms,
+                                      arguments: 'medical',
                                     ).then((_) => _load()),
                                     valueColor: medicalConfigured
                                         ? AppColors.yellowDark
@@ -509,6 +557,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     () => Navigator.pushNamed(
                                       context,
                                       AppRoutes.alarms,
+                                      arguments: 'food',
                                     ).then((_) => _load()),
                                     valueColor: foodConfigured
                                         ? AppColors.green
@@ -628,20 +677,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _headerPill(String label) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-    decoration: BoxDecoration(
-      color: Colors.white.withOpacity(0.4),
-      borderRadius: BorderRadius.circular(999),
-    ),
-    child: Text(
-      label,
-      style: GoogleFonts.poppins(
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-        color: AppColors.ink,
-      ),
-    ),
-  );
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.4),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: AppColors.ink,
+          ),
+        ),
+      );
 
   String _profilePhotoUrl(Map<String, dynamic>? authUser) {
     final source = {...?_profile, ...?authUser};

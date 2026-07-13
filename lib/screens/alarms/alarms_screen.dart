@@ -45,6 +45,7 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
 
   bool _loading = true;
   bool _saving = false;
+  bool _appliedInitialMode = false;
 
   // Toggles
   bool medicalAlarmSwitch = true, foodAlarmSwitch = true;
@@ -79,6 +80,22 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
   void initState() {
     super.initState();
     _loadFromApi();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_appliedInitialMode) return;
+    _appliedInitialMode = true;
+    final args = ModalRoute.of(context)?.settings.arguments;
+    final value = args is Map ? args['mode'] : args;
+    if (value == AlarmViewMode.medical ||
+        value?.toString().toLowerCase() == 'medical') {
+      _mode = AlarmViewMode.medical;
+    } else if (value == AlarmViewMode.food ||
+        value?.toString().toLowerCase() == 'food') {
+      _mode = AlarmViewMode.food;
+    }
   }
 
   @override

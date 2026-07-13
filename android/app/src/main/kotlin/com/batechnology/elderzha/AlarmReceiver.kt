@@ -17,6 +17,16 @@ import java.net.URL
 
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == ACTION_DISMISS) {
+            val id = intent.getIntExtra(EXTRA_ID, 0)
+            AlarmSoundService.stop(context)
+            if (id != 0) {
+                val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                manager.cancel(id)
+            }
+            return
+        }
+
         val id = intent.getIntExtra(EXTRA_ID, 0)
         val title = intent.getStringExtra(EXTRA_TITLE) ?: "ElderZha reminder"
         val notes = intent.getStringExtra(EXTRA_NOTES) ?: "It is time for your reminder."
@@ -27,7 +37,7 @@ class AlarmReceiver : BroadcastReceiver() {
         val keyguardManager = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
         val isLocked = keyguardManager.isKeyguardLocked
 
-        AlarmSoundService.start(context, id, soundUrl, title, notes)
+        AlarmSoundService.start(context, id, soundUrl, title, notes, imageUrl)
         showNotification(context, id, title, notes, imageUrl, soundUrl, isLocked)
 
         if (isLocked) {
@@ -110,6 +120,15 @@ class AlarmReceiver : BroadcastReceiver() {
             launchIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+        val dismissIntent = PendingIntent.getBroadcast(
+            context,
+            id + DISMISS_REQUEST_OFFSET,
+            Intent(context, AlarmReceiver::class.java).apply {
+                action = ACTION_DISMISS
+                putExtra(EXTRA_ID, id)
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
 
         val image = loadBitmap(imageUrl)
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
@@ -122,6 +141,7 @@ class AlarmReceiver : BroadcastReceiver() {
             .setAutoCancel(true)
             .setVibrate(longArrayOf(0, 600, 250, 600))
             .setContentIntent(fullScreenIntent)
+            .setDeleteIntent(dismissIntent)
             .setOnlyAlertOnce(true)
 
         if (isLocked) {
@@ -161,6 +181,8 @@ class AlarmReceiver : BroadcastReceiver() {
     }
 
     companion object {
+        private const val ACTION_DISMISS = "com.batechnology.elderzha.DISMISS_ALARM"
+        private const val DISMISS_REQUEST_OFFSET = 500_000
         private const val CHANNEL_ID = "elderzha_alarm_channel_v4"
         private const val EXTRA_ID = "id"
         private const val EXTRA_TRIGGER_AT = "triggerAt"
