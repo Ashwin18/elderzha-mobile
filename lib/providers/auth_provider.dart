@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/services.dart';
+import '../utils/join_date_helper.dart';
 
 class AuthProvider extends ChangeNotifier {
   final _authService = AuthService();
@@ -66,6 +67,10 @@ class AuthProvider extends ChangeNotifier {
     _isLoggedIn = true;
     _user = _normalizeUser(res);
     notifyListeners();
+
+    // Save join date for content interaction gating (Option B: created_at)
+    final joinDate = _user?['created_at']?.toString() ?? '';
+    if (joinDate.isNotEmpty) await JoinDateHelper.saveJoinDate(joinDate);
 
     // Sync FCM token stored from Firebase init
     _syncStoredFCMToken();
@@ -156,6 +161,7 @@ class AuthProvider extends ChangeNotifier {
     }
     await prefs.remove('fcm_device_token');
     await prefs.remove('seen_notification_ids');
+    await JoinDateHelper.clear();
     await SubscriptionService.clearSubscriptionActiveLocal();
     _isLoggedIn = false;
     _user = null;

@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../theme/app_theme.dart';
 import '../../services/services.dart';
 import '../../widgets/community_media.dart';
+import '../../utils/join_date_helper.dart';
 
 /// ViewActivities + showActivityDetailsSheet — ported from original
 class ActivityDetailScreen extends StatefulWidget {
@@ -28,10 +29,16 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
   bool _loading = true;
   bool _autoOpened = false;
   bool _detailSheetOpen = false;
+  DateTime? _joinDate;
 
   @override
   void initState() {
     super.initState();
+    _initWithJoinDate();
+  }
+
+  Future<void> _initWithJoinDate() async {
+    _joinDate = await JoinDateHelper.getJoinDate();
     _load();
   }
 
@@ -113,12 +120,13 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
           ...Map<String, dynamic>.from(detail),
           'activity_posts': _extractApprovedPosts(posts),
         },
+        _joinDate,
       );
     } else {
       _showDetailSheet(item, {
         'data': detail,
         'activity_posts': _extractApprovedPosts(posts),
-      });
+      }, _joinDate);
     }
   }
 
@@ -140,7 +148,7 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
     return [];
   }
 
-  void _showDetailSheet(dynamic item, dynamic detail) {
+  void _showDetailSheet(dynamic item, dynamic detail, DateTime? joinDate) {
     if (_detailSheetOpen) return;
     _detailSheetOpen = true;
     showModalBottomSheet(
@@ -155,6 +163,7 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
         actSvc: _actSvc,
         commSvc: _commSvc,
         onRefresh: _load,
+        joinDate: joinDate,
       ),
     ).whenComplete(() {
       _detailSheetOpen = false;
@@ -414,12 +423,14 @@ class _DetailSheet extends StatefulWidget {
   final ActivityService actSvc;
   final CommunityService commSvc;
   final VoidCallback onRefresh;
+  final DateTime? joinDate;
   const _DetailSheet({
     required this.item,
     required this.detail,
     required this.actSvc,
     required this.commSvc,
     required this.onRefresh,
+    this.joinDate,
   });
   @override
   State<_DetailSheet> createState() => _DetailSheetState();
@@ -444,6 +455,37 @@ class _DetailSheetState extends State<_DetailSheet> {
   void dispose() {
     _notesCtrl.dispose();
     super.dispose();
+  }
+
+  // ── Option B: can user interact? ────────────────────────────────────────
+  // Gate on activity.created_at (when admin posted), NOT scheduled date.
+  bool get _canInteract {
+    // Check expiry first
+    final expiryRaw = (widget.item['expiry_time'] ??
+                       widget.detail?['expiry_time'] ?? '').toString();
+    if (expiryRaw.isNotEmpty) {
+      try {
+        final expiry = DateTime.parse(expiryRaw);
+        if (DateTime.now().isAfter(expiry)) return false;
+      } catch (_) {}
+    }
+    // Option B: use created_at, fall back to date only if created_at missing
+    final createdAt = (widget.item['created_at'] ??
+                       widget.detail?['created_at'] ??
+                       widget.item['date'] ??
+                       widget.detail?['date'] ?? '').toString();
+    return JoinDateHelper.canInteractSync(
+      createdAt.isNotEmpty ? createdAt : null,
+      widget.joinDate,
+    );
+  }
+
+  bool get _isPreJoin {
+    final createdAt = (widget.item['created_at'] ??
+                       widget.detail?['created_at'] ??
+                       widget.item['date'] ?? '').toString();
+    if (createdAt.isEmpty || widget.joinDate == null) return false;
+    return !JoinDateHelper.canInteractSync(createdAt, widget.joinDate);
   }
 
   bool get _initialPendingApproval {
@@ -662,7 +704,26 @@ class _DetailSheetState extends State<_DetailSheet> {
                             ],
                           ),
                         ),
-                      if (!_pendingApproval && !isDone) ...[
+                      // ── Pre-join / expired banner ─────────────────
+                      if (_isPreJoin && !_pendingApproval && !isDone)
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: C.bg2,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: C.bd),
+                          ),
+                          child: Row(children: [
+                            const Icon(Icons.lock_clock_rounded, size: 18, color: C.txl),
+                            const SizedBox(width: 8),
+                            Expanded(child: Text(
+                              'This activity was posted before you joined. You can view it but cannot submit a reply.',
+                              style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: C.txm, height: 1.45),
+                            )),
+                          ]),
+                        ),
+                      if (!_pendingApproval && !isDone && _canInteract) ...[
                         if (_attachment != null)
                           Container(
                             margin: const EdgeInsets.only(bottom: 10),
@@ -840,7 +901,7 @@ class _DetailSheetState extends State<_DetailSheet> {
                       ],
                       const SizedBox(height: 20),
                       GestureDetector(
-                        onTap: _submitting || _pendingApproval || isDone
+                        onTap: (_submitting || _pendingApproval || isDone || !_canInteract)
                             ? null
                             : _submit,
                         child: Container(
@@ -848,7 +909,7 @@ class _DetailSheetState extends State<_DetailSheet> {
                           decoration: BoxDecoration(
                             color: (isDone || _pendingApproval)
                                 ? C.green
-                                : C.yellow,
+                                : (!_canInteract ? C.bg3 : C.yellow),
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: Center(
@@ -866,7 +927,9 @@ class _DetailSheetState extends State<_DetailSheet> {
                                         ? 'Waiting for approval'
                                         : isDone
                                             ? 'Admin approved'
-                                            : 'Submit & Share',
+                                            : !_canInteract
+                                                ? (_isPreJoin ? 'View only — joined later' : 'Activity ended')
+                                                : 'Submit & Share',
                                     style: GoogleFonts.poppins(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w700,
