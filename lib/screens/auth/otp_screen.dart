@@ -174,12 +174,29 @@ class _OtpScreenState extends State<OtpScreen> {
       return;
     }
 
+    // ── Use verifyOtp response directly — no extra API calls needed ────────
+    // API already returns all gate fields:
+    //   is_profile_updated  → 1 = profile complete
+    //   daily_alarm_set     → 1 = alarms configured
+    //   is_plan_active      → 1 = subscription active
+    // This works correctly after reinstall (no SharedPreferences dependency)
+    final isProfileUpdated = _truthy(res['is_profile_updated'] ?? res['isProfileUpdate']);
+    final isAlarmSet       = _truthy(res['daily_alarm_set']);
+    final isPlanActive     = _truthy(res['is_plan_active']);
+
+    // Also save plan status to local cache for lifecycle checks
+    if (isPlanActive) {
+      await SubscriptionService.markSubscriptionActiveLocal();
+    } else {
+      await SubscriptionService.clearSubscriptionActiveLocal();
+    }
+
     await auth.loadUser();
-    final profileRes = await AuthService().getProfileWithFamily();
-    final profile = _extractUser(profileRes) ?? auth.user;
     if (!mounted) return;
 
-    if (!_isProfileComplete(profile)) {
+    // Step 1 — Profile complete?
+    if (!isProfileUpdated) {
+      final profile = auth.user;
       Navigator.pushReplacementNamed(
         context,
         AppRoutes.setupProfile,
@@ -192,25 +209,21 @@ class _OtpScreenState extends State<OtpScreen> {
       return;
     }
 
-    final alarm = await AlarmService().getMedicalRecords();
-    if (!mounted) return;
-    if (!_hasAlarmSetup(alarm)) {
+    // Step 2 — Alarm set up?
+    if (!isAlarmSet) {
       Navigator.pushReplacementNamed(context, AppRoutes.alarmSetup);
       return;
     }
 
-    final paymentGateCompleted =
-        await SubscriptionService.hasCompletedPaymentGate();
-    final hasActiveSubscription = paymentGateCompleted
-        ? true
-        : await SubscriptionService().hasActiveSubscription();
-    if (!mounted) return;
-    if (hasActiveSubscription) {
-      _scheduleAlarmsAfterLogin();
-      Navigator.pushReplacementNamed(context, AppRoutes.home);
-    } else {
+    // Step 3 — Subscription active?
+    if (!isPlanActive) {
       Navigator.pushReplacementNamed(context, AppRoutes.payment);
+      return;
     }
+
+    // ✅ All gates passed — go to home
+    _scheduleAlarmsAfterLogin();
+    Navigator.pushReplacementNamed(context, AppRoutes.home);
   }
 
   Map<String, dynamic>? _extractUser(Map<String, dynamic>? res) {

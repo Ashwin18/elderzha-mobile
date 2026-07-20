@@ -45,21 +45,26 @@ class _SplashScreenState extends State<SplashScreen>
   Future<void> _routeAfterSplash() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token') ?? '';
-    final paymentGateCompleted = token.isNotEmpty
-        ? await SubscriptionService.hasCompletedPaymentGate()
-        : false;
-    final isSubscribed = token.isNotEmpty && !paymentGateCompleted
-        ? await SubscriptionService().hasActiveSubscription()
-        : paymentGateCompleted;
+
+    // No token → new user → onboarding
+    if (token.isEmpty) {
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, AppRoutes.onboarding);
+      return;
+    }
+
+    // Has token → returning user or reinstall
+    // Always check from API — not local cache (works after reinstall)
+    final isActive = await SubscriptionService().checkPlanFromAPI();
     if (!mounted) return;
-    Navigator.pushReplacementNamed(
-      context,
-      token.isEmpty
-          ? AppRoutes.onboarding
-          : isSubscribed
-              ? AppRoutes.home
-              : AppRoutes.payment,
-    );
+
+    if (isActive) {
+      // Subscribed → home directly
+      Navigator.pushReplacementNamed(context, AppRoutes.home);
+    } else {
+      // Not subscribed → subscription gate (cannot dismiss)
+      Navigator.pushReplacementNamed(context, AppRoutes.subscriptionGate);
+    }
   }
 
   @override
