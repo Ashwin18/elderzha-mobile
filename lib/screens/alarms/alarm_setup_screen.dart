@@ -1244,7 +1244,30 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        // Show confirmation before leaving alarm setup
+        showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Skip alarm setup?'),
+            content: const Text('Alarms help you remember medicines and meals. Are you sure you want to skip?'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Stay')),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx, true);
+                  Navigator.pushReplacementNamed(context, AppRoutes.payment);
+                },
+                child: const Text('Skip for now'),
+              ),
+            ],
+          ),
+        );
+      },
+      child: Scaffold(
       backgroundColor: C.bg,
       body: Column(
         children: [
@@ -1712,3 +1735,6 @@ class _AddFamilySheetState extends State<_AddFamilySheet> {
   String _formatDate(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}-${d.month.toString().padLeft(2, '0')}-${d.year}';
 }
+    ),
+  )
+  ;

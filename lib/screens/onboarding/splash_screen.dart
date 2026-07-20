@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import '../../services/services.dart';
+import '../../utils/join_date_helper.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_routes.dart';
 
@@ -15,6 +16,7 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen>
     with TickerProviderStateMixin {
+  bool _checking = false; // Fix 11: show spinner during API check
   late AnimationController _logoCtrl, _textCtrl;
   late Animation<double> _logoScale, _textFade, _textSlide;
 
@@ -39,7 +41,10 @@ class _SplashScreenState extends State<SplashScreen>
     Future.delayed(const Duration(milliseconds: 450), () {
       if (mounted) _textCtrl.forward();
     });
-    Timer(const Duration(milliseconds: 2600), _routeAfterSplash);
+    Timer(const Duration(milliseconds: 2200), () {
+      if (mounted) setState(() => _checking = true);
+      _routeAfterSplash();
+    });
   }
 
   Future<void> _routeAfterSplash() async {
@@ -59,10 +64,22 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted) return;
 
     if (isActive) {
-      // Subscribed → home directly
+      // Fix 8: Save join date for returning user (was wiped on reinstall)
+      // Fetch user details to get created_at
+      try {
+        final userRes = await AuthService().getUserDetails();
+        if (userRes != null) {
+          dynamic node = userRes['user'] ?? userRes['profile'] ?? userRes['data'];
+          if (node is Map) {
+            final createdAt = node['created_at']?.toString() ?? '';
+            if (createdAt.isNotEmpty) {
+              await JoinDateHelper.saveJoinDate(createdAt);
+            }
+          }
+        }
+      } catch (_) {}
       Navigator.pushReplacementNamed(context, AppRoutes.home);
     } else {
-      // Not subscribed → subscription gate (cannot dismiss)
       Navigator.pushReplacementNamed(context, AppRoutes.subscriptionGate);
     }
   }

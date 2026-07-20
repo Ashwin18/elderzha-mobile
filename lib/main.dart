@@ -1,3 +1,4 @@
+import 'services/services.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -270,18 +271,27 @@ void _openNotificationTarget(Map<String, dynamic> data) {
     );
     return;
   }
-
-  nav.pushNamedAndRemoveUntil(
-    AppRoutes.notifications,
-    (route) => false,
-    arguments: {'notification': data, 'fromPush': true},
-  );
+  // Fix 9: Check user is logged in before navigating
+  SharedPreferences.getInstance().then((prefs) {
+    final token = prefs.getString('auth_token') ?? '';
+    if (token.isEmpty) return; // Not logged in — ignore notification tap
+    // Push notifications ON TOP of existing stack (don't wipe home)
+    final currentRoute = nav.focusedRoute?.settings?.name ?? '';
+    const authScreens = ['/payment', '/subscription-gate', '/onboarding',
+      '/register', '/otp', '/setup-profile', '/alarm-setup'];
+    if (authScreens.contains(currentRoute)) return; // On auth screen — ignore
+    if (currentRoute == AppRoutes.notifications) return; // Already there
+    nav.pushNamed(
+      AppRoutes.notifications,
+      arguments: {'notification': data, 'fromPush': true},
+    );
+  });
 }
 
 void _startNotificationHistoryPolling() {
   _pollNotificationHistory(showNew: false);
   _notificationHistoryTimer ??= Timer.periodic(
-    const Duration(seconds: 45),
+    const Duration(minutes: 5), // was 45s — reduced to save battery
     (_) => _pollNotificationHistory(),
   );
 }
@@ -559,14 +569,62 @@ String? _firstText(List values) {
 }
 
 String _cleanNotificationText(String value) {
-  return value.replaceAll(RegExp(r'<[^>]*>'), ' ').replaceAll('&nbsp;', ' ');
+  return value
+      .replaceAll(RegExp(r'<[^>]*>'), ' ')
+      .replaceAll('&nbsp;', ' ')
+      .replaceAll('&amp;', '&')
+      .replaceAll('&lt;', '<')
+      .replaceAll('&gt;', '>')
+      .replaceAll('&quot;', '"')
+      .replaceAll('&#39;', "'")
+      .replaceAll('&apos;', "'")
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  APP
 // ─────────────────────────────────────────────────────────────────────────────
-class ElderZhaApp extends StatelessWidget {
+class ElderZhaApp extends StatefulWidget {
   const ElderZhaApp({super.key});
+  @override
+  State<ElderZhaApp> createState() => _ElderZhaAppState();
+}
+
+class _ElderZhaAppState extends State<ElderZhaApp> {
+  late final AppLifecycleListener _lifecycleListener;
+  final _subSvc = SubscriptionService();
+
+  @override
+  void initState() {
+    super.initState();
+    _lifecycleListener = AppLifecycleListener(onResume: _onResume);
+  }
+
+  @override
+  void dispose() {
+    _lifecycleListener.dispose();
+    super.dispose();
+  }
+
+  Future<void> _onResume() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token') ?? '';
+    if (token.isEmpty) return;
+    // Check plan on every resume — catches expiry while app was backgrounded
+    final isActive = await _subSvc.checkPlanFromAPI();
+    if (!isActive && appNavigatorKey.currentContext != null) {
+      final ctx = appNavigatorKey.currentContext!;
+      final route = ModalRoute.of(ctx)?.settings.name ?? '';
+      // Only redirect if on a protected screen
+      const authScreens = ['/payment', '/subscription-gate', '/onboarding',
+        '/register', '/otp', '/setup-profile', '/alarm-setup', '/payment-success'];
+      if (!authScreens.contains(route)) {
+        appNavigatorKey.currentState?.pushNamedAndRemoveUntil(
+          AppRoutes.subscriptionGate, (r) => false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -617,7 +675,7 @@ class ElderZhaApp extends StatelessWidget {
                 0,
           );
         },
-        AppRoutes.coupons: (_) => const OffersScreen(),
+        AppRoutes.coupons: (_) => const SubscriptionGateScreen(), // coupon entry
         '/activity-detail': (_) => const ActivityDetailScreen(),
         '/offer-detail': (ctx) {
           final id = ModalRoute.of(ctx)!.settings.arguments as int;

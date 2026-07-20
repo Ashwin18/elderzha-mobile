@@ -151,7 +151,8 @@ class _PollsScreenState extends State<PollsScreen> {
   }
 
   Widget _pollCard(dynamic poll, int index) {
-    final pollId      = (poll['poll_id'] ?? poll['id'] ?? index) as int? ?? index;
+    // Fix 10: Safe parse — API may return String IDs, cast would fail
+    final pollId = int.tryParse((poll['poll_id'] ?? poll['id'] ?? index).toString()) ?? index;
     final question    = poll['question'] ?? poll['title'] ?? '';
     final options     = (poll['options'] as List?) ?? [];
     final total       = (poll['total_users'] != null

@@ -18,8 +18,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   void _send() async {
     final phone = _phoneCtrl.text.trim();
-    if (phone.length < 10) {
-      _snack('Enter a valid 10-digit mobile number');
+    if (!RegExp(r'^[0-9]{10}$').hasMatch(phone)) {
+      _snack('Enter a valid 10-digit mobile number (digits only)');
       return;
     }
     setState(() => _loading = true);
@@ -137,6 +137,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             'We will send a 4-digit OTP to verify your number',
                             style: poppins(12, c: C.txl),
                             textAlign: TextAlign.center)),
+                    const SizedBox(height: 20),
+                    Center(
+                      child: RichText(
+                        textAlign: TextAlign.center,
+                        text: TextSpan(
+                          style: poppins(13, c: C.txl),
+                          children: [
+                            const TextSpan(text: 'Already registered? '),
+                            WidgetSpan(
+                              child: GestureDetector(
+                                onTap: () {
+                                  // Same flow — OTP works for both new + returning users
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Enter your registered mobile number and we\'ll send an OTP to log you in.',
+                                        style: poppins(12),
+                                      ),
+                                      backgroundColor: C.green,
+                                      duration: const Duration(seconds: 4),
+                                    ),
+                                  );
+                                },
+                                child: Text(
+                                  'Login with same number',
+                                  style: poppins(13, w: FontWeight.w700, c: C.yellowDeep),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ]),
             ),
           ),

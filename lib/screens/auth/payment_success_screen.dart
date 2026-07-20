@@ -28,7 +28,68 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
 
   Future<void> _activateAndScheduleAlarms() async {
     await SubscriptionService.markSubscriptionActiveLocal();
+    // Fix 6: Always fetch alarm data from API (not prefs) — works after reinstall
+    try {
+      final alarmRes = await AlarmService().getMedicalRecords();
+      final d = alarmRes?['data'];
+      if (d != null && d is Map && d.isNotEmpty) {
+        // API has alarm data — use it directly instead of prefs
+        await _scheduleFromApiData(Map<String, dynamic>.from(d));
+        return;
+      }
+    } catch (_) {}
+    // Fallback to prefs-based scheduling (first time setup)
     await _scheduleSetupAlarmsAfterPayment();
+  }
+
+  Future<void> _scheduleFromApiData(Map<String, dynamic> d) async {
+    await DailyScheduler.cancelAllAlarms();
+    await DailyScheduler.clearStoredAlarms();
+    final prefs = await SharedPreferences.getInstance();
+    final tone = prefs.getString('alarm_tone');
+    final medImg = d['medical_file']?.toString();
+    final foodImg = d['food_file']?.toString();
+    // Medical
+    if ((d['medical_alarm'] ?? 0) == 1) {
+      final slots = {
+        '💊 Elderzha • Morning Before Food': d['morning_before_food'],
+        '💊 Elderzha • Morning After Food':  d['morning_after_food'],
+        '💊 Elderzha • Noon Before Food':    d['afternoon_before_food'],
+        '💊 Elderzha • Noon After Food':     d['afternoon_after_food'],
+        '🌙 Elderzha • Night Before Food':   d['night_before_food'],
+        '🌙 Elderzha • Night After Food':    d['night_after_food'],
+      };
+      for (final e in slots.entries) {
+        if (e.value != null && e.value.toString().isNotEmpty) {
+          final t = _toTOD(e.value.toString());
+          if (t != null) await DailyScheduler.scheduleReminder(
+            AlarmType.medical, _schDate(t), _toStr(t), e.key, 'daily',
+            soundUrl: tone, imageUrl: medImg);
+        }
+      }
+    }
+    // Food
+    if ((d['food_alarm'] ?? 0) == 1) {
+      if ((d['breakfast_status'] ?? 0) == 1 && d['breakfast_time'] != null) {
+        final t = _toTOD(d['breakfast_time'].toString());
+        if (t != null) await DailyScheduler.scheduleReminder(
+          AlarmType.food, _schDate(t), _toStr(t),
+          '🍳 Elderzha • Breakfast Time', 'daily', soundUrl: tone, imageUrl: foodImg);
+      }
+      if ((d['lunch_status'] ?? 0) == 1 && d['lunch_time'] != null) {
+        final t = _toTOD(d['lunch_time'].toString());
+        if (t != null) await DailyScheduler.scheduleReminder(
+          AlarmType.food, _schDate(t), _toStr(t),
+          '🍽 Elderzha • Lunch Reminder', 'daily', soundUrl: tone, imageUrl: foodImg);
+      }
+      if ((d['dinner_status'] ?? 0) == 1 && d['dinner_time'] != null) {
+        final t = _toTOD(d['dinner_time'].toString());
+        if (t != null) await DailyScheduler.scheduleReminder(
+          AlarmType.food, _schDate(t), _toStr(t),
+          '🍽 Elderzha • Dinner Reminder', 'daily', soundUrl: tone, imageUrl: foodImg);
+      }
+    }
+    await _scheduleSetupFamilyEvents();
   }
 
   @override

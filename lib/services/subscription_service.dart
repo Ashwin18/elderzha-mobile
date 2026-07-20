@@ -25,10 +25,27 @@ class SubscriptionService {
   static const String paymentGateCompletedKey = 'payment_gate_completed';
   final _api = ApiClient();
 
+  static const String cacheTimestampKey = 'subscription_cache_timestamp';
+  static const int cacheExpiryHours = 24;
+
   static Future<void> markSubscriptionActiveLocal() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(localActiveKey, true);
     await prefs.setBool(paymentGateCompletedKey, true);
+    // Store timestamp so cache expires after 24 hours
+    await prefs.setString(cacheTimestampKey, DateTime.now().toIso8601String());
+  }
+
+  static Future<bool> isCacheExpired() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(cacheTimestampKey);
+    if (raw == null) return true;
+    try {
+      final saved = DateTime.parse(raw);
+      return DateTime.now().difference(saved).inHours >= cacheExpiryHours;
+    } catch (_) {
+      return true;
+    }
   }
 
   static Future<void> clearSubscriptionActiveLocal() async {
@@ -83,15 +100,20 @@ class SubscriptionService {
       }
       return isActive;
     } catch (e) {
-      // Network error — fall back to local cache
+      // Network error — fall back to local cache ONLY if not expired
       final prefs = await SharedPreferences.getInstance();
-      return prefs.getBool(localActiveKey) == true;
+      final cacheValid = prefs.getBool(localActiveKey) == true &&
+          !(await isCacheExpired());
+      return cacheValid;
     }
   }
 
   Future<bool> hasActiveSubscription() async {
     final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool(localActiveKey) == true) return true;
+    // Only use local cache if not expired (24 hours)
+    if (prefs.getBool(localActiveKey) == true && !(await isCacheExpired())) {
+      return true;
+    }
 
     final plan = await getPurchasedPlan();
     if (_looksActive(plan) || _hasPurchasedPlan(plan)) {
@@ -112,34 +134,30 @@ class SubscriptionService {
   bool _hasPurchasedPlan(dynamic value) {
     if (value == null) return false;
     if (value is List) return value.any(_hasPurchasedPlan);
-    if (value is! Map) return value.toString().trim().isNotEmpty;
+    if (value is! Map) return false; // Fix 14: don't treat raw strings as active
 
     final map = Map<String, dynamic>.from(value);
-    final statusText =
-        (map['status'] ?? map['success'])?.toString().toLowerCase().trim();
-    if (statusText == 'false' || statusText == '0') return false;
+    // Fix 14: check explicit status/plan_status fields only
+    final planStatus = map['plan_status'];
+    if (planStatus == 1 || planStatus == '1' || planStatus == true) return true;
+
+    final statusText = (map['status'] ?? '').toString().toLowerCase().trim();
+    if (statusText == 'false' || statusText == '0' ||
+        statusText == 'error' || statusText == 'fail') return false;
 
     final data = map['data'];
-    if (data is List) return data.isNotEmpty;
+    if (data is List) return data.isNotEmpty && _hasPurchasedPlan(data.first);
     if (data is Map) return _hasPurchasedPlan(data);
 
-    const purchaseKeys = [
-      'purchase_id',
-      'plan_id',
-      'subscription_id',
-      'transaction_id',
-      'payment_id',
-      'plan_name',
-      'name',
-      'amount',
-      'price',
-      'start_date',
-      'end_date',
-    ];
-    return purchaseKeys.any((key) {
-      final text = map[key]?.toString().trim() ?? '';
-      return text.isNotEmpty && text.toLowerCase() != 'null';
-    });
+    // Must have both a plan reference AND an end date in the future
+    final endDate = map['end_date']?.toString() ?? map['expiry_date']?.toString() ?? '';
+    final hasPlanRef = (map['purchase_id'] ?? map['plan_id'] ?? map['subscription_id']) != null;
+    if (hasPlanRef && endDate.isNotEmpty) {
+      try {
+        return DateTime.now().isBefore(DateTime.parse(endDate));
+      } catch (_) {}
+    }
+    return hasPlanRef;
   }
 
   bool _looksActive(dynamic value) {
