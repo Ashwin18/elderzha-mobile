@@ -14,6 +14,7 @@ class AppRoutes {
   static const profile = '/profile';
   static const alarms = '/alarms';
   static const subscription = '/subscription';
+  static const subscriptionGate = '/subscription-gate';
   static const autopaySettings = '/autopay-settings';
   static const familyMembers = '/family-members';
   static const addMember = '/add-member';

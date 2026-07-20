@@ -48,6 +48,47 @@ class SubscriptionService {
         prefs.getBool(localActiveKey) == true;
   }
 
+
+  // ── Check plan status directly from API (no local cache) ─────────────────
+  // Use on app resume to detect expired plans
+  Future<bool> checkPlanFromAPI() async {
+    try {
+      final plan = await getPurchasedPlan();
+      final prefs = await SharedPreferences.getInstance();
+      // Check plan_status field directly
+      bool isActive = false;
+      if (plan != null) {
+        final data = plan['data'] ?? plan;
+        if (data is Map) {
+          final status = (data['plan_status'] ?? data['status'] ?? '')
+              .toString().toLowerCase().trim();
+          final planStatus = data['plan_status'];
+          if (planStatus == 1 || planStatus == '1') isActive = true;
+          if (status == 'active' || status == '1' || status == 'true') isActive = true;
+          // Check end_date not passed
+          final endDate = data['end_date']?.toString() ?? data['expiry_date']?.toString() ?? '';
+          if (endDate.isNotEmpty && isActive) {
+            try {
+              final expiry = DateTime.parse(endDate);
+              if (DateTime.now().isAfter(expiry)) isActive = false;
+            } catch (_) {}
+          }
+        }
+      }
+      if (isActive) {
+        await prefs.setBool(localActiveKey, true);
+        await prefs.setBool(paymentGateCompletedKey, true);
+      } else {
+        await prefs.setBool(localActiveKey, false);
+      }
+      return isActive;
+    } catch (e) {
+      // Network error — fall back to local cache
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool(localActiveKey) == true;
+    }
+  }
+
   Future<bool> hasActiveSubscription() async {
     final prefs = await SharedPreferences.getInstance();
     if (prefs.getBool(localActiveKey) == true) return true;

@@ -37,6 +37,7 @@ import 'screens/profile/notifications_screen.dart';
 import 'screens/profile/profile_screen.dart';
 import 'screens/profile/edit_profile_screen.dart';
 import 'screens/profile/subscription_screen.dart';
+import 'screens/auth/subscription_gate_screen.dart';
 import 'screens/profile/autopay_settings_screen.dart';
 import 'screens/profile/family_members_screen.dart';
 import 'screens/profile/add_member_screen.dart';
