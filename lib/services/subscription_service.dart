@@ -280,7 +280,8 @@ class SubscriptionService {
     required int planId,
     bool autoPay = true,
   }) async {
-    final res = await _api.safePost('/user/subscription/create', data: {
+    // Route: POST /user/purchase/plan (initiatePlanPurchase)
+    final res = await _api.safePost('/user/purchase/plan', data: {
       'plan_id': planId,
       'auto_pay': autoPay ? 1 : 0,
     });

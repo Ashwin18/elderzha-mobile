@@ -135,36 +135,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
       });
       return;
     }
-    if (_autoPay) {
-      final res = await _subService.createSubscription(
-          planId: _selPlanId!, autoPay: true);
-      setState(() => _paying = false);
-      if (!mounted) return;
-      if (res['status'] != true) {
-        _snack(res['message'] ?? 'Failed to create subscription');
-        return;
-      }
-      final subId = res['subscription_id'] ?? res['data']?['subscription_id'];
-      final purchaseId = int.tryParse(
-          (res['purchase_id'] ?? res['data']?['purchase_id'] ?? '').toString());
-      if (subId == null) {
-        _snack('Invalid subscription response');
-        return;
-      }
-      _pendingSubscriptionId = subId.toString();
-      _pendingPurchaseId = purchaseId;
-      _openRzp({
-        'key': res['data']?['razorpay_key'] ?? _rzpKey,
-        'subscription_id': subId,
-        'name': 'ElderZha',
-        'description': res['data']?['description'] ?? _planName(_selPlan),
-        'prefill': {
-          'name': res['data']?['user_name'],
-          'contact': res['data']?['user_phone'],
-        },
-        'theme': {'color': '#FFCC01'}
-      });
-    } else {
+    // Single flow for all payments — POST /user/purchase/plan
+    {
       final res = await _subService.initiatePlanPurchase(
           planId: _selPlanId!, couponCode: _couponApplied);
       setState(() => _paying = false);
@@ -224,13 +196,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
     setState(() => _paying = true);
     Map<String, dynamic> res = {'status': true};
     try {
-      final confirmation = _autoPay
-          ? _subService.confirmSubscription(
-              purchaseId: _pendingPurchaseId ?? 0,
-              razorpaySubscriptionId: _pendingSubscriptionId ?? r.orderId ?? '',
-              razorpayPaymentId: r.paymentId ?? '',
-              razorpaySignature: r.signature ?? '')
-          : _subService.confirmOneTimePayment(
+      // POST /user/razorpay/sucess — confirm payment for all flows
+      final confirmation = _subService.confirmOneTimePayment(
               purchaseId: _pendingPurchaseId ?? 0,
               planId: _selPlanId ?? 0,
               razorpayPaymentId: r.paymentId ?? '',
