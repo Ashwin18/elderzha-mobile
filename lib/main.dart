@@ -611,8 +611,18 @@ class _ElderZhaAppState extends State<ElderZhaApp> {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token') ?? '';
     if (token.isEmpty) return;
-    // Check plan on every resume — catches expiry while app was backgrounded
-    final isActive = await _subSvc.checkPlanFromAPI();
+    // Check plan on every resume with timeout — prevents UI freeze
+    bool isActive = false;
+    try {
+      isActive = await _subSvc.checkPlanFromAPI().timeout(
+        const Duration(seconds: 8),
+        onTimeout: () async {
+          return prefs.getBool('subscription_active_local') == true;
+        },
+      );
+    } catch (_) {
+      isActive = prefs.getBool('subscription_active_local') == true;
+    }
     if (!isActive && appNavigatorKey.currentContext != null) {
       final ctx = appNavigatorKey.currentContext!;
       final route = ModalRoute.of(ctx)?.settings.name ?? '';

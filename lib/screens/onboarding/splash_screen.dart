@@ -60,16 +60,34 @@ class _SplashScreenState extends State<SplashScreen>
 
     // Has token → returning user or reinstall
     // Always check from API — not local cache (works after reinstall)
-    final isActive = await SubscriptionService().checkPlanFromAPI();
+    // Timeout after 10 seconds to prevent stuck on splash
+    bool isActive = false;
+    try {
+      isActive = await SubscriptionService()
+          .checkPlanFromAPI()
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () async {
+              // Timeout — fall back to local cache
+              final prefs = await SharedPreferences.getInstance();
+              return prefs.getBool('subscription_active_local') == true;
+            },
+          );
+    } catch (_) {
+      final prefs = await SharedPreferences.getInstance();
+      isActive = prefs.getBool('subscription_active_local') == true;
+    }
     if (!mounted) return;
 
     if (isActive) {
-      // Fix 8: Save join date for returning user (was wiped on reinstall)
-      // Fetch user details to get created_at
+      // Save join date for returning user — comes from /user/get/user/details
+      // which checkPlanFromAPI already called, so just read from auth service
       try {
         final userRes = await AuthService().getUserDetails();
         if (userRes != null) {
-          dynamic node = userRes['user'] ?? userRes['profile'] ?? userRes['data'];
+          dynamic node = userRes['data'] is Map
+              ? (userRes['data']['user'] ?? userRes['data'])
+              : null;
           if (node is Map) {
             final createdAt = node['created_at']?.toString() ?? '';
             if (createdAt.isNotEmpty) {
@@ -78,6 +96,7 @@ class _SplashScreenState extends State<SplashScreen>
           }
         }
       } catch (_) {}
+      if (!mounted) return;
       Navigator.pushReplacementNamed(context, AppRoutes.home);
     } else {
       Navigator.pushReplacementNamed(context, AppRoutes.subscriptionGate);

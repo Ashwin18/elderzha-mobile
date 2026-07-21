@@ -70,31 +70,42 @@ class SubscriptionService {
   // Use on app resume to detect expired plans
   Future<bool> checkPlanFromAPI() async {
     try {
-      final plan = await getPurchasedPlan();
+      // Use /user/get/user/details (getUserWithFamily) which returns
+      // is_plan_active and plan_expiry_date from the User object
+      // /user/get/purchased_plan only returns plan metadata — NOT plan status
+      final res = await _api.safeGet('/user/get/user/details');
       final prefs = await SharedPreferences.getInstance();
-      // Check plan_status field directly
       bool isActive = false;
-      if (plan != null) {
-        final data = plan['data'] ?? plan;
-        if (data is Map) {
-          final status = (data['plan_status'] ?? data['status'] ?? '')
-              .toString().toLowerCase().trim();
-          final planStatus = data['plan_status'];
-          if (planStatus == 1 || planStatus == '1') isActive = true;
-          if (status == 'active' || status == '1' || status == 'true') isActive = true;
-          // Check end_date not passed
-          final endDate = data['end_date']?.toString() ?? data['expiry_date']?.toString() ?? '';
-          if (endDate.isNotEmpty && isActive) {
-            try {
-              final expiry = DateTime.parse(endDate);
-              if (DateTime.now().isAfter(expiry)) isActive = false;
-            } catch (_) {}
+
+      if (res != null && res['status'] == true) {
+        // Response: { data: { user: { is_plan_active: 1, plan_expiry_date: "..." } } }
+        final userData = res['data'] is Map
+            ? (res['data']['user'] ?? res['data'])
+            : null;
+        if (userData is Map) {
+          final isPlanActive = userData['is_plan_active'];
+          if (isPlanActive == 1 || isPlanActive == '1' || isPlanActive == true) {
+            // Double-check expiry date
+            final expiryStr = userData['plan_expiry_date']?.toString() ?? '';
+            if (expiryStr.isNotEmpty && expiryStr != 'null') {
+              try {
+                final expiry = DateTime.parse(expiryStr);
+                isActive = DateTime.now().isBefore(expiry);
+              } catch (_) {
+                isActive = true; // if parse fails, trust is_plan_active
+              }
+            } else {
+              isActive = true; // no expiry = active
+            }
           }
         }
       }
+
       if (isActive) {
         await prefs.setBool(localActiveKey, true);
         await prefs.setBool(paymentGateCompletedKey, true);
+        await prefs.setString(
+            cacheTimestampKey, DateTime.now().toIso8601String());
       } else {
         await prefs.setBool(localActiveKey, false);
       }
