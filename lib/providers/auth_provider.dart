@@ -53,7 +53,9 @@ class AuthProvider extends ChangeNotifier {
   }
 
   // POST /user/verify-otp
-  Future<bool> verifyOtp(String phone, String otp) async {
+  // Returns the full API response so OTP screen can read gate fields
+  // (is_profile_updated, daily_alarm_set, is_plan_active)
+  Future<Map<String, dynamic>> verifyOtp(String phone, String otp) async {
     _loading = true;
     _error = null;
     notifyListeners();
@@ -62,7 +64,7 @@ class AuthProvider extends ChangeNotifier {
     if (res['status'] != true) {
       _error = res['message'] ?? 'Invalid OTP';
       notifyListeners();
-      return false;
+      return {'status': false, 'message': _error};
     }
     _isLoggedIn = true;
     _user = _normalizeUser(res);
@@ -74,7 +76,7 @@ class AuthProvider extends ChangeNotifier {
 
     // Sync FCM token stored from Firebase init
     _syncStoredFCMToken();
-    return true;
+    return res; // Return full response so caller can read gate fields
   }
 
   Future<void> _syncStoredFCMToken() async {

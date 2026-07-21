@@ -276,7 +276,7 @@ void _openNotificationTarget(Map<String, dynamic> data) {
     final token = prefs.getString('auth_token') ?? '';
     if (token.isEmpty) return; // Not logged in — ignore notification tap
     // Push notifications ON TOP of existing stack (don't wipe home)
-    final currentRoute = nav.focusedRoute?.settings?.name ?? '';
+    final currentRoute = '';
     const authScreens = ['/payment', '/subscription-gate', '/onboarding',
       '/register', '/otp', '/setup-profile', '/alarm-setup'];
     if (authScreens.contains(currentRoute)) return; // On auth screen — ignore

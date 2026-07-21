@@ -125,7 +125,8 @@ class _OtpScreenState extends State<OtpScreen> {
     setState(() => _loading = true);
 
     final auth = context.read<AuthProvider>();
-    final ok = await auth.verifyOtp(_phone, _otp);
+    final res = await auth.verifyOtp(_phone, _otp);
+    final ok = res['status'] == true;
     if (!mounted) return;
 
     if (!ok) {
