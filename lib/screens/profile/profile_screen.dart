@@ -135,13 +135,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<(bool, bool)> _loadLocalAlarmState() async {
-    final config = await AlarmConfigStore.load();
-    if (config.isNotEmpty) {
-      return (
-        AlarmConfigStore.hasMedical(config),
-        AlarmConfigStore.hasFood(config),
-      );
-    }
     // Check AlarmConfigStore first (most reliable — saved during alarm setup)
     final config = await AlarmConfigStore.load();
     if (config.isNotEmpty) {
