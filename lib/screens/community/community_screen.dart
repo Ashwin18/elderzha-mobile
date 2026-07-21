@@ -94,6 +94,20 @@ class _CommunityScreenState extends State<CommunityScreen> {
   List _extractItems(Map<String, dynamic>? res) {
     if (res == null) return [];
     final rootData = res['data'];
+
+    // Activities tab (tab=3): filter to show only activity-type items
+    if (_tab == 3 && rootData is List) {
+      return rootData.where((item) =>
+        item is Map && (item['type'] == 'activity' ||
+        item['activity_id'] != null)).toList();
+    }
+    // Feed tab (tab=1): filter to show only feed/admin_post items
+    if (_tab == 1 && rootData is List) {
+      return rootData.where((item) =>
+        item is Map && (item['type'] == 'admin_post' ||
+        item['type'] == 'feed')).toList();
+    }
+
     if (_tab == 0 && rootData is Map) {
       final merged = <Map<String, dynamic>>[];
       final feed = rootData['feed'];

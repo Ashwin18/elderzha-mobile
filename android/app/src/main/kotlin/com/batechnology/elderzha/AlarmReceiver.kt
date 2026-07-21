@@ -27,34 +27,35 @@ class AlarmReceiver : BroadcastReceiver() {
             return
         }
 
-        val id = intent.getIntExtra(EXTRA_ID, 0)
-        val title = intent.getStringExtra(EXTRA_TITLE) ?: "ElderZha reminder"
-        val notes = intent.getStringExtra(EXTRA_NOTES) ?: "It is time for your reminder."
-        val type = intent.getStringExtra(EXTRA_TYPE) ?: "once"
+        val id        = intent.getIntExtra(EXTRA_ID, 0)
+        val title     = intent.getStringExtra(EXTRA_TITLE)    ?: "ElderZha reminder"
+        val notes     = intent.getStringExtra(EXTRA_NOTES)    ?: "It is time for your reminder."
+        val type      = intent.getStringExtra(EXTRA_TYPE)     ?: "once"
         val triggerAt = intent.getLongExtra(EXTRA_TRIGGER_AT, 0L)
-        val soundUrl = intent.getStringExtra(EXTRA_SOUND_URL) ?: ""
-        val imageUrl = intent.getStringExtra(EXTRA_IMAGE_URL) ?: ""
-        val keyguardManager = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
-        val isLocked = keyguardManager.isKeyguardLocked
+        val soundUrl  = intent.getStringExtra(EXTRA_SOUND_URL) ?: ""
+        val imageUrl  = intent.getStringExtra(EXTRA_IMAGE_URL) ?: ""
 
+        // Start sound service first
         AlarmSoundService.start(context, id, soundUrl, title, notes, imageUrl)
-        showNotification(context, id, title, notes, imageUrl, soundUrl, isLocked)
 
-        if (isLocked) {
-            val alarmIntent = Intent(context, AlarmActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+        // Show notification (always)
+        showNotification(context, id, title, notes, imageUrl, soundUrl)
+
+        // Gap 1 Fix: Show full screen AlarmActivity ALWAYS (not just when locked)
+        val alarmIntent = Intent(context, AlarmActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_CLEAR_TOP or
                     Intent.FLAG_ACTIVITY_SINGLE_TOP
-                putExtra(AlarmActivity.EXTRA_TITLE, title)
-                putExtra(AlarmActivity.EXTRA_NOTES, notes)
-                putExtra(AlarmActivity.EXTRA_SOUND_URL, soundUrl)
-                putExtra(AlarmActivity.EXTRA_IMAGE_URL, imageUrl)
-                putExtra(AlarmActivity.EXTRA_PLAY_SOUND, false)
-                putExtra(AlarmActivity.EXTRA_NOTIFICATION_ID, id)
-            }
-            context.startActivity(alarmIntent)
+            putExtra(AlarmActivity.EXTRA_TITLE, title)
+            putExtra(AlarmActivity.EXTRA_NOTES, notes)
+            putExtra(AlarmActivity.EXTRA_SOUND_URL, soundUrl)
+            putExtra(AlarmActivity.EXTRA_IMAGE_URL, imageUrl)
+            putExtra(AlarmActivity.EXTRA_PLAY_SOUND, false) // sound already started
+            putExtra(AlarmActivity.EXTRA_NOTIFICATION_ID, id)
         }
+        context.startActivity(alarmIntent)
 
+        // Reschedule for next occurrence
         val nextTriggerAt = nextTriggerAt(triggerAt, type.lowercase())
         if (nextTriggerAt > 0L) {
             schedule(context, id, nextTriggerAt, title, type, notes, soundUrl, imageUrl)
@@ -65,16 +66,16 @@ class AlarmReceiver : BroadcastReceiver() {
         if (triggerAt <= 0L) return 0L
         val cal = java.util.Calendar.getInstance().apply { timeInMillis = triggerAt }
         when (type) {
-            "daily" -> cal.add(java.util.Calendar.DAY_OF_YEAR, 1)
+            "daily"   -> cal.add(java.util.Calendar.DAY_OF_YEAR, 1)
             "monthly" -> cal.add(java.util.Calendar.MONTH, 1)
-            "yearly" -> cal.add(java.util.Calendar.YEAR, 1)
-            else -> return 0L
+            "yearly"  -> cal.add(java.util.Calendar.YEAR, 1)
+            else      -> return 0L
         }
         while (cal.timeInMillis <= System.currentTimeMillis()) {
             when (type) {
-                "daily" -> cal.add(java.util.Calendar.DAY_OF_YEAR, 1)
+                "daily"   -> cal.add(java.util.Calendar.DAY_OF_YEAR, 1)
                 "monthly" -> cal.add(java.util.Calendar.MONTH, 1)
-                "yearly" -> cal.add(java.util.Calendar.YEAR, 1)
+                "yearly"  -> cal.add(java.util.Calendar.YEAR, 1)
             }
         }
         return cal.timeInMillis
@@ -87,13 +88,11 @@ class AlarmReceiver : BroadcastReceiver() {
         notes: String,
         imageUrl: String,
         soundUrl: String,
-        isLocked: Boolean,
     ) {
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
-                CHANNEL_ID,
-                "ElderZha Alarms",
+                CHANNEL_ID, "ElderZha Alarms",
                 NotificationManager.IMPORTANCE_HIGH,
             ).apply {
                 description = "Medical, food, and family reminders"
@@ -105,8 +104,8 @@ class AlarmReceiver : BroadcastReceiver() {
 
         val launchIntent = Intent(context, AlarmActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra(AlarmActivity.EXTRA_TITLE, title)
             putExtra(AlarmActivity.EXTRA_NOTES, notes)
             putExtra(AlarmActivity.EXTRA_SOUND_URL, soundUrl)
@@ -115,11 +114,11 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra(AlarmActivity.EXTRA_NOTIFICATION_ID, id)
         }
         val fullScreenIntent = PendingIntent.getActivity(
-            context,
-            id,
-            launchIntent,
+            context, id, launchIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+
+        // Gap 3 Fix: Dismiss action button on notification
         val dismissIntent = PendingIntent.getBroadcast(
             context,
             id + DISMISS_REQUEST_OFFSET,
@@ -141,12 +140,15 @@ class AlarmReceiver : BroadcastReceiver() {
             .setAutoCancel(true)
             .setVibrate(longArrayOf(0, 600, 250, 600))
             .setContentIntent(fullScreenIntent)
-            .setDeleteIntent(dismissIntent)
+            .setDeleteIntent(dismissIntent) // swipe = dismiss + stop sound
+            .setFullScreenIntent(fullScreenIntent, true) // always show full screen
             .setOnlyAlertOnce(true)
-
-        if (isLocked) {
-            builder.setFullScreenIntent(fullScreenIntent, true)
-        }
+            // Gap 3 Fix: Explicit "Dismiss" action button on notification
+            .addAction(
+                android.R.drawable.ic_menu_close_clear_cancel,
+                "Dismiss",
+                dismissIntent
+            )
 
         if (image != null) {
             builder
@@ -158,9 +160,7 @@ class AlarmReceiver : BroadcastReceiver() {
                 )
         }
 
-        val notification = builder.build()
-
-        manager.notify(id, notification)
+        manager.notify(id, builder.build())
     }
 
     private fun loadBitmap(imageUrl: String): Bitmap? {
@@ -175,56 +175,35 @@ class AlarmReceiver : BroadcastReceiver() {
                     BitmapFactory.decodeFile(imageUrl)
                 else -> null
             }
-        } catch (_: Exception) {
-            null
-        }
+        } catch (_: Exception) { null }
     }
 
     companion object {
-        private const val ACTION_DISMISS = "com.batechnology.elderzha.DISMISS_ALARM"
-        private const val DISMISS_REQUEST_OFFSET = 500_000
-        private const val CHANNEL_ID = "elderzha_alarm_channel_v4"
-        private const val EXTRA_ID = "id"
-        private const val EXTRA_TRIGGER_AT = "triggerAt"
-        private const val EXTRA_TITLE = "title"
-        private const val EXTRA_TYPE = "type"
-        private const val EXTRA_NOTES = "notes"
-        private const val EXTRA_SOUND_URL = "soundUrl"
-        private const val EXTRA_IMAGE_URL = "imageUrl"
+        const val ACTION_DISMISS        = "com.batechnology.elderzha.DISMISS_ALARM"
+        const val DISMISS_REQUEST_OFFSET = 500_000
+        const val CHANNEL_ID            = "elderzha_alarm_channel_v4"
+        const val EXTRA_ID              = "id"
+        const val EXTRA_TRIGGER_AT      = "triggerAt"
+        const val EXTRA_TITLE           = "title"
+        const val EXTRA_TYPE            = "type"
+        const val EXTRA_NOTES           = "notes"
+        const val EXTRA_SOUND_URL       = "soundUrl"
+        const val EXTRA_IMAGE_URL       = "imageUrl"
 
-        fun intent(
-            context: Context,
-            id: Int,
-            triggerAt: Long,
-            title: String,
-            type: String,
-            notes: String,
-            soundUrl: String,
-            imageUrl: String,
+        fun intent(context: Context, id: Int, triggerAt: Long, title: String,
+                   type: String, notes: String, soundUrl: String, imageUrl: String
         ): Intent = Intent(context, AlarmReceiver::class.java).apply {
-            putExtra(EXTRA_ID, id)
-            putExtra(EXTRA_TRIGGER_AT, triggerAt)
-            putExtra(EXTRA_TITLE, title)
-            putExtra(EXTRA_TYPE, type)
-            putExtra(EXTRA_NOTES, notes)
-            putExtra(EXTRA_SOUND_URL, soundUrl)
+            putExtra(EXTRA_ID, id); putExtra(EXTRA_TRIGGER_AT, triggerAt)
+            putExtra(EXTRA_TITLE, title); putExtra(EXTRA_TYPE, type)
+            putExtra(EXTRA_NOTES, notes); putExtra(EXTRA_SOUND_URL, soundUrl)
             putExtra(EXTRA_IMAGE_URL, imageUrl)
         }
 
-        fun schedule(
-            context: Context,
-            id: Int,
-            triggerAt: Long,
-            title: String,
-            type: String,
-            notes: String,
-            soundUrl: String,
-            imageUrl: String,
-        ) {
+        fun schedule(context: Context, id: Int, triggerAt: Long, title: String,
+                     type: String, notes: String, soundUrl: String, imageUrl: String) {
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             val pendingIntent = PendingIntent.getBroadcast(
-                context,
-                id,
+                context, id,
                 intent(context, id, triggerAt, title, type, notes, soundUrl, imageUrl),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
@@ -235,10 +214,6 @@ class AlarmReceiver : BroadcastReceiver() {
             }
         }
 
-        fun cancelAll(context: Context) {
-            // Stored ids are managed on the Flutter side; this method is present
-            // so MethodChannel calls do not fail. Individual ids are cancelled
-            // from Dart when available.
-        }
+        fun cancelAll(context: Context) { /* managed from Flutter side */ }
     }
 }

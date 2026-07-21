@@ -32,49 +32,37 @@ class CommunityService {
   }
 
   // ── GET /user/feed/{type} ─────────────────────────────────
-  // type: 'all' | 'feed' | 'polls' | 'activities'
+  // Backend combinedFeed accepts: 'all', 'post' (feeds+activities), 'pools' (polls)
+  // Tab mapping: 'all'→'all', 'feed'→'post', 'polls'→'pools', 'activities'→'post'
   Future<Map<String, dynamic>?> getFeed(String type) async {
     final normalized = type.toLowerCase();
+
+    // 'all' tab — call /user/feed/all which returns everything
     if (normalized == 'all') {
-      final feed = await _firstListResponse([
-        '/user/feed/all',
-        '/user/feed/post',
-        '/user/feeds',
-      ]);
-      final polls = await _firstListResponse([
-        '/user/get/pools-list',
-        '/user/feed/poll',
-        '/user/feed/pools',
-      ]);
-      final activities = await _firstListResponse([
-        '/user/activity/list',
-        '/user/feed/activities',
-        '/user/activities/home',
-      ]);
-      return {
-        'status': true,
-        'data': {
-          'feed': _extractList(feed),
-          'polls': _extractList(polls),
-          'activities': _extractList(activities),
-        },
-      };
+      return _api.safeGet('/user/feed/all');
     }
 
-    final feedType = normalized == 'feed'
-        ? 'post'
-        : normalized == 'polls'
-            ? 'pools'
-            : normalized;
+    // 'polls' tab — use dedicated polls endpoint
+    if (normalized == 'polls') {
+      final res = await _api.safeGet('/user/get/pools-list');
+      return res;
+    }
+
+    // 'activities' tab — backend uses type='post' for activities
+    if (normalized == 'activities') {
+      final res = await _api.safeGet('/user/feed/post');
+      return res;
+    }
+
+    // 'feed' tab — backend uses type='post'
+    if (normalized == 'feed') {
+      final res = await _api.safeGet('/user/feed/post');
+      return res;
+    }
+
+    // fallback
     final candidates = <String>[
-      if (normalized == 'all') '/user/feed/all',
-      if (normalized == 'all') '/user/feed/post',
-      if (normalized == 'polls') '/user/get/pools-list',
-      if (normalized == 'activities') '/user/activity/list',
-      if (normalized == 'activities') '/user/feed/activities',
-      if (normalized == 'activities') '/user/activities/home',
-      '/user/feed/$feedType',
-      if (normalized == 'polls') '/user/feed/poll',
+      '/user/feed/$normalized',
     ];
 
     Map<String, dynamic>? firstEmpty;
