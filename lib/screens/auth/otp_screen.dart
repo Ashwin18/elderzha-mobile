@@ -555,7 +555,7 @@ class _OtpScreenState extends State<OtpScreen> {
                       const SizedBox(height: 6),
                       Text(
                         'Sent via SMS to your mobile number',
-                        style: GoogleFonts.poppins(fontSize: 12, color: C.txl),
+                        style: GoogleFonts.poppins(fontSize: 14, color: C.txl),
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -596,7 +596,7 @@ class _OtpScreenState extends State<OtpScreen> {
                                     ),
                                   ],
                                   style: GoogleFonts.poppins(
-                                    fontSize: 30,
+                                    fontSize: 36,
                                     fontWeight: FontWeight.w800,
                                     color: C.ink,
                                   ),

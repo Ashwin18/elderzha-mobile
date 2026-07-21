@@ -19,7 +19,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void _send() async {
     final phone = _phoneCtrl.text.trim();
     if (!RegExp(r'^[0-9]{10}$').hasMatch(phone)) {
-      _snack('Enter a valid 10-digit mobile number (digits only)');
+      _snack('Please enter a valid 10-digit mobile number');
       return;
     }
     setState(() => _loading = true);
@@ -33,152 +33,236 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  void _snack(String m) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(m, style: poppins(13)),
-      backgroundColor: C.red,
-      duration: const Duration(seconds: 2)));
+  void _snack(String m, {bool ok = false}) =>
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(m, style: GoogleFonts.poppins(fontSize: 15)),
+          backgroundColor: ok ? C.green : C.red,
+          duration: const Duration(seconds: 3)));
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: C.bg,
       body: Column(children: [
-        // Yellow header
+
+        // ── Yellow header ──────────────────────────────────────────
         Container(
           width: double.infinity,
           color: C.yellow,
           child: SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(18, 16, 18, 26),
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Welcome! 👋',
-                          style:
-                              poppins(13, w: FontWeight.w600, c: C.yellowDeep)),
-                      const SizedBox(height: 4),
-                      Text('Create your\naccount',
-                          style: poppins(28,
-                              w: FontWeight.w800, c: C.ink, h: 1.2)),
-                    ]),
-              )),
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Logo mark
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                        color: C.ink,
+                        borderRadius: BorderRadius.circular(16)),
+                    child: Center(
+                      child: Text('EZ',
+                          style: GoogleFonts.poppins(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                              color: C.yellow,
+                              letterSpacing: -1)),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Text('Welcome!',
+                      style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: C.yellowDeep)),
+                  const SizedBox(height: 4),
+                  Text('Enter your\nmobile number',
+                      style: GoogleFonts.poppins(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w800,
+                          color: C.ink,
+                          height: 1.15)),
+                ],
+              ),
+            ),
+          ),
         ),
-        // White slide-up body
+
+        // ── White body ─────────────────────────────────────────────
         Expanded(
           child: Container(
             decoration: const BoxDecoration(
                 color: C.white,
                 borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(28),
-                    topRight: Radius.circular(28))),
+                    topLeft: Radius.circular(32),
+                    topRight: Radius.circular(32))),
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(18),
+              padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
               child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 4),
-                    _lbl('Mobile Number'),
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      decoration: BoxDecoration(
-                          color: C.bg2,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: C.bd, width: 1.5)),
-                      child: Row(children: [
-                        Padding(
-                            padding: const EdgeInsets.only(left: 14),
-                            child: Text('+91',
-                                style:
-                                    poppins(13, w: FontWeight.w600, c: C.ink))),
-                        const SizedBox(width: 4),
-                        Container(width: 1, height: 20, color: C.bd),
-                        Expanded(
-                            child: TextField(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+
+                  // ── Label ───────────────────────────────────────
+                  Text('Mobile number',
+                      style: GoogleFonts.poppins(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: C.ink)),
+                  const SizedBox(height: 10),
+
+                  // ── Phone input — BIG ────────────────────────────
+                  Container(
+                    decoration: BoxDecoration(
+                        color: C.bg2,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: C.yellow, width: 2.5)),
+                    child: Row(children: [
+                      // Country code
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 18, vertical: 18),
+                        decoration: BoxDecoration(
+                          border: Border(
+                              right: BorderSide(color: C.bd, width: 1.5)),
+                        ),
+                        child: Text('+91',
+                            style: GoogleFonts.poppins(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                                color: C.ink)),
+                      ),
+                      // Number field
+                      Expanded(
+                        child: TextField(
                           controller: _phoneCtrl,
                           keyboardType: TextInputType.phone,
                           inputFormatters: [
                             FilteringTextInputFormatter.digitsOnly,
-                            LengthLimitingTextInputFormatter(10)
+                            LengthLimitingTextInputFormatter(10),
                           ],
-                          style: poppins(13, c: C.ink),
+                          style: GoogleFonts.poppins(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w600,
+                              color: C.ink,
+                              letterSpacing: 2),
                           decoration: InputDecoration(
-                            hintText: '10-digit mobile number',
-                            hintStyle: poppins(13, c: C.txl),
+                            hintText: '98XXXXXXXX',
+                            hintStyle: GoogleFonts.poppins(
+                                fontSize: 20,
+                                color: C.txl,
+                                letterSpacing: 1),
                             border: InputBorder.none,
                             contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 12),
-                            filled: false,
+                                horizontal: 16, vertical: 18),
                           ),
-                        )),
-                      ]),
-                    ),
-                    const SizedBox(height: 24),
-                    _loading
-                        ? const Center(
-                            child: CircularProgressIndicator(color: C.ink))
-                        : GestureDetector(
-                            onTap: _send,
-                            child: Container(
-                              width: double.infinity,
-                              height: 50,
-                              decoration: BoxDecoration(
-                                  color: C.yellow,
-                                  borderRadius: BorderRadius.circular(14)),
-                              child: Center(
-                                  child: Text('Send OTP →',
-                                      style: poppins(14,
-                                          w: FontWeight.w700, c: C.ink))),
-                            ),
-                          ),
-                    const SizedBox(height: 14),
-                    Center(
-                        child: Text(
-                            'We will send a 4-digit OTP to verify your number',
-                            style: poppins(12, c: C.txl),
-                            textAlign: TextAlign.center)),
-                    const SizedBox(height: 20),
-                    Center(
-                      child: RichText(
-                        textAlign: TextAlign.center,
-                        text: TextSpan(
-                          style: poppins(13, c: C.txl),
-                          children: [
-                            const TextSpan(text: 'Already registered? '),
-                            WidgetSpan(
-                              child: GestureDetector(
-                                onTap: () {
-                                  // Same flow — OTP works for both new + returning users
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        'Enter your registered mobile number and we\'ll send an OTP to log you in.',
-                                        style: poppins(12),
-                                      ),
-                                      backgroundColor: C.green,
-                                      duration: const Duration(seconds: 4),
-                                    ),
-                                  );
-                                },
-                                child: Text(
-                                  'Login with same number',
-                                  style: poppins(13, w: FontWeight.w700, c: C.yellowDeep),
-                                ),
-                              ),
-                            ),
-                          ],
+                          onSubmitted: (_) => _send(),
                         ),
+                      ),
+                    ]),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // ── Helper text ─────────────────────────────────
+                  Row(children: [
+                    const Icon(Icons.info_outline_rounded,
+                        size: 18, color: Color(0xFF888680)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        "We'll send a 4-digit code to this number",
+                        style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            color: const Color(0xFF888680),
+                            height: 1.4),
                       ),
                     ),
                   ]),
+
+                  const SizedBox(height: 32),
+
+                  // ── Send OTP button — BIG ────────────────────────
+                  _loading
+                      ? const Center(
+                          child: SizedBox(
+                              width: 32,
+                              height: 32,
+                              child:
+                                  CircularProgressIndicator(color: C.ink)))
+                      : GestureDetector(
+                          onTap: _send,
+                          child: Container(
+                            width: double.infinity,
+                            height: 60,
+                            decoration: BoxDecoration(
+                                color: C.ink,
+                                borderRadius: BorderRadius.circular(16)),
+                            child: Center(
+                              child: Text('Send OTP  →',
+                                  style: GoogleFonts.poppins(
+                                      fontSize: 19,
+                                      fontWeight: FontWeight.w700,
+                                      color: C.yellow)),
+                            ),
+                          ),
+                        ),
+
+                  const SizedBox(height: 28),
+
+                  // ── Divider ──────────────────────────────────────
+                  Row(children: [
+                    Expanded(child: Divider(color: C.bd, thickness: 1)),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      child: Text('or',
+                          style: GoogleFonts.poppins(
+                              fontSize: 14, color: C.txl)),
+                    ),
+                    Expanded(child: Divider(color: C.bd, thickness: 1)),
+                  ]),
+
+                  const SizedBox(height: 20),
+
+                  // ── Returning user ───────────────────────────────
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: C.bg2,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: C.bd),
+                    ),
+                    child: Column(children: [
+                      const Icon(Icons.phone_android_rounded,
+                          size: 28, color: Color(0xFF888680)),
+                      const SizedBox(height: 8),
+                      Text('Already registered?',
+                          style: GoogleFonts.poppins(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: C.ink)),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Enter your same number above.\nWe will send an OTP to log you in.',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            color: C.txl,
+                            height: 1.5),
+                      ),
+                    ]),
+                  ),
+
+                  const SizedBox(height: 20),
+                ],
+              ),
             ),
           ),
         ),
       ]),
     );
   }
-
-  Widget _lbl(String t) => Padding(
-      padding: const EdgeInsets.only(bottom: 8, top: 4),
-      child: Text(t, style: poppins(12, w: FontWeight.w700, c: C.txl)));
 }

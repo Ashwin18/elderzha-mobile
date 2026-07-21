@@ -284,7 +284,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return null;
   }
 
-  bool get _remoteMedicalConfigured => _hasAlarmValue(_alarmData, [
+  // True if UserMedicalSetting ROW exists in DB (even if times are null)
+  bool get _remoteRowExists => _alarmData != null;
+
+  bool get _remoteMedicalConfigured =>
+      // Row exists + medical_alarm is enabled
+      (_remoteRowExists && (_alarmData!['medical_alarm'] == true ||
+          _alarmData!['medical_alarm'] == 1)) ||
+      // Or has any actual alarm times set
+      _hasAlarmValue(_alarmData, [
         'medical_alarm',
         'morning_before_food',
         'm_before_food',
@@ -300,7 +308,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'n_after_food',
       ]);
 
-  bool get _remoteFoodConfigured => _hasAlarmValue(_alarmData, [
+  bool get _remoteFoodConfigured =>
+      // Row exists + food alarm enabled
+      (_remoteRowExists && (_alarmData!['food_alaram'] == true ||
+          _alarmData!['food_alaram'] == 1 ||
+          _alarmData!['food_alarm'] == true ||
+          _alarmData!['food_alarm'] == 1)) ||
+      // Or has any actual food times
+      _hasAlarmValue(_alarmData, [
         'food_alarm',
         'food_alaram',
         'breakfast_status',
@@ -317,9 +332,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
+    // Show 'Configured' if: remote has values OR local has values OR
+    // DB row exists (user went through alarm setup, even with old build)
     final medicalConfigured =
-        _remoteMedicalConfigured || _localMedicalConfigured;
-    final foodConfigured = _remoteFoodConfigured || _localFoodConfigured;
+        _remoteMedicalConfigured || _localMedicalConfigured || _remoteRowExists;
+    final foodConfigured =
+        _remoteFoodConfigured || _localFoodConfigured || _remoteRowExists;
     final photoUrl = _profilePhotoUrl(auth.user);
     final myBirthday = auth.userDob.isNotEmpty
         ? auth.userDob

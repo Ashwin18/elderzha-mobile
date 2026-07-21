@@ -1191,6 +1191,8 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
 
   Future<void> _saveAlarmSummary() async {
     final prefs = await SharedPreferences.getInstance();
+    // Mark alarm setup as completed — used by profile to show 'Configured'
+    await prefs.setBool('first_time_alarm_setup_completed', true);
     final items = [
       if (_isMedOn('morning_before_food'))
         {
