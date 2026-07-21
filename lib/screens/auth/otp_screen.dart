@@ -314,8 +314,12 @@ class _OtpScreenState extends State<OtpScreen> {
 
       // 1. Get medical/food alarms from API and schedule
       final alarmRes = await AlarmService().getMedicalRecords();
-      final d = alarmRes?['data'];
-      if (d != null && d is Map) {
+      final rawD = alarmRes?['data'];
+      // API returns Collection (array) or single object — handle both
+      final d = rawD is Map ? rawD :
+                (rawD is List && rawD.isNotEmpty && rawD.first is Map)
+                  ? rawD.first : null;
+      if (d != null) {
         final prefs = await SharedPreferences.getInstance();
         final tone = prefs.getString('alarm_tone');
 

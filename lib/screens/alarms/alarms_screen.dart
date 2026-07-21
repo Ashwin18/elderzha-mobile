@@ -118,9 +118,14 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
     final res = await _alarmSvc.getMedicalRecords();
     if (!mounted) return;
 
-    final d = res?['data'];
-    final remote =
-        d is Map ? Map<String, dynamic>.from(d) : <String, dynamic>{};
+    // API returns data as array (Collection) OR object (single record)
+    final rawData = res?['data'];
+    Map<String, dynamic> remote = {};
+    if (rawData is Map) {
+      remote = Map<String, dynamic>.from(rawData);
+    } else if (rawData is List && rawData.isNotEmpty && rawData.first is Map) {
+      remote = Map<String, dynamic>.from(rawData.first);
+    }
     final merged = _mergeAlarmData(local, remote);
     if (merged.isNotEmpty) {
       setState(() => _applyAlarmData(merged, prefs.getString('alarm_tone')));

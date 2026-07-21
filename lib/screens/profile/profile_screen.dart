@@ -142,34 +142,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
         AlarmConfigStore.hasFood(config),
       );
     }
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString('setup_alarm_summary');
-    if (raw == null || raw.trim().isEmpty) return (false, false);
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is! List) return (false, false);
-      var medical = false;
-      var food = false;
-      for (final item in decoded) {
-        if (item is! Map) continue;
-        final label = (item['label'] ?? '').toString().toLowerCase();
-        final icon = (item['icon'] ?? '').toString();
-        if (label.contains('medication') || icon.contains('💊')) {
-          medical = true;
-        }
-        if (label.contains('breakfast') ||
-            label.contains('lunch') ||
-            label.contains('dinner') ||
-            icon.contains('🍳') ||
-            icon.contains('🍱') ||
-            icon.contains('🍽')) {
-          food = true;
-        }
-      }
-      return (medical, food);
-    } catch (_) {
-      return (false, false);
+    // Check AlarmConfigStore first (most reliable — saved during alarm setup)
+    final config = await AlarmConfigStore.load();
+    if (config.isNotEmpty) {
+      return (
+        AlarmConfigStore.hasMedical(config),
+        AlarmConfigStore.hasFood(config),
+      );
     }
+
+    // Fall back to setup_alarm_summary (also saved during alarm setup wizard)
+    final prefs = await SharedPreferences.getInstance();
+
+    // Check the dedicated flag set at end of alarm setup
+    if (prefs.getBool('first_time_alarm_setup_completed') == true) {
+      // Setup was completed — try to determine which alarms were set
+      final raw = prefs.getString('setup_alarm_summary');
+      if (raw != null && raw.trim().isNotEmpty) {
+        try {
+          final decoded = jsonDecode(raw);
+          if (decoded is List) {
+            var medical = false;
+            var food = false;
+            for (final item in decoded) {
+              if (item is! Map) continue;
+              final label = (item['label'] ?? '').toString().toLowerCase();
+              final icon = (item['icon'] ?? '').toString();
+              if (label.contains('medication') || icon.contains('💊')) medical = true;
+              if (label.contains('breakfast') || label.contains('lunch') ||
+                  label.contains('dinner') || icon.contains('🍳') ||
+                  icon.contains('🍱') || icon.contains('🍽')) food = true;
+            }
+            if (medical || food) return (medical, food);
+          }
+        } catch (_) {}
+      }
+      // Setup completed but no summary detail — mark both as configured
+      return (true, true);
+    }
+
+    return (false, false);
   }
 
   List _mergeFamily(List remote, List<Map<String, dynamic>> fallback) {
@@ -268,7 +280,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return false;
   }
 
-  bool get _remoteMedicalConfigured => _hasAlarmValue(_alarm, [
+  // Returns first record if API returns an array (Collection)
+  Map<String, dynamic>? get _alarmData {
+    if (_alarm == null) return null;
+    final d = _alarm!['data'];
+    if (d is Map) return Map<String, dynamic>.from(d);
+    if (d is List && d.isNotEmpty && d.first is Map) {
+      return Map<String, dynamic>.from(d.first);
+    }
+    return null;
+  }
+
+  bool get _remoteMedicalConfigured => _hasAlarmValue(_alarmData, [
         'medical_alarm',
         'morning_before_food',
         'm_before_food',
@@ -284,7 +307,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'n_after_food',
       ]);
 
-  bool get _remoteFoodConfigured => _hasAlarmValue(_alarm, [
+  bool get _remoteFoodConfigured => _hasAlarmValue(_alarmData, [
         'food_alarm',
         'food_alaram',
         'breakfast_status',
