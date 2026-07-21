@@ -1103,10 +1103,18 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
 
   Map<String, dynamic> _alarmPayload() => {
         'medical_alarm': _medicalEnabled ? 1 : 0,
+        // Backend DB columns: m_before_food, m_after_food, af_before_food, etc.
+        // Also send long names as aliases for getMedicalRecords compatibility
         'morning_status':
             (_isMedOn('morning_before_food') || _isMedOn('morning_after_food'))
                 ? 1
                 : 0,
+        'm_before_food': _isMedOn('morning_before_food')
+            ? _apiTime(_med['morning_before_food']!)
+            : '',
+        'm_after_food': _isMedOn('morning_after_food')
+            ? _apiTime(_med['morning_after_food']!)
+            : '',
         'morning_before_food': _isMedOn('morning_before_food')
             ? _apiTime(_med['morning_before_food']!)
             : '',
@@ -1117,6 +1125,12 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
                 _isMedOn('afternoon_after_food'))
             ? 1
             : 0,
+        'af_before_food': _isMedOn('afternoon_before_food')
+            ? _apiTime(_med['afternoon_before_food']!)
+            : '',
+        'af_after_food': _isMedOn('afternoon_after_food')
+            ? _apiTime(_med['afternoon_after_food']!)
+            : '',
         'afternoon_before_food': _isMedOn('afternoon_before_food')
             ? _apiTime(_med['afternoon_before_food']!)
             : '',
@@ -1127,23 +1141,37 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
             (_isMedOn('night_before_food') || _isMedOn('night_after_food'))
                 ? 1
                 : 0,
+        'n_before_food': _isMedOn('night_before_food')
+            ? _apiTime(_med['night_before_food']!)
+            : '',
+        'n_after_food': _isMedOn('night_after_food')
+            ? _apiTime(_med['night_after_food']!)
+            : '',
         'night_before_food': _isMedOn('night_before_food')
             ? _apiTime(_med['night_before_food']!)
             : '',
         'night_after_food': _isMedOn('night_after_food')
             ? _apiTime(_med['night_after_food']!)
             : '',
-        'food_alarm': _foodEnabled ? 1 : 0,
+        'food_alaram': _foodEnabled ? 1 : 0,
+        'food_alarm':  _foodEnabled ? 1 : 0,
         'breakfast_status': _isFoodOn('breakfast_time') ? 1 : 0,
+        'bf_time': _isFoodOn('breakfast_time')
+            ? _apiTime(_food['breakfast_time']!)
+            : '',
         'breakfast_time': _isFoodOn('breakfast_time')
             ? _apiTime(_food['breakfast_time']!)
             : '',
         'lunch_status': _isFoodOn('lunch_time') ? 1 : 0,
-        'lunch_time':
-            _isFoodOn('lunch_time') ? _apiTime(_food['lunch_time']!) : '',
+        'l_time': _isFoodOn('lunch_time')
+            ? _apiTime(_food['lunch_time']!) : '',
+        'lunch_time': _isFoodOn('lunch_time')
+            ? _apiTime(_food['lunch_time']!) : '',
         'dinner_status': _isFoodOn('dinner_time') ? 1 : 0,
-        'dinner_time':
-            _isFoodOn('dinner_time') ? _apiTime(_food['dinner_time']!) : '',
+        'd_time': _isFoodOn('dinner_time')
+            ? _apiTime(_food['dinner_time']!) : '',
+        'dinner_time': _isFoodOn('dinner_time')
+            ? _apiTime(_food['dinner_time']!) : '',
       };
 
   String _apiTime(String value) {
