@@ -48,10 +48,14 @@ class CommunityService {
       return res;
     }
 
-    // 'activities' tab — backend uses type='post' for activities
+    // 'activities' tab — use dedicated activity list endpoint
     if (normalized == 'activities') {
-      final res = await _api.safeGet('/user/feed/post');
-      return res;
+      // /user/activity/list returns actual user-assigned activities
+      // /user/feed/post returns admin_posts (feeds) — wrong for activities tab
+      final res = await _api.safeGet('/user/activity/list');
+      if (res != null && res['status'] == true) return res;
+      // Fallback if activity/list doesn't exist
+      return await _api.safeGet('/user/feed/post');
     }
 
     // 'feed' tab — backend uses type='post'

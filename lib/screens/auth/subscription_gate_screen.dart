@@ -122,33 +122,8 @@ class _SubscriptionGateScreenState extends State<SubscriptionGateScreen> {
       return;
     }
 
-    // ── Auto pay (Razorpay subscription) ───────────────────────────────────
-    if (_autoPay) {
-      final res = await _svc.createSubscription(planId: _selPlanId!, autoPay: true);
-      setState(() => _paying = false);
-      if (!mounted) return;
-      if (res['status'] != true) { _snack(res['message'] ?? 'Failed'); return; }
-      final subId     = res['subscription_id'] ?? res['data']?['subscription_id'];
-      final purchaseId = int.tryParse(
-          (res['purchase_id'] ?? res['data']?['purchase_id'] ?? '').toString());
-      if (subId == null) { _snack('Invalid subscription response'); return; }
-      _pendingSubscriptionId = subId.toString();
-      _pendingPurchaseId     = purchaseId;
-      _openRzp({
-        'key': res['data']?['razorpay_key'] ?? _rzpKey,
-        'subscription_id': subId,
-        'name': 'ElderZha',
-        'description': res['data']?['description'] ?? _planName(_selPlan),
-        'prefill': {
-          'name': res['data']?['user_name'],
-          'contact': res['data']?['user_phone'],
-        },
-        'theme': {'color': '#FFCC01'},
-      });
-      return;
-    }
-
-    // ── One-time payment ───────────────────────────────────────────────────
+    // ── Single payment flow — /user/purchase/plan ────────────────────────────
+    // createSubscription (/user/subscription/create) doesn't exist on backend
     final res = await _svc.initiatePlanPurchase(
         planId: _selPlanId!, couponCode: _couponApplied);
     setState(() => _paying = false);
@@ -189,13 +164,7 @@ class _SubscriptionGateScreenState extends State<SubscriptionGateScreen> {
     _paymentHandled = true;
     setState(() => _paying = true);
     try {
-      final conf = _autoPay
-          ? _svc.confirmSubscription(
-              purchaseId: _pendingPurchaseId ?? 0,
-              razorpaySubscriptionId: _pendingSubscriptionId ?? r.orderId ?? '',
-              razorpayPaymentId: r.paymentId ?? '',
-              razorpaySignature: r.signature ?? '')
-          : _svc.confirmOneTimePayment(
+      final conf = _svc.confirmOneTimePayment(
               purchaseId: _pendingPurchaseId ?? 0,
               planId: _selPlanId ?? 0,
               razorpayPaymentId: r.paymentId ?? '');

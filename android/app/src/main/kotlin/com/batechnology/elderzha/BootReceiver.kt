@@ -4,11 +4,13 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import org.json.JSONArray
+import org.json.JSONObject
 
 /**
  * BootReceiver — reschedules all alarms after phone restart.
- * Android clears all AlarmManager alarms on reboot.
- * This receiver fires on BOOT_COMPLETED and reschedules from SharedPreferences.
+ * Reads from Flutter DailyScheduler's SharedPreferences:
+ *   key: 'scheduled_alarms' (default prefs) → List of JSON strings
  */
 class BootReceiver : BroadcastReceiver() {
 
@@ -16,44 +18,62 @@ class BootReceiver : BroadcastReceiver() {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED &&
             intent.action != "android.intent.action.QUICKBOOT_POWERON") return
 
-        val prefs: SharedPreferences = context.getSharedPreferences("alarm_prefs", Context.MODE_PRIVATE)
-        val masterEnabled = prefs.getBoolean("alarms_enabled", true)
-        if (!masterEnabled) return
+        // Read from Flutter's default SharedPreferences
+        // Flutter uses: context.getSharedPreferences(packageName + "_preferences", MODE_PRIVATE)
+        val packageName = context.packageName
+        val prefs = context.getSharedPreferences(
+            "${packageName}_preferences", Context.MODE_PRIVATE)
 
-        val alarmIds = prefs.getStringSet("alarm_ids", emptySet()) ?: return
+        val alarmsJson = prefs.getString("scheduled_alarms", null)
+        if (alarmsJson.isNullOrEmpty()) return
+
         val now = System.currentTimeMillis()
 
-        for (idStr in alarmIds) {
-            val id       = idStr.toLongOrNull() ?: continue
-            val title    = prefs.getString("alarm_${id}_title",    "ElderZha Reminder") ?: continue
-            val type     = prefs.getString("alarm_${id}_type",     "daily")              ?: "daily"
-            val soundUrl = prefs.getString("alarm_${id}_soundUrl", "")                   ?: ""
-            val imageUrl = prefs.getString("alarm_${id}_imageUrl", "")                   ?: ""
-            val notes    = prefs.getString("alarm_${id}_notes",    "")                   ?: ""
-            val date     = prefs.getString("alarm_${id}_date",     "")                   ?: ""
-            var triggerAt = prefs.getLong("alarm_${id}_triggerAt", 0L)
+        try {
+            // scheduled_alarms is stored as JSON array string by Flutter
+            // Each item is a JSON string of alarm data
+            val alarmsListStr = prefs.getStringSet("flutter.scheduled_alarms", null)
+                ?: prefs.getAll().entries
+                    .firstOrNull { it.key.contains("scheduled_alarms") }
+                    ?.let { (it.value as? String)?.let { v -> setOf(v) } }
+                ?: return
 
-            if (triggerAt <= 0L) continue
+            for (alarmStr in alarmsListStr) {
+                try {
+                    // Try parsing as JSON array (Flutter stores as stringified list)
+                    val arr = JSONArray(alarmStr)
+                    for (i in 0 until arr.length()) {
+                        rescheduleAlarm(context, arr.getJSONObject(i), now, prefs)
+                    }
+                } catch (_: Exception) {
+                    try {
+                        rescheduleAlarm(context, JSONObject(alarmStr), now, prefs)
+                    } catch (_: Exception) {}
+                }
+            }
+        } catch (_: Exception) {}
+    }
 
-            // Compute next valid trigger time
-            triggerAt = nextFutureTrigger(triggerAt, type, now)
-            if (triggerAt <= 0L) continue
+    private fun rescheduleAlarm(
+        context: Context,
+        alarm: JSONObject,
+        now: Long,
+        prefs: SharedPreferences,
+    ) {
+        val id        = alarm.optInt("id", 0)
+        val title     = alarm.optString("title", "ElderZha Reminder")
+        val type      = alarm.optString("scheduleType", "daily")
+        val soundUrl  = alarm.optString("soundUrl", "")
+        val imageUrl  = alarm.optString("imageUrl", "")
+        val notes     = alarm.optString("notes", "")
+        var triggerAt = alarm.optLong("triggerAt", 0L)
 
-            // Reschedule via AlarmReceiver
-            AlarmReceiver.schedule(
-                context,
-                id.toInt(),
-                triggerAt,
-                title,
-                type,
-                notes,
-                soundUrl,
-                imageUrl,
-            )
+        if (id == 0 || triggerAt <= 0L) return
 
-            // Update stored trigger time
-            prefs.edit().putLong("alarm_${id}_triggerAt", triggerAt).apply()
-        }
+        triggerAt = nextFutureTrigger(triggerAt, type, now)
+        if (triggerAt <= 0L) return
+
+        AlarmReceiver.schedule(context, id, triggerAt, title, type, notes, soundUrl, imageUrl)
     }
 
     private fun nextFutureTrigger(triggerAt: Long, type: String, now: Long): Long {
@@ -63,7 +83,7 @@ class BootReceiver : BroadcastReceiver() {
                 "daily"   -> cal.add(java.util.Calendar.DAY_OF_YEAR, 1)
                 "yearly"  -> cal.add(java.util.Calendar.YEAR, 1)
                 "monthly" -> cal.add(java.util.Calendar.MONTH, 1)
-                else      -> return 0L // "once" alarms don't repeat
+                else      -> return 0L
             }
         }
         return cal.timeInMillis
