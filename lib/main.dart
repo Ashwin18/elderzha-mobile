@@ -271,20 +271,39 @@ void _openNotificationTarget(Map<String, dynamic> data) {
     );
     return;
   }
-  // Fix 9: Check user is logged in before navigating
   SharedPreferences.getInstance().then((prefs) {
     final token = prefs.getString('auth_token') ?? '';
-    if (token.isEmpty) return; // Not logged in — ignore notification tap
-    // Push notifications ON TOP of existing stack (don't wipe home)
-    final currentRoute = '';
-    const authScreens = ['/payment', '/subscription-gate', '/onboarding',
-      '/register', '/otp', '/setup-profile', '/alarm-setup'];
-    if (authScreens.contains(currentRoute)) return; // On auth screen — ignore
-    if (currentRoute == AppRoutes.notifications) return; // Already there
-    nav.pushNamed(
-      AppRoutes.notifications,
-      arguments: {'notification': data, 'fromPush': true},
-    );
+    if (token.isEmpty) return; // Not logged in — ignore
+
+    // Deep link: route to specific screen based on notification type
+    final type     = (data['type'] ?? data['module_type'] ?? '').toString().toLowerCase();
+
+    switch (type) {
+      case 'poll':
+      case 'pools':
+        // Open Spike tab → Polls (tab index 2)
+        nav.pushNamed(AppRoutes.community, arguments: {'initialTab': 2});
+        break;
+      case 'activity':
+        // Open Spike tab → Activities (tab index 3)
+        nav.pushNamed(AppRoutes.community, arguments: {'initialTab': 3});
+        break;
+      case 'feed':
+      case 'admin_post':
+        // Open Spike tab → Feed (tab index 1)
+        nav.pushNamed(AppRoutes.community, arguments: {'initialTab': 1});
+        break;
+      case 'offer':
+      case 'coupon':
+        nav.pushNamed(AppRoutes.offers);
+        break;
+      default:
+        // Fallback → notifications list
+        nav.pushNamed(
+          AppRoutes.notifications,
+          arguments: {'notification': data, 'fromPush': true},
+        );
+    }
   });
 }
 

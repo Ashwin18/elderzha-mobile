@@ -246,7 +246,8 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
                   EzButton(
                     label: 'Go to Home →',
                     onTap: () =>
-                        Navigator.pushReplacementNamed(context, AppRoutes.home),
+                        Navigator.pushNamedAndRemoveUntil(
+                            context, AppRoutes.home, (route) => false),
                   ),
                 ],
               ),

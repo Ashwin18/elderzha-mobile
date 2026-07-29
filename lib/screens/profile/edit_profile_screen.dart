@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
@@ -16,6 +18,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _dobCtrl;
   String _gender = '';
   bool _saving = false;
+  File? _pickedPhoto;
 
   @override
   void initState() {
@@ -96,6 +99,36 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
+
+  Future<void> _pickPhoto() async {
+    final picker = ImagePicker();
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(
+            leading: const Icon(Icons.camera_alt_rounded),
+            title: const Text('Take a photo'),
+            onTap: () => Navigator.pop(context, ImageSource.camera),
+          ),
+          ListTile(
+            leading: const Icon(Icons.photo_library_rounded),
+            title: const Text('Choose from gallery'),
+            onTap: () => Navigator.pop(context, ImageSource.gallery),
+          ),
+          const SizedBox(height: 8),
+        ]),
+      ),
+    );
+    if (source == null) return;
+    final picked = await picker.pickImage(
+        source: source, imageQuality: 80, maxWidth: 800);
+    if (picked == null) return;
+    setState(() => _pickedPhoto = File(picked.path));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -137,7 +170,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     // Avatar picker
                     Center(
                       child: GestureDetector(
-                        onTap: () => _snack('Photo upload coming soon'),
+                        onTap: _pickPhoto,
                         child: Column(children: [
                           Container(
                             width: 76,
@@ -147,8 +180,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               shape: BoxShape.circle,
                               border: Border.all(color: C.yellow, width: 3),
                             ),
-                            child: const Icon(Icons.camera_alt_rounded,
-                                size: 30, color: C.yellowDark),
+                            child: _pickedPhoto != null
+                                ? ClipOval(child: Image.file(_pickedPhoto!,
+                                    width: 76, height: 76, fit: BoxFit.cover))
+                                : const Icon(Icons.camera_alt_rounded,
+                                    size: 30, color: C.yellowDark),
                           ),
                           const SizedBox(height: 6),
                           Text('Tap to change photo',
