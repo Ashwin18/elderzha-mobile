@@ -157,6 +157,7 @@ class AuthService {
   Future<Map<String, dynamic>> updateFamily({
     required int id,
     required String name,
+    String? phone,
     required String relation,
     String? birthdayDate,
     String? anniversaryDate,

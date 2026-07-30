@@ -662,6 +662,21 @@ class _ElderZhaAppState extends State<ElderZhaApp> {
     }
   }
 
+  void _startFallDetection() {
+    FallDetectionService().start(onFallDetected: () {
+      final nav = appNavigatorKey.currentState;
+      if (nav == null) return;
+      SharedPreferences.getInstance().then((prefs) {
+        final token = prefs.getString('auth_token') ?? '';
+        if (token.isEmpty) return;
+        nav.push(MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (_) => const FallAlertScreen(),
+        ));
+      });
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
