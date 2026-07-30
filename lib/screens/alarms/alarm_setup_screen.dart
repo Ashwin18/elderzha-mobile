@@ -1540,6 +1540,7 @@ class _AddFamilySheet extends StatefulWidget {
 
 class _AddFamilySheetState extends State<_AddFamilySheet> {
   final _nameCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
   final _birthdayCtrl = TextEditingController();
   final _anniversaryCtrl = TextEditingController();
   DateTime? _birthdayDate;
@@ -1557,6 +1558,7 @@ class _AddFamilySheetState extends State<_AddFamilySheet> {
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _phoneCtrl.dispose();
     _birthdayCtrl.dispose();
     _anniversaryCtrl.dispose();
     super.dispose();
@@ -1652,6 +1654,21 @@ class _AddFamilySheetState extends State<_AddFamilySheet> {
             ),
           ),
           const SizedBox(height: 10),
+          Text('PHONE (FOR FALL ALERT SMS)',
+              style: poppins(11, w: FontWeight.w700, c: C.txl)),
+          const SizedBox(height: 6),
+          TextField(
+            controller: _phoneCtrl,
+            keyboardType: TextInputType.phone,
+            maxLength: 10,
+            decoration: const InputDecoration(
+              hintText: 'e.g. 9876543210',
+              helperText: 'SMS sent if fall detected',
+              prefixIcon: Icon(Icons.phone_outlined),
+              counterText: '',
+            ),
+          ),
+          const SizedBox(height: 10),
           Row(children: [
             Expanded(
               child: _dateTile(
@@ -1697,6 +1714,7 @@ class _AddFamilySheetState extends State<_AddFamilySheet> {
               }
               Navigator.pop(context, {
                 'name': _nameCtrl.text.trim(),
+                'phone': _phoneCtrl.text.trim(),
                 'relation': _relation,
                 'birthday_date': _birthdayCtrl.text,
                 'anniversary_date': _anniversaryCtrl.text,

@@ -157,11 +157,15 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
       Navigator.pop(context, true);
     } else {
       await _upsertLocalFamily(existing, synced: false);
+      // Show actual API error for debugging
+      final errMsg = res['message']?.toString() ??
+          res['errors']?.toString() ?? 'Sync failed';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Member saved. Sync will retry later.',
+          content: Text('Error: $errMsg',
               style: GoogleFonts.poppins()),
-          backgroundColor: AppColors.green));
-      Navigator.pop(context, true);
+          backgroundColor: AppColors.red,
+          duration: const Duration(seconds: 6)));
+      // Don't pop — let user retry
     }
   }
 
