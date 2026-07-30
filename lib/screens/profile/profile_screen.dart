@@ -276,12 +276,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // Returns first record if API returns an array (Collection)
   Map<String, dynamic>? get _alarmData {
     if (_alarm == null) return null;
+    // _extractMap already unwrapped res['data'] — so _alarm IS the settings object
+    // Check if _alarm has alarm fields directly (already unwrapped)
+    if (_alarm!.containsKey('medical_alarm') || _alarm!.containsKey('m_before_food') ||
+        _alarm!.containsKey('food_alaram') || _alarm!.containsKey('bf_time')) {
+      return _alarm;
+    }
+    // Try unwrapping one more level if needed
     final d = _alarm!['data'];
     if (d is Map) return Map<String, dynamic>.from(d);
     if (d is List && d.isNotEmpty && d.first is Map) {
       return Map<String, dynamic>.from(d.first);
     }
-    return null;
+    // Last resort — return _alarm itself
+    return _alarm!.isNotEmpty ? _alarm : null;
   }
 
   // True if UserMedicalSetting ROW exists in DB (even if times are null)
