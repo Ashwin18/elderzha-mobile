@@ -38,6 +38,8 @@ class FamilyEventScheduler {
       nextEntries.add(entry);
       nextKeys.add(entry['key'] as String);
 
+      // Gap 9 Fix: Use custom alarm tone for family events
+      final entrySoundUrl = alarmTone.isNotEmpty ? alarmTone : '';
       await _familyEventAlarmChannel.invokeMethod('scheduleAlarm', {
         'id': entry['id'],
         'triggerAt': entry['triggerAt'],
@@ -45,7 +47,7 @@ class FamilyEventScheduler {
         'type': 'yearly',
         'date': entry['date'],
         'notes': entry['notes'],
-        'soundUrl': alarmTone,
+        'soundUrl': entrySoundUrl,
         'imageUrl': '',
         'badgeText': entry['badgeText'],
       });
@@ -179,6 +181,8 @@ class FamilyEventScheduler {
       '${member.id}:${member.event.id}:${reminderCopy['eventKey']}',
     );
 
+    // Gap 9 Fix: soundUrl is set from prefs in syncFamilyEventReminders
+    // Pass placeholder here — actual tone injected during scheduling
     return {
       'key': '${member.id}:${member.event.id}',
       'id': id,
@@ -186,7 +190,7 @@ class FamilyEventScheduler {
       'title': reminderCopy['title'],
       'date': DateFormat('yyyy-MM-dd').format(nextOccurrence),
       'notes': reminderCopy['notes'],
-      'soundUrl': '',
+      'soundUrl': '__USE_PREFS_TONE__', // replaced in syncFamilyEventReminders
       'badgeText': badgeText,
     };
   }

@@ -35,13 +35,35 @@ class AlarmReceiver : BroadcastReceiver() {
         val soundUrl  = intent.getStringExtra(EXTRA_SOUND_URL) ?: ""
         val imageUrl  = intent.getStringExtra(EXTRA_IMAGE_URL) ?: ""
 
+        // Gap 12 Fix: Log alarm fired for history
+        try {
+            val prefs = context.getSharedPreferences("${context.packageName}_preferences", android.content.Context.MODE_PRIVATE)
+            val log = prefs.getStringSet("flutter.alarm_fired_log", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
+            val entry = org.json.JSONObject()
+            entry.put("title", title)
+            entry.put("firedAt", System.currentTimeMillis())
+            entry.put("type", type)
+            log.add(entry.toString())
+            // Keep only last 30 entries
+            val trimmed = if (log.size > 30) log.drop(log.size - 30).toMutableSet() else log
+            prefs.edit().putStringSet("flutter.alarm_fired_log", trimmed).apply()
+        } catch (_: Exception) {}
+
         // Start sound service first
         AlarmSoundService.start(context, id, soundUrl, title, notes, imageUrl)
 
-        // Show notification (always)
-        showNotification(context, id, title, notes, imageUrl, soundUrl)
+        // Gap 7 Fix: Use goAsync() to allow background work in BroadcastReceiver
+        val pendingResult = goAsync()
+        Thread {
+            try {
+                showNotification(context, id, title, notes, imageUrl, soundUrl)
+            } finally {
+                pendingResult.finish()
+            }
+        }.start()
 
-        // Gap 1 Fix: Show full screen AlarmActivity ALWAYS (not just when locked)
+        // Gap 6 Fix: Show AlarmActivity always for alarms (both locked and unlocked)
+        // This is intentional for medication alarms — user MUST acknowledge
         val alarmIntent = Intent(context, AlarmActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_CLEAR_TOP or
@@ -99,7 +121,7 @@ class AlarmReceiver : BroadcastReceiver() {
                 enableVibration(true)
                 setSound(null, null)
             }
-            manager.createNotificationChannel(channel)
+            manager.createNotificationChannel(channel) // idempotent — safe to call repeatedly
         }
 
         val launchIntent = Intent(context, AlarmActivity::class.java).apply {

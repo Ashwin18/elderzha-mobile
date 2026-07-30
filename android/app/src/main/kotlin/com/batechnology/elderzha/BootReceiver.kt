@@ -5,12 +5,15 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import org.json.JSONArray
+import org.json.JSONException
 import org.json.JSONObject
 
 /**
  * BootReceiver — reschedules all alarms after phone restart.
- * Reads from Flutter DailyScheduler's SharedPreferences:
- *   key: 'scheduled_alarms' (default prefs) → List of JSON strings
+ *
+ * Gap 3 Fix: Flutter stores scheduled_alarms as StringList via
+ * SharedPreferences.setStringList() which uses a Set<String> internally.
+ * Must be read via getStringSet(), not getString().
  */
 class BootReceiver : BroadcastReceiver() {
 
@@ -18,49 +21,52 @@ class BootReceiver : BroadcastReceiver() {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED &&
             intent.action != "android.intent.action.QUICKBOOT_POWERON") return
 
-        // Read from Flutter's default SharedPreferences
-        // Flutter uses: context.getSharedPreferences(packageName + "_preferences", MODE_PRIVATE)
+        // Flutter SharedPreferences stores data in:
+        // <packageName>_preferences (Flutter SDK default)
         val packageName = context.packageName
         val prefs = context.getSharedPreferences(
             "${packageName}_preferences", Context.MODE_PRIVATE)
 
-        val alarmsJson = prefs.getString("scheduled_alarms", null)
-        if (alarmsJson.isNullOrEmpty()) return
-
         val now = System.currentTimeMillis()
 
-        try {
-            // scheduled_alarms is stored as JSON array string by Flutter
-            // Each item is a JSON string of alarm data
-            val alarmsListStr = prefs.getStringSet("flutter.scheduled_alarms", null)
-                ?: prefs.getAll().entries
-                    .firstOrNull { it.key.contains("scheduled_alarms") }
-                    ?.let { (it.value as? String)?.let { v -> setOf(v) } }
-                ?: return
+        // Gap 3 Fix: Flutter setStringList stores as Set<String> internally
+        // The actual key has "flutter." prefix added by the Flutter plugin
+        val alarmStrings = getFlutterStringList(prefs, "scheduled_alarms")
+        if (alarmStrings.isEmpty()) return
 
-            for (alarmStr in alarmsListStr) {
-                try {
-                    // Try parsing as JSON array (Flutter stores as stringified list)
-                    val arr = JSONArray(alarmStr)
-                    for (i in 0 until arr.length()) {
-                        rescheduleAlarm(context, arr.getJSONObject(i), now, prefs)
-                    }
-                } catch (_: Exception) {
-                    try {
-                        rescheduleAlarm(context, JSONObject(alarmStr), now, prefs)
-                    } catch (_: Exception) {}
-                }
-            }
-        } catch (_: Exception) {}
+        for (alarmStr in alarmStrings) {
+            try {
+                val alarm = JSONObject(alarmStr)
+                rescheduleAlarm(context, alarm, now)
+            } catch (_: JSONException) {}
+        }
     }
 
-    private fun rescheduleAlarm(
-        context: Context,
-        alarm: JSONObject,
-        now: Long,
-        prefs: SharedPreferences,
-    ) {
-        val id        = alarm.optInt("id", 0)
+    private fun getFlutterStringList(prefs: SharedPreferences, key: String): List<String> {
+        // Flutter stores StringList with "flutter." prefix
+        val flutterKey = "flutter.$key"
+        // Try as Set<String> first (how Flutter stores StringList)
+        val asSet = try { prefs.getStringSet(flutterKey, null) } catch (_: Exception) { null }
+        if (asSet != null) return asSet.toList()
+
+        // Try without prefix
+        val asSet2 = try { prefs.getStringSet(key, null) } catch (_: Exception) { null }
+        if (asSet2 != null) return asSet2.toList()
+
+        // Try as plain string (JSON array format)
+        val asStr = prefs.getString(flutterKey, null) ?: prefs.getString(key, null)
+        if (asStr != null) {
+            return try {
+                val arr = JSONArray(asStr)
+                (0 until arr.length()).map { arr.getString(it) }
+            } catch (_: Exception) { emptyList() }
+        }
+        return emptyList()
+    }
+
+    private fun rescheduleAlarm(context: Context, alarm: JSONObject, now: Long) {
+        val id        = alarm.optInt("id", 0).takeIf { it != 0 }
+                        ?: (alarm.optLong("triggerAt", 0L) and 0x7FFFFFFF).toInt()
         val title     = alarm.optString("title", "ElderZha Reminder")
         val type      = alarm.optString("scheduleType", "daily")
         val soundUrl  = alarm.optString("soundUrl", "")
@@ -70,6 +76,7 @@ class BootReceiver : BroadcastReceiver() {
 
         if (id == 0 || triggerAt <= 0L) return
 
+        // Advance to next future trigger
         triggerAt = nextFutureTrigger(triggerAt, type, now)
         if (triggerAt <= 0L) return
 
@@ -83,7 +90,7 @@ class BootReceiver : BroadcastReceiver() {
                 "daily"   -> cal.add(java.util.Calendar.DAY_OF_YEAR, 1)
                 "yearly"  -> cal.add(java.util.Calendar.YEAR, 1)
                 "monthly" -> cal.add(java.util.Calendar.MONTH, 1)
-                else      -> return 0L
+                else      -> return 0L // 'once' — don't reschedule
             }
         }
         return cal.timeInMillis

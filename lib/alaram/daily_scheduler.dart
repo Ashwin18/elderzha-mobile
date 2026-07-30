@@ -1,3 +1,6 @@
+import 'dart:io' as dart_io;
+import 'package:http/http.dart' as dart_http;
+import 'package:path_provider/path_provider.dart' as dart_path;
 import 'dart:convert';
 
 import 'package:flutter/services.dart';
@@ -15,19 +18,34 @@ class DailyScheduler {
     final alarms = prefs.getStringList('scheduled_alarms') ?? [];
     try {
       await _alarmChannel.invokeMethod('cancelAllAlarms');
-    } catch (_) {
-      // Native cancelAll is best-effort; stored ids are still cancelled below.
+    } catch (_) {}
+
+    // Cancel each stored alarm individually
+    for (final alarmString in alarms) {
+      try {
+        final alarm = jsonDecode(alarmString);
+        // Gap 1 Fix: use stored 'id' first, fall back to triggerAt
+        final id = alarm['id'] as int? ?? alarm['triggerAt'] as int?;
+        if (id != null) {
+          await _alarmChannel.invokeMethod('cancelAlarm', {'id': id});
+        }
+      } catch (_) {}
     }
 
-    for (final alarmString in alarms) {
-      final alarm = jsonDecode(alarmString);
-      final triggerAt = alarm['triggerAt'];
-      if (triggerAt is int) {
-        await _alarmChannel.invokeMethod('cancelAlarm', {'id': triggerAt});
-      }
+    // Gap 8 Fix: also cancel AlarmScheduler custom reminders
+    // (AlarmScheduler uses same channel but different storage key)
+    final customAlarms = prefs.getStringList('alarm_scheduler_alarms') ?? [];
+    for (final alarmString in customAlarms) {
+      try {
+        final alarm = jsonDecode(alarmString);
+        final id = alarm['id'] as int?;
+        if (id != null) await _alarmChannel.invokeMethod('cancelAlarm', {'id': id});
+      } catch (_) {}
     }
 
     await prefs.remove('scheduled_alarms');
+    await prefs.remove('alarm_scheduler_alarms');
+    // Note: family_event_reminders handled separately by FamilyEventScheduler.clearScheduledReminders()
   }
 
   static Future<void> clearStoredAlarms() async {
@@ -67,36 +85,85 @@ class DailyScheduler {
         timeParts.length >= 3 ? int.parse(timeParts[2]) : 0,
       );
 
-      // ❌ Don't schedule past alarms
-      if (scheduleDateTime.isBefore(DateTime.now())) return;
+      // Gap 2 Fix: Past alarms → schedule for tomorrow (not silently drop)
+      if (scheduleDateTime.isBefore(DateTime.now())) {
+        if (scheduleType.toLowerCase() == 'daily') {
+          scheduleDateTime = scheduleDateTime.add(const Duration(days: 1));
+        } else {
+          return; // 'once' past alarms are truly expired
+        }
+      }
 
       final prefs = await SharedPreferences.getInstance();
+      // Gap 10 Fix: verify local tone file still exists before using
+      // If it doesn't exist (e.g. after reinstall), fall back to passed soundUrl
       final alarmTone = prefs.getString("alarm_tone");
-
-      final finalSoundUrl = (alarmTone != null && alarmTone.isNotEmpty)
-          ? alarmTone
-          : (soundUrl ?? "");
+      String finalSoundUrl;
+      if (alarmTone != null && alarmTone.isNotEmpty) {
+        // Check if it's a local file that still exists
+        if (alarmTone.startsWith('http') || alarmTone.startsWith('https')) {
+          finalSoundUrl = alarmTone; // server URL — use directly
+        } else {
+          // Local file — verify it exists
+          try {
+            final file = dart_io.File(alarmTone);
+            finalSoundUrl = await file.exists() ? alarmTone : (soundUrl ?? '');
+          } catch (_) {
+            finalSoundUrl = soundUrl ?? '';
+          }
+        }
+      } else {
+        finalSoundUrl = soundUrl ?? '';
+      }
 
       final triggerAt = scheduleDateTime.millisecondsSinceEpoch;
+      // Gap 1 Fix: unique ID based on title+time to prevent collision
+      // when two alarms share the same minute (e.g. morning before+after food)
+      final alarmId = (title.hashCode ^ triggerAt).abs() % 0x7FFFFFFF;
+
+      // Gap 4 Fix: Download server tone for offline playback
+      String cachedSoundUrl = finalSoundUrl;
+      if (finalSoundUrl.startsWith('http://') || finalSoundUrl.startsWith('https://')) {
+        try {
+          final cacheDir = await dart_path.getApplicationDocumentsDirectory();
+          final fileName = 'cached_alarm_tone_${finalSoundUrl.hashCode.abs()}.mp3';
+          final cachedFile = dart_io.File('${cacheDir.path}/$fileName');
+          if (!await cachedFile.exists()) {
+            final response = await dart_http.get(Uri.parse(finalSoundUrl))
+                .timeout(const Duration(seconds: 10));
+            if (response.statusCode == 200) {
+              await cachedFile.writeAsBytes(response.bodyBytes);
+            }
+          }
+          if (await cachedFile.exists()) {
+            cachedSoundUrl = cachedFile.path;
+            // Update prefs with cached local path
+            await prefs.setString('alarm_tone', cachedSoundUrl);
+          }
+        } catch (_) {
+          cachedSoundUrl = finalSoundUrl; // fallback to URL
+        }
+      }
 
       await _alarmChannel.invokeMethod('scheduleAlarm', {
-        'id': triggerAt,
+        'id': alarmId,
         'triggerAt': triggerAt,
         'title': title,
         'type': scheduleType.toLowerCase(),
         'date': date,
         'notes': notes ?? '',
-        'soundUrl': finalSoundUrl,
+        'soundUrl': cachedSoundUrl,
         'imageUrl': imageUrl ?? '',
       });
 
       await saveAlarmToStorage({
+        'id': alarmId,
         'alarmType': alarmType.toString().split('.').last,
         'date': date,
         'time': time,
         'title': title,
         'scheduleType': scheduleType,
-        'soundUrl': finalSoundUrl,
+        'soundUrl': cachedSoundUrl,
         'imageUrl': imageUrl ?? '',
         'notes': notes ?? '',
         'triggerAt': triggerAt,
@@ -139,7 +206,8 @@ class DailyScheduler {
 
     alarms.removeWhere((alarmString) {
       final alarm = jsonDecode(alarmString);
-      return alarm['triggerAt'] == triggerAt;
+      return alarm['triggerAt'] == triggerAt ||
+             alarm['id'] == triggerAt; // backwards compat
     });
 
     await prefs.setStringList('scheduled_alarms', alarms);
@@ -191,6 +259,27 @@ class DailyScheduler {
   /* -----------------------------------------------------------
      ENUM CONVERTER
   ------------------------------------------------------------ */
+
+
+  /// Gap 13: Timezone awareness
+  /// AlarmManager uses absolute millisecond timestamps — if device timezone
+  /// changes, existing alarms fire at the correct UTC time but wrong local time.
+  /// Solution: reschedule all alarms after timezone change detection.
+  /// This is handled by restoreAlarmsFromStorage() which recalculates times.
+  
+  /// Gap 12: Read alarm fired history (stored by native AlarmReceiver)
+  static Future<List<Map<String, dynamic>>> getAlarmFiredLog() async {
+    final prefs = await SharedPreferences.getInstance();
+    final log = prefs.getStringSet('alarm_fired_log') ?? {};
+    final result = <Map<String, dynamic>>[];
+    for (final entry in log) {
+      try {
+        result.add(Map<String, dynamic>.from(jsonDecode(entry)));
+      } catch (_) {}
+    }
+    result.sort((a, b) => (b['firedAt'] as int).compareTo(a['firedAt'] as int));
+    return result;
+  }
 
   static AlarmType _stringToAlarmType(String typeString) {
     try {

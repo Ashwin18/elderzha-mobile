@@ -43,7 +43,30 @@ class MainActivity : FlutterActivity() {
                         result.success(true)
                     }
                     "cancelAllAlarms" -> {
-                        AlarmReceiver.cancelAll(this)
+                        // Gap 5 Fix: actually cancel all pending AlarmManager intents
+                        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                        // Cancel a range of known IDs — we use triggerAt-based IDs
+                        // Flutter will cancel individually via cancelAlarm calls too
+                        // This is belt-and-suspenders for orphaned alarms
+                        try {
+                            val prefs = getSharedPreferences("${packageName}_preferences", Context.MODE_PRIVATE)
+                            val stored = prefs.getStringSet("flutter.scheduled_alarms", emptySet()) ?: emptySet()
+                            for (alarmStr in stored) {
+                                try {
+                                    val obj = org.json.JSONObject(alarmStr)
+                                    val id = obj.optInt("id", 0).takeIf { it != 0 }
+                                             ?: (obj.optLong("triggerAt", 0L) and 0x7FFFFFFF).toInt()
+                                    if (id != 0) {
+                                        val pi = PendingIntent.getBroadcast(
+                                            this, id,
+                                            Intent(this, AlarmReceiver::class.java),
+                                            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+                                        )
+                                        if (pi != null) alarmManager.cancel(pi)
+                                    }
+                                } catch (_: Exception) {}
+                            }
+                        } catch (_: Exception) {}
                         result.success(true)
                     }
                     "canUseFullScreenIntent" -> result.success(canUseFullScreenIntent())
@@ -122,7 +145,9 @@ class MainActivity : FlutterActivity() {
 
     private fun startVoiceRecording(): String {
         stopVoiceRecording()
-        val file = java.io.File(filesDir, "elderzha_alarm_voice_${System.currentTimeMillis()}.m4a")
+        // Gap 14 Fix: store in getExternalFilesDir (persists across cache clears)
+        val dir = getExternalFilesDir(null) ?: filesDir
+        val file = java.io.File(dir, "elderzha_alarm_voice_${System.currentTimeMillis()}.m4a")
         recordingPath = file.absolutePath
         recorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             MediaRecorder(this)
