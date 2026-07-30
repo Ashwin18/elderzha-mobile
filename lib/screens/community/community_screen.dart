@@ -453,6 +453,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                     builder: (_) => ActivityDetailScreen(
                       activityId: id,
                       autoOpenReply: false,
+                      item: p is Map ? Map<String, dynamic>.from(p) : null,
                     ),
                   ),
                 ),

@@ -483,32 +483,31 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(width: 8),
           _todayMetric('$activeDays', 'Active days'),
         ]),
-        const SizedBox(height: 13),
-        GestureDetector(
-          onTap: _checkInDone ? null : _openCheckIn,
-          child: Container(
-            height: 46,
-            decoration: BoxDecoration(
-              color: _checkInDone ? Colors.white.withOpacity(.12) : C.yellow,
-              borderRadius: BorderRadius.circular(16),
-              border: _checkInDone
-                  ? Border.all(color: Colors.white.withOpacity(.12))
-                  : null,
-            ),
-            child: Center(
-              child: Text(
-                _checkInDone
-                    ? 'Check-in completed for today'
-                    : 'Start daily check-in →',
-                style: poppins(
-                  13,
-                  w: FontWeight.w900,
-                  c: _checkInDone ? Colors.white70 : C.ink,
-                ),
+        // Show all submitted check-in data as chips
+        if (_checkInDone && _todayActivity != null) ...[
+          const SizedBox(height: 12),
+          Wrap(spacing: 6, runSpacing: 6, children: [
+            ..._buildCheckInChips(_todayActivity!),
+          ]),
+          const SizedBox(height: 10),
+        ],
+        if (!_checkInDone) ...[
+          const SizedBox(height: 13),
+          GestureDetector(
+            onTap: _openCheckIn,
+            child: Container(
+              height: 46,
+              decoration: BoxDecoration(
+                color: C.yellow,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Center(
+                child: Text('Start daily check-in →',
+                  style: poppins(13, w: FontWeight.w900, c: C.ink)),
               ),
             ),
           ),
-        ),
+        ],
       ]),
     );
   }

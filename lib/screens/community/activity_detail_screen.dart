@@ -13,10 +13,12 @@ import '../../utils/join_date_helper.dart';
 class ActivityDetailScreen extends StatefulWidget {
   final int? activityId;
   final bool autoOpenReply;
+  final Map<String, dynamic>? item; // Pass item to auto-open specific activity
   const ActivityDetailScreen({
     super.key,
     this.activityId,
     this.autoOpenReply = false,
+    this.item,
   });
   @override
   State<ActivityDetailScreen> createState() => _ActivityDetailScreenState();
@@ -39,6 +41,17 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
 
   Future<void> _initWithJoinDate() async {
     _joinDate = await JoinDateHelper.getJoinDate();
+    // If specific item passed, show only that one and auto-open details
+    if (widget.item != null) {
+      setState(() {
+        _activities = [widget.item!];
+        _loading = false;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _openDetails(widget.item!);
+      });
+      return;
+    }
     _load();
   }
 
