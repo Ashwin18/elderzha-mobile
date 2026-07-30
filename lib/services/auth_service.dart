@@ -160,6 +160,8 @@ class AuthService {
     required String name,
     String? phone,
     required String relation,
+    int? relationId,
+    int? eventId,
     String? birthdayDate,
     String? anniversaryDate,
   }) async {
@@ -171,9 +173,11 @@ class AuthService {
       '/user/family/$id/update',
       data: {
         'name': name,
-        if (phone != null) 'phone': phone,  // for fall alert SOS SMS
+        if (phone != null && phone.isNotEmpty) 'phone': phone,
         'relation': relation,
         'relation_name': relation,
+        if (relationId != null) 'relation_id': relationId,
+        if (eventId != null) 'event_id': eventId,
         'event_type': eventType,
         'date': primaryDate,
         'event_date': primaryDate,

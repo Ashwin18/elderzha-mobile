@@ -114,11 +114,20 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
     Map<String, dynamic> res;
     if (existing != null && existing['id'] != null) {
       final id = int.tryParse(existing['id'].toString()) ?? 0;
+      // Pass relation_id and event_id from existing data (backend needs integer IDs)
+      final relationId = existing['relation'] is Map
+          ? int.tryParse((existing['relation']['id'] ?? '').toString())
+          : null;
+      final eventId = existing['event'] is Map
+          ? int.tryParse((existing['event']['id'] ?? '').toString())
+          : null;
       res = await _authService.updateFamily(
           id: id,
           name: _nameCtrl.text.trim(),
           phone: _phoneCtrl.text.trim(),
           relation: _relation,
+          relationId: relationId,
+          eventId: eventId,
           birthdayDate: _birthdayCtrl.text.trim().isEmpty
               ? null
               : _birthdayCtrl.text.trim(),
