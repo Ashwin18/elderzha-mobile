@@ -30,18 +30,11 @@ class _FamilyMembersScreenState extends State<FamilyMembersScreen> {
     setState(() => _loading = true);
     final res = await _authService.getProfileWithFamily();
     final apiMembers = _extractFamily(res);
-    // If API returned members, use ONLY API data (it has phone + full data)
-    // Local prefs fallback only used when API returns nothing
-    List<Map<String, dynamic>> fallback = [];
-    if (apiMembers.isEmpty) {
-      fallback = await _loadSetupFamilyFallback();
-    } else {
-      // Clear stale local data so API version is always shown
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('setup_family_members');
-    }
+    final fallback = await _loadSetupFamilyFallback();
     if (!mounted) return;
-    final family = apiMembers.isNotEmpty ? apiMembers : fallback;
+    // Use API data as primary — merge with local only for offline-added members
+    // API members always win (they have phone + full data)
+    final family = _mergeFamily(apiMembers, fallback);
     setState(() {
       _members = family;
       _loading = false;
@@ -95,25 +88,39 @@ class _FamilyMembersScreenState extends State<FamilyMembersScreen> {
   }
 
   List _mergeFamily(List remote, List<Map<String, dynamic>> fallback) {
+    if (remote.isEmpty && fallback.isEmpty) return [];
     if (fallback.isEmpty) return remote;
-    final seen = <String>{};
-    final out = <dynamic>[];
-    for (final item in [...remote, ...fallback]) {
+    if (remote.isEmpty) return fallback;
+
+    // API members are authoritative — deduplicate by name+relation
+    // preferring API version (has phone, real ID) over local version
+    final out = <dynamic>[...remote]; // start with all API members
+    final remoteNames = <String>{};
+
+    for (final item in remote) {
       if (item is! Map) continue;
       final map = Map<String, dynamic>.from(item);
-      final key = [
-        (map['id'] ?? '').toString(),
-        (map['name'] ?? '').toString().toLowerCase().trim(),
-        (map['relation'] is Map
-                ? map['relation']['name']
-                : map['relation'] ?? '')
-            .toString()
-            .toLowerCase()
-            .trim(),
-        _birthdayDateOf(map),
-        _anniversaryDateOf(map),
-      ].join('|');
-      if (seen.add(key)) out.add(map);
+      final name = (map['name'] ?? '').toString().toLowerCase().trim();
+      final rel = (map['relation'] is Map
+              ? map['relation']['name']
+              : map['relation'] ?? '')
+          .toString().toLowerCase().trim();
+      remoteNames.add('$name|$rel');
+    }
+
+    // Only add local members not already in API response
+    for (final item in fallback) {
+      if (item is! Map) continue;
+      final map = Map<String, dynamic>.from(item);
+      final name = (map['name'] ?? '').toString().toLowerCase().trim();
+      final rel = (map['relation'] is Map
+              ? map['relation']['name']
+              : map['relation'] ?? '')
+          .toString().toLowerCase().trim();
+      // Skip if API already has this member
+      if (!remoteNames.contains('$name|$rel')) {
+        out.add(map);
+      }
     }
     return out;
   }
