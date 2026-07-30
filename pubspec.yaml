@@ -47,6 +47,8 @@ dependencies:
   flutter_alarm_clock: ^0.1.2
   android_intent_plus: ^6.0.0
   permission_handler: ^11.0.1
+  sensors_plus: ^4.0.2
+  geolocator: ^13.0.2
 
   # Network
   connectivity_plus: ^7.0.0

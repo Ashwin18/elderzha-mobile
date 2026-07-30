@@ -9,6 +9,7 @@ import '../../providers/auth_provider.dart';
 import '../../alaram/alarm_config_store.dart';
 import '../../services/services.dart';
 import '../../theme/app_theme.dart';
+import '../fall_detection/fall_settings_screen.dart';
 import '../../utils/app_routes.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -653,6 +654,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     ).then((_) => _load()),
                                     valuePill: true,
                                     valueColor: AppColors.red,
+                                  ),
+                                  _menuRow(
+                                    context,
+                                    Icons.sensors_rounded,
+                                    AppColors.inkMuted,
+                                    'Fall Detection',
+                                    'Auto SOS',
+                                    () => Navigator.push(context,
+                                        MaterialPageRoute(builder: (_) =>
+                                            const FallSettingsScreen())),
                                   ),
                                   _menuRow(
                                     context,

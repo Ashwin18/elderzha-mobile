@@ -20,6 +20,8 @@ import 'services/api_client.dart';
 import 'services/notification_service.dart';
 import 'theme/app_theme.dart';
 import 'utils/app_routes.dart';
+import 'services/fall_detection/fall_detection_service.dart';
+import 'screens/fall_detection/fall_alert_screen.dart';
 import 'widgets/main_scaffold.dart';
 
 // ── Screens ───────────────────────────────────────────────────────────────────
@@ -618,11 +620,14 @@ class _ElderZhaAppState extends State<ElderZhaApp> {
   void initState() {
     super.initState();
     _lifecycleListener = AppLifecycleListener(onResume: _onResume);
+    // Start fall detection
+    _startFallDetection();
   }
 
   @override
   void dispose() {
     _lifecycleListener.dispose();
+    FallDetectionService().stop();
     super.dispose();
   }
 
@@ -630,6 +635,10 @@ class _ElderZhaAppState extends State<ElderZhaApp> {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token') ?? '';
     if (token.isEmpty) return;
+    // Restart fall detection on resume
+    if (!FallDetectionService().isRunning) {
+      _startFallDetection();
+    }
     // Check plan on every resume with timeout — prevents UI freeze
     bool isActive = false;
     try {

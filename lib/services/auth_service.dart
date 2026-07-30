@@ -82,6 +82,7 @@ class AuthService {
   }) async {
     final profilePayload = {
       'name': name,
+      if (phone != null && phone.isNotEmpty) 'phone': phone,
       'phone': phone,
       if (email != null) 'email': email,
       if (dob != null) 'dob': dob,
@@ -125,6 +126,7 @@ class AuthService {
   // ── POST /user/family/add-for-user ───────────────────────
   Future<Map<String, dynamic>> addFamily({
     required String name,
+    String? phone,
     required String relation,
     String? birthdayDate,
     String? anniversaryDate,
