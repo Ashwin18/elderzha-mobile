@@ -178,7 +178,6 @@ class _PollsScreenState extends State<PollsScreen> {
                         color: C.yellowDark,
                         child: ListView.builder(
                           padding: const EdgeInsets.all(16),
-                          itemCount: _polls.length,
                           controller: _scrollCtrl,
                           itemCount: _polls.length + (_loadingMore ? 1 : 0),
                           itemBuilder: (_, i) {
