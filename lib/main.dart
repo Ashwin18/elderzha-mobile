@@ -21,6 +21,7 @@ import 'services/notification_service.dart';
 import 'theme/app_theme.dart';
 import 'utils/app_routes.dart';
 import 'services/fall_detection/fall_detection_service.dart';
+import 'package:geolocator/geolocator.dart';
 import 'screens/fall_detection/fall_alert_screen.dart';
 import 'widgets/main_scaffold.dart';
 
@@ -662,7 +663,19 @@ class _ElderZhaAppState extends State<ElderZhaApp> {
     }
   }
 
-  void _startFallDetection() {
+  void _startFallDetection() async {
+    // Request location permission upfront so it's ready when fall happens
+    try {
+      final locPerm = await Geolocator.checkPermission();
+      if (locPerm == LocationPermission.denied) {
+        await Geolocator.requestPermission();
+      }
+      // If permanently denied, open settings
+      if (locPerm == LocationPermission.deniedForever) {
+        await Geolocator.openLocationSettings();
+      }
+    } catch (_) {}
+
     FallDetectionService().start(onFallDetected: () {
       final nav = appNavigatorKey.currentState;
       if (nav == null) return;
