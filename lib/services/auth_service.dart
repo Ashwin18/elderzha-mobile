@@ -139,6 +139,7 @@ class AuthService {
       '/user/family/add-for-user',
       data: {
         'name': name,
+        if (phone != null) 'phone': phone,  // for fall alert SOS SMS
         'relation': relation,
         'relation_name': relation,
         'event_type': eventType,
@@ -170,6 +171,7 @@ class AuthService {
       '/user/family/$id/update',
       data: {
         'name': name,
+        if (phone != null) 'phone': phone,  // for fall alert SOS SMS
         'relation': relation,
         'relation_name': relation,
         'event_type': eventType,
