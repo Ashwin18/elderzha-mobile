@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/services.dart';
+import '../alaram/daily_scheduler.dart';
 import '../utils/join_date_helper.dart';
 
 class AuthProvider extends ChangeNotifier {
@@ -163,8 +164,18 @@ class AuthProvider extends ChangeNotifier {
     }
     await prefs.remove('fcm_device_token');
     await prefs.remove('seen_notification_ids');
+    await prefs.remove('first_time_alarm_setup_completed');
+    await prefs.remove('setup_alarm_summary');
+    await prefs.remove('elderzha_alarm_config');
     await JoinDateHelper.clear();
     await SubscriptionService.clearSubscriptionActiveLocal();
+    // Bug 14 Fix: Cancel all alarms — prevents previous user alarms firing for next user
+    try {
+      await DailyScheduler.cancelAllAlarms();
+      await DailyScheduler.clearStoredAlarms();
+    } catch (e) {
+      debugPrint('Alarm cancel on logout: \$e');
+    }
     _isLoggedIn = false;
     _user = null;
     notifyListeners();

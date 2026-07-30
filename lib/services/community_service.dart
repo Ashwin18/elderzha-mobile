@@ -16,8 +16,8 @@ class CommunityService {
   final _api = ApiClient();
 
   // ── GET /user/get/pools-list ──────────────────────────────
-  Future<Map<String, dynamic>?> getPollsList() =>
-      _api.safeGet('/user/get/pools-list');
+  Future<Map<String, dynamic>?> getPollsList({int page = 1}) =>
+      _api.safeGet('/user/get/pools-list?page=$page');
 
   // ── POST /user/poll/submit ────────────────────────────────
   Future<Map<String, dynamic>> submitPoll({

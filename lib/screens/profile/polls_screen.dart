@@ -16,7 +16,11 @@ class _PollsScreenState extends State<PollsScreen> {
   final _svc = CommunityService();
   List _polls = [];
   bool _loading = true;
+  bool _loadingMore = false;
+  int _currentPage = 1;
+  bool _hasMore = true;
   DateTime? _joinDate;
+  final _scrollCtrl = ScrollController();
 
   final Map<int, int> _voted     = {};
   final Map<int, bool> _submitting = {};
@@ -24,7 +28,21 @@ class _PollsScreenState extends State<PollsScreen> {
   @override
   void initState() {
     super.initState();
+    _scrollCtrl.addListener(_onScroll);
     _init();
+  }
+
+  @override
+  void dispose() {
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollCtrl.position.pixels >= _scrollCtrl.position.maxScrollExtent - 200
+        && !_loadingMore && _hasMore) {
+      _loadMore();
+    }
   }
 
   Future<void> _init() async {
@@ -33,12 +51,32 @@ class _PollsScreenState extends State<PollsScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    setState(() { _loading = true; _currentPage = 1; _hasMore = true; });
     final res = await _svc.getPollsList();
     if (!mounted) return;
+    final data = res?['data'];
+    final list = data is List ? data :
+                 (data is Map && data['data'] is List) ? data['data'] as List : [];
     setState(() {
-      _polls   = res?['data'] ?? [];
+      _polls   = list;
+      _hasMore = list.length >= 10; // assume more if full page returned
       _loading = false;
+    });
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore) return;
+    setState(() => _loadingMore = true);
+    _currentPage++;
+    final res = await _svc.getPollsList(page: _currentPage);
+    if (!mounted) return;
+    final data = res?['data'];
+    final list = data is List ? data :
+                 (data is Map && data['data'] is List) ? data['data'] as List : [];
+    setState(() {
+      if (list.isEmpty) { _hasMore = false; }
+      else { _polls.addAll(list); _hasMore = list.length >= 10; }
+      _loadingMore = false;
     });
   }
 
@@ -141,7 +179,15 @@ class _PollsScreenState extends State<PollsScreen> {
                         child: ListView.builder(
                           padding: const EdgeInsets.all(16),
                           itemCount: _polls.length,
-                          itemBuilder: (_, i) => _pollCard(_polls[i], i),
+                          controller: _scrollCtrl,
+                          itemCount: _polls.length + (_loadingMore ? 1 : 0),
+                          itemBuilder: (_, i) {
+                            if (i == _polls.length) return const Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Center(child: CircularProgressIndicator(color: C.yellowDark)),
+                            );
+                            return _pollCard(_polls[i], i);
+                          },
                         ),
                       ),
           ),

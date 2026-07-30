@@ -45,33 +45,27 @@ class _CommunityScreenState extends State<CommunityScreen> {
   }
 
   Future<Map<String, dynamic>?> _loadAllTabs() async {
+    // Bug 7 Fix: single call to /user/feed/all instead of 4 concurrent calls
+    final allRes = await _svc.getFeed('all');
+    if (allRes != null && allRes['status'] == true) return allRes;
+    // Fallback: parallel fetch if 'all' fails
     final results = await Future.wait([
-      _svc.getFeed('all'),
       _svc.getFeed('feed'),
       _svc.getFeed('polls'),
       _svc.getFeed('activities'),
     ]);
     final merged = <Map<String, dynamic>>[];
     for (var i = 0; i < results.length; i++) {
-      final sourceType = ['all', 'feed', 'polls', 'activities'][i];
+      final sourceType = ['feed', 'polls', 'activities'][i];
       final oldTab = _tab;
       final list = _extractItemsFor(results[i], sourceType);
       _tab = oldTab;
       for (final raw in list) {
         if (raw is! Map || raw.isEmpty) continue;
         final item = Map<String, dynamic>.from(raw);
-        item['type'] ??= sourceType == 'polls'
-            ? 'poll'
-            : sourceType == 'activities'
-                ? 'activity'
-                : 'feed';
-        final key =
-            '${_contentLabel(item)}-${_idOf(item)}-${item['title'] ?? item['question'] ?? item['description'] ?? item['created_at']}';
-        if (!merged.any((existing) =>
-            '${_contentLabel(existing)}-${_idOf(existing)}-${existing['title'] ?? existing['question'] ?? existing['description'] ?? existing['created_at']}' ==
-            key)) {
-          merged.add(item);
-        }
+        item['type'] ??= sourceType == 'polls' ? 'poll'
+            : sourceType == 'activities' ? 'activity' : 'feed';
+        merged.add(item);
       }
     }
     return {'data': merged};
@@ -95,11 +89,20 @@ class _CommunityScreenState extends State<CommunityScreen> {
     if (res == null) return [];
     final rootData = res['data'];
 
-    // Activities tab (tab=3): filter to show only activity-type items
-    if (_tab == 3 && rootData is List) {
-      return rootData.where((item) =>
-        item is Map && (item['type'] == 'activity' ||
-        item['activity_id'] != null)).toList();
+    // Bug 1 Fix: listUserActivities returns paginated nested data
+    // { data: { data: [...activities...], total: "5", current_page: "1" } }
+    if (_tab == 3) {
+      // Handle paginated response: data.data is the actual list
+      if (rootData is Map && rootData['data'] is List) {
+        return (rootData['data'] as List).where((item) =>
+          item is Map && (item['activity_id'] != null ||
+          (item['type'] ?? '') == 'activity')).toList();
+      }
+      if (rootData is List) {
+        return rootData.where((item) =>
+          item is Map && (item['activity_id'] != null ||
+          (item['type'] ?? '') == 'activity')).toList();
+      }
     }
     // Feed tab (tab=1): filter to show only feed/admin_post items
     if (_tab == 1 && rootData is List) {

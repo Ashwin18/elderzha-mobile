@@ -23,6 +23,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final _actSvc = ActivityService();
 
   bool _checkInDone = false;
+  bool _loadError = false;
   DateTime _selectedDay = DateTime.now();
   DateTime _focusedMonth = DateTime(DateTime.now().year, DateTime.now().month);
 
@@ -41,28 +42,42 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadAll() async {
-    final results = await Future.wait([
-      _actSvc.getMonthlyActivities(
+    // Bug 4 Fix: Load critical data first, then secondary data
+    setState(() => _loadError = false);
+    try {
+    // Phase 1 — critical (today + monthly calendar)
+    final critical = await Future.wait([
+      _actSvc.getTodayActivity(),       // today check-in state
+      _actSvc.getMonthlyActivities(     // calendar dots
         month: _focusedMonth.month,
         year: _focusedMonth.year,
-      ), // GET /user/daily/activity/month
-      _actSvc.getTodayActivity(), // GET /user/get/today/activity
-      _actSvc.getHomeActivities(), // GET /user/activities/home
-      AlarmService().listReminders(), // GET /user/reminder/list
-      AlarmService().getMedicalRecords(), // GET /user/get/medical/records
-      NotificationService()
-          .getNotifications(), // GET /user/notification/history
-    ]);
+      ),
+    ]).timeout(const Duration(seconds: 8), onTimeout: () => [null, null]);
     if (!mounted) return;
     setState(() {
-      _monthData = _extractList(results[0]);
-      _checkInDone = _hasData(results[1]);
-      _todayActivity = _extractMap(results[1]);
-      _homeActivities = _extractList(results[2]);
-      _reminders = _extractList(results[3]);
-      _medicalRecord = _extractMap(results[4]);
-      _notificationCount = _extractNotificationCount(results[5]);
+      _checkInDone   = _hasData(critical[0]);
+      _todayActivity = _extractMap(critical[0]);
+      _monthData     = _extractList(critical[1]);
     });
+
+    // Phase 2 — secondary (home activities, reminders, notifications, alarms)
+    // Load in background — UI already showing from Phase 1
+    final secondary = await Future.wait([
+      _actSvc.getHomeActivities(),        // home activity cards
+      AlarmService().listReminders(),     // reminder list
+      AlarmService().getMedicalRecords(), // alarm status
+      NotificationService().getNotifications(), // notification badge
+    ]).timeout(const Duration(seconds: 10), onTimeout: () => [null, null, null, null]);
+    if (!mounted) return;
+    setState(() {
+      _homeActivities    = _extractList(secondary[0]);
+      _reminders         = _extractList(secondary[1]);
+      _medicalRecord     = _extractMap(secondary[2]);
+      _notificationCount = _extractNotificationCount(secondary[3]);
+    });
+    } catch (_) {
+      if (mounted) setState(() => _loadError = true);
+    }
   }
 
   bool _hasData(Map<String, dynamic>? res) {

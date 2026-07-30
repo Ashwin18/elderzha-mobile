@@ -318,12 +318,32 @@ class SubscriptionService {
 
   // ── GET /user/subscription/status ────────────────────────
   // Returns: { status, subscription: { status: 'active'|'cancelled'|'pending', ... } }
-  Future<Map<String, dynamic>?> getSubscriptionStatus() =>
-      _api.safeGet('/user/subscription/status');
+  // /user/subscription/status doesn't exist — use purchased_plan + user/details
+  Future<Map<String, dynamic>?> getSubscriptionStatus() async {
+    final plan = await _api.safeGet('/user/get/purchased_plan');
+    final user = await _api.safeGet('/user/get/user/details');
+    if (plan == null && user == null) return null;
+    return {
+      'status': true,
+      'data': {
+        'plan': plan?['data'],
+        'is_plan_active': user?['data'] is Map
+            ? (user!['data']['user'] ?? user['data'])?['is_plan_active']
+            : null,
+        'plan_expiry_date': user?['data'] is Map
+            ? (user!['data']['user'] ?? user['data'])?['plan_expiry_date']
+            : null,
+      }
+    };
+  }
 
   // ── POST /user/subscription/cancel ───────────────────────
+  // AutoPay cancellation must be done via Razorpay dashboard
+  // No backend cancel route exists — inform user
   Future<Map<String, dynamic>> cancelSubscription() async {
-    final res = await _api.safePost('/user/subscription/cancel');
-    return res ?? {'status': false, 'message': 'Network error'};
+    return {
+      'status': false,
+      'message': 'To cancel AutoPay, please contact support or cancel via Razorpay app.',
+    };
   }
 }

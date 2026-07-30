@@ -461,12 +461,15 @@ class _OtpScreenState extends State<OtpScreen> {
 
   // FamilyMember.relation & event require a Named object — adapt
   void _resend() async {
+    if (_cd > 0) return; // Bug 10: guard against spam tap
+    _startTimer(); // start timer immediately to block re-tap
     await context.read<AuthProvider>().phoneLogin(_phone);
-    _startTimer();
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('OTP resent!', style: GoogleFonts.poppins()),
+        content: Text('OTP resent! Check your SMS.', style: GoogleFonts.poppins()),
         backgroundColor: C.green,
+        duration: const Duration(seconds: 3),
       ),
     );
   }

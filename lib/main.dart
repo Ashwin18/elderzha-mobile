@@ -642,14 +642,12 @@ class _ElderZhaAppState extends State<ElderZhaApp> {
     } catch (_) {
       isActive = prefs.getBool('subscription_active_local') == true;
     }
-    if (!isActive && appNavigatorKey.currentContext != null) {
-      final ctx = appNavigatorKey.currentContext!;
-      final route = ModalRoute.of(ctx)?.settings.name ?? '';
-      // Only redirect if on a protected screen
-      const authScreens = ['/payment', '/subscription-gate', '/onboarding',
-        '/register', '/otp', '/setup-profile', '/alarm-setup', '/payment-success'];
-      if (!authScreens.contains(route)) {
-        appNavigatorKey.currentState?.pushNamedAndRemoveUntil(
+    if (!isActive) {
+      // Bug 5 Fix: use navigator state directly, not ModalRoute.of()
+      // ModalRoute.of() only works on widget's own context, not navigator key context
+      final nav = appNavigatorKey.currentState;
+      if (nav != null) {
+        nav.pushNamedAndRemoveUntil(
           AppRoutes.subscriptionGate, (r) => false);
       }
     }

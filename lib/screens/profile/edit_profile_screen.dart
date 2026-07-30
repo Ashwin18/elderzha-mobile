@@ -53,6 +53,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               _emailCtrl.text.trim().isNotEmpty ? _emailCtrl.text.trim() : null,
           dob: _dobCtrl.text.trim().isNotEmpty ? _dobCtrl.text.trim() : null,
           gender: _gender.isNotEmpty ? _gender : null,
+          photo: _pickedPhoto, // Bug 8 Fix: pass picked photo
         );
     setState(() => _saving = false);
     if (!mounted) return;
