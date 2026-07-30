@@ -64,12 +64,17 @@ class _FallAlertScreenState extends State<FallAlertScreen>
     setState(() => _sending = true);
     Position? position;
     try {
-      final permitted = await Geolocator.checkPermission();
+      // Request permission if not already granted
+      LocationPermission permitted = await Geolocator.checkPermission();
+      if (permitted == LocationPermission.denied) {
+        permitted = await Geolocator.requestPermission();
+      }
       if (permitted == LocationPermission.always ||
           permitted == LocationPermission.whileInUse) {
         position = await Geolocator.getCurrentPosition(
           locationSettings: const LocationSettings(
-              accuracy: LocationAccuracy.high, timeLimit: Duration(seconds: 8)));
+              accuracy: LocationAccuracy.high,
+              timeLimit: Duration(seconds: 10)));
       }
     } catch (_) {}
     final user = context.read<AuthProvider>().user;
@@ -239,24 +244,27 @@ class FallSOSSentScreen extends StatelessWidget {
                 style: GoogleFonts.poppins(
                     fontSize: 15, color: Colors.white70, height: 1.5),
               ),
-              if (locationUrl != null) ...[
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                      color: Colors.white12,
-                      borderRadius: BorderRadius.circular(12)),
-                  child: Row(children: [
-                    const Icon(Icons.location_on_rounded,
-                        color: Colors.white70, size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(
-                        'Location shared with contacts',
-                        style: GoogleFonts.poppins(
-                            fontSize: 13, color: Colors.white70))),
-                  ]),
-                ),
-              ],
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                    color: Colors.white12,
+                    borderRadius: BorderRadius.circular(12)),
+                child: Row(children: [
+                  Icon(
+                    locationUrl != null
+                        ? Icons.location_on_rounded
+                        : Icons.location_off_rounded,
+                    color: Colors.white70, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(
+                      locationUrl != null
+                          ? 'Location shared with contacts ✅'
+                          : 'Location unavailable — enable Location permission in Settings',
+                      style: GoogleFonts.poppins(
+                          fontSize: 13, color: Colors.white70, height: 1.4))),
+                ]),
+              ),
               const SizedBox(height: 40),
               GestureDetector(
                 onTap: () =>
