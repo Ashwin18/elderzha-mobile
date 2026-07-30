@@ -89,39 +89,55 @@ class _CommunityScreenState extends State<CommunityScreen> {
     if (res == null) return [];
     final rootData = res['data'];
 
-    // Bug 1 Fix: listUserActivities returns paginated nested data
-    // { data: { data: [...activities...], total: "5", current_page: "1" } }
+    // Activities tab (tab=3): /user/activity/list
+    // Returns: { data: { data: [...], total: "5" } } OR { data: [...] }
     if (_tab == 3) {
-      // Handle paginated response: data.data is the actual list
       if (rootData is Map && rootData['data'] is List) {
-        return (rootData['data'] as List).where((item) =>
-          item is Map && (item['activity_id'] != null ||
-          (item['type'] ?? '') == 'activity')).toList();
+        return List.from(rootData['data'] as List);
+      }
+      if (rootData is List) return List.from(rootData);
+      return [];
+    }
+
+    // Polls tab (tab=2): /user/get/pools-list
+    // Returns: { data: [...polls...] }
+    if (_tab == 2) {
+      if (rootData is List) return List.from(rootData);
+      if (rootData is Map && rootData['data'] is List) {
+        return List.from(rootData['data'] as List);
+      }
+      return [];
+    }
+
+    // Feed tab (tab=1): /user/feed/post
+    // Returns: { data: { feed: [...], activities: [...] } }
+    if (_tab == 1) {
+      if (rootData is Map) {
+        final feed = rootData['feed'];
+        if (feed is List && feed.isNotEmpty) return List.from(feed);
+        final posts = rootData['posts'];
+        if (posts is List && posts.isNotEmpty) return List.from(posts);
       }
       if (rootData is List) {
         return rootData.where((item) =>
-          item is Map && (item['activity_id'] != null ||
-          (item['type'] ?? '') == 'activity')).toList();
+          item is Map && (item['type'] == 'admin_post' ||
+          item['type'] == 'feed')).toList();
       }
-    }
-    // Feed tab (tab=1): filter to show only feed/admin_post items
-    if (_tab == 1 && rootData is List) {
-      return rootData.where((item) =>
-        item is Map && (item['type'] == 'admin_post' ||
-        item['type'] == 'feed')).toList();
+      return [];
     }
 
-    if (_tab == 0 && rootData is Map) {
+    if (_tab == 0) {
       final merged = <Map<String, dynamic>>[];
-      final feed = rootData['feed'];
-      if (feed is List) {
-        merged.addAll(feed.map(_normalizeItem));
-      }
-      final activities = rootData['activities'];
-      if (activities is List) {
-        merged.addAll(activities.map(_normalizeItem));
-      }
-      final polls = rootData['polls'];
+      // combinedFeed returns { data: { feed: [...], activities: [...] } }
+      final data = rootData is Map ? rootData : <String, dynamic>{};
+      final feed = data['feed'];
+      if (feed is List) merged.addAll(feed.map(_normalizeItem));
+      final activities = data['activities'];
+      if (activities is List) merged.addAll(activities.map(_normalizeItem));
+      if (merged.isNotEmpty) return merged;
+      // fallback: rootData is a flat list
+      if (rootData is List) return List.from(rootData);
+      final polls = data['polls'];
       if (polls is List) {
         merged.addAll(polls.map(_normalizeItem));
       }
