@@ -270,7 +270,8 @@ class DailyScheduler {
   /// Gap 12: Read alarm fired history (stored by native AlarmReceiver)
   static Future<List<Map<String, dynamic>>> getAlarmFiredLog() async {
     final prefs = await SharedPreferences.getInstance();
-    final log = prefs.getStringSet('alarm_fired_log') ?? {};
+    // Flutter uses getStringList — getStringSet is Android/Java only
+    final log = prefs.getStringList('alarm_fired_log') ?? [];
     final result = <Map<String, dynamic>>[];
     for (final entry in log) {
       try {
