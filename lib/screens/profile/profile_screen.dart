@@ -341,11 +341,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
-    // Show 'Configured' if: remote has values OR local has values OR
-    // DB row exists (user went through alarm setup, even with old build)
-    final medicalConfigured =
+    // If subscription is active → user completed alarm setup during registration
+    // Show Configured. Alarm details editable via Medical/Food alarm menu items.
+    final subscriptionActive = context.read<AuthProvider>().user?['is_plan_active'] == 1 ||
+        context.read<AuthProvider>().user?['plan_status'] == 1;
+    final medicalConfigured = subscriptionActive ||
         _remoteMedicalConfigured || _localMedicalConfigured || _remoteRowExists;
-    final foodConfigured =
+    final foodConfigured = subscriptionActive ||
         _remoteFoodConfigured || _localFoodConfigured || _remoteRowExists;
     final photoUrl = _profilePhotoUrl(auth.user);
     final myBirthday = auth.userDob.isNotEmpty

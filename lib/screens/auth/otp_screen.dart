@@ -175,17 +175,17 @@ class _OtpScreenState extends State<OtpScreen> {
       return;
     }
 
-    // ── Use verifyOtp response directly — no extra API calls needed ────────
-    // API already returns all gate fields:
-    //   is_profile_updated  → 1 = profile complete
-    //   daily_alarm_set     → 1 = alarms configured
-    //   is_plan_active      → 1 = subscription active
-    // This works correctly after reinstall (no SharedPreferences dependency)
+    // ── Flow based on user type ─────────────────────────────────────────────
+    //
+    // EXISTING SUBSCRIBED USER → Home directly (never show setup screens again)
+    // NEW USER → Profile → Alarm Setup → Payment → Home
+    // EXISTING USER (expired) → Subscription Gate
+    //
     final isProfileUpdated = _truthy(res['is_profile_updated'] ?? res['isProfileUpdate']);
     final isAlarmSet       = _truthy(res['daily_alarm_set']);
     final isPlanActive     = _truthy(res['is_plan_active']);
 
-    // Also save plan status to local cache for lifecycle checks
+    // Save plan status to local cache
     if (isPlanActive) {
       await SubscriptionService.markSubscriptionActiveLocal();
     } else {
@@ -195,6 +195,22 @@ class _OtpScreenState extends State<OtpScreen> {
     await auth.loadUser();
     if (!mounted) return;
 
+    // ── EXISTING SUBSCRIBED USER ─────────────────────────────────────────────
+    // Plan is active → go straight to Home. Never show alarm/payment again.
+    if (isPlanActive) {
+      _scheduleAlarmsAfterLogin();
+      Navigator.pushReplacementNamed(context, AppRoutes.home);
+      return;
+    }
+
+    // ── EXISTING USER — SUBSCRIPTION EXPIRED ────────────────────────────────
+    // Had profile + alarm set up before, just plan expired → renew only
+    if (isProfileUpdated && isAlarmSet && !isPlanActive) {
+      Navigator.pushReplacementNamed(context, AppRoutes.subscriptionGate);
+      return;
+    }
+
+    // ── NEW USER — go through setup steps ───────────────────────────────────
     // Step 1 — Profile complete?
     if (!isProfileUpdated) {
       final profile = auth.user;
@@ -216,15 +232,8 @@ class _OtpScreenState extends State<OtpScreen> {
       return;
     }
 
-    // Step 3 — Subscription active?
-    if (!isPlanActive) {
-      Navigator.pushReplacementNamed(context, AppRoutes.payment);
-      return;
-    }
-
-    // ✅ All gates passed — go to home
-    _scheduleAlarmsAfterLogin();
-    Navigator.pushReplacementNamed(context, AppRoutes.home);
+    // Step 3 — Payment (new user who set profile + alarm but hasn't paid)
+    Navigator.pushReplacementNamed(context, AppRoutes.payment);
   }
 
   Map<String, dynamic>? _extractUser(Map<String, dynamic>? res) {
