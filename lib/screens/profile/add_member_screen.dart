@@ -193,6 +193,7 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
       if (existing?['id'] != null) 'id': existing!['id'],
       'name': _nameCtrl.text.trim(),
       'relation': _relation,
+      'phone': _phoneCtrl.text.trim(),
       'birthday_date': _birthdayCtrl.text.trim(),
       'anniversary_date': _anniversaryCtrl.text.trim(),
       'local_only': !synced,

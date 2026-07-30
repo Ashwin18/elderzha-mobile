@@ -29,9 +29,19 @@ class _FamilyMembersScreenState extends State<FamilyMembersScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     final res = await _authService.getProfileWithFamily();
-    final fallback = await _loadSetupFamilyFallback();
+    final apiMembers = _extractFamily(res);
+    // If API returned members, use ONLY API data (it has phone + full data)
+    // Local prefs fallback only used when API returns nothing
+    List<Map<String, dynamic>> fallback = [];
+    if (apiMembers.isEmpty) {
+      fallback = await _loadSetupFamilyFallback();
+    } else {
+      // Clear stale local data so API version is always shown
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('setup_family_members');
+    }
     if (!mounted) return;
-    final family = _mergeFamily(_extractFamily(res), fallback);
+    final family = apiMembers.isNotEmpty ? apiMembers : fallback;
     setState(() {
       _members = family;
       _loading = false;
