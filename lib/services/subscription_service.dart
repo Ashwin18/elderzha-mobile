@@ -327,12 +327,8 @@ class SubscriptionService {
       'status': true,
       'data': {
         'plan': plan?['data'],
-        'is_plan_active': user?['data'] is Map
-            ? (user!['data']['user'] ?? user['data'])?['is_plan_active']
-            : null,
-        'plan_expiry_date': user?['data'] is Map
-            ? (user!['data']['user'] ?? user['data'])?['plan_expiry_date']
-            : null,
+        'is_plan_active': _extractUserField(user, 'is_plan_active'),
+        'plan_expiry_date': _extractUserField(user, 'plan_expiry_date'),
       }
     };
   }
