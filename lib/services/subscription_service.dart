@@ -342,12 +342,9 @@ class SubscriptionService {
   }
 
   // ── POST /user/subscription/cancel ───────────────────────
-  // AutoPay cancellation must be done via Razorpay dashboard
-  // No backend cancel route exists — inform user
+  // Route exists via SubscriptionApiController
   Future<Map<String, dynamic>> cancelSubscription() async {
-    return {
-      'status': false,
-      'message': 'To cancel AutoPay, please contact support or cancel via Razorpay app.',
-    };
+    final res = await _api.safePost('/user/subscription/cancel');
+    return res ?? {'status': false, 'message': 'Network error'};
   }
 }
