@@ -68,7 +68,8 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
   // Extras
   File? _medImage, _foodImage;
   String? _medImageUrl, _foodImageUrl;
-  String? _tonePath;
+  String? _tonePath;  // local file path
+  String? _toneUrl;    // server URL (when no local file)
   bool _recording = false;
   String? _recordedPreviewPath;
   bool _previewPlaying = false;
@@ -191,8 +192,15 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
         _parseT(_firstValue(data, ['dinner_time', 'd_time']), foodDinnerTime);
     _medImageUrl = _firstValue(data, ['medical_file', 'medical_image']);
     _foodImageUrl = _firstValue(data, ['food_file', 'food_image']);
-    _tonePath = savedTone ??
-        _firstValue(data, ['alaram_tone', 'alarm_tone', 'alarmTone']);
+    // Gap 2+4 Fix: tone from API is a URL — keep it as _toneUrl separately
+    // Don't overwrite local path with server URL (they behave differently)
+    final apiTone = _firstValue(data, ['alaram_tone', 'alarm_tone', 'alarmTone']);
+    if (savedTone != null && savedTone.isNotEmpty) {
+      _tonePath = savedTone; // use local file if available
+    } else if (apiTone.isNotEmpty) {
+      _toneUrl = apiTone;   // store server URL separately
+      _tonePath = null;     // no local file
+    }
   }
 
   bool _truthy(dynamic value, {bool fallback = false}) {
@@ -286,7 +294,8 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
       if (_foodImage != null) 'food_file': _foodImage!.path,
       if (_foodImageUrl != null && _foodImageUrl!.isNotEmpty)
         'food_file': _foodImageUrl,
-      if (_tonePath != null && _tonePath!.isNotEmpty) 'alaram_tone': _tonePath,
+      if (_tonePath != null && _tonePath!.isNotEmpty) 'alaram_tone': _tonePath
+          else if (_toneUrl != null && _toneUrl!.isNotEmpty) 'alaram_tone': _toneUrl,
       'saved_from': 'profile_alarm_settings',
       'saved_at': DateTime.now().toIso8601String(),
     });
@@ -319,7 +328,7 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
           _toStr(foodBreakfastTime),
           '🍳 Elderzha • Breakfast Time',
           'daily',
-          soundUrl: _tonePath,
+          soundUrl: _tonePath ?? _toneUrl,
           imageUrl: _foodImage?.path ?? _foodImageUrl);
     if (foodLunchOn)
       await DailyScheduler.scheduleReminder(
@@ -328,7 +337,7 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
           _toStr(foodLunchTime),
           '🍽 Elderzha • Lunch Reminder',
           'daily',
-          soundUrl: _tonePath,
+          soundUrl: _tonePath ?? _toneUrl,
           imageUrl: _foodImage?.path ?? _foodImageUrl);
     if (foodDinnerOn)
       await DailyScheduler.scheduleReminder(
@@ -337,7 +346,7 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
           _toStr(foodDinnerTime),
           '🍽 Elderzha • Dinner Reminder',
           'daily',
-          soundUrl: _tonePath,
+          soundUrl: _tonePath ?? _toneUrl,
           imageUrl: _foodImage?.path ?? _foodImageUrl);
   }
 
@@ -351,7 +360,7 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
           _toStr(morningBefore),
           '💊 Elderzha • Morning Before Food',
           'daily',
-          soundUrl: _tonePath,
+          soundUrl: _tonePath ?? _toneUrl,
           imageUrl: img);
     if (medMorningAfterOn)
       await DailyScheduler.scheduleReminder(
@@ -360,7 +369,7 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
           _toStr(morningAfter),
           '💊 Elderzha • Morning After Food',
           'daily',
-          soundUrl: _tonePath,
+          soundUrl: _tonePath ?? _toneUrl,
           imageUrl: img);
     if (medNoonBeforeOn)
       await DailyScheduler.scheduleReminder(
@@ -369,7 +378,7 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
           _toStr(noonBefore),
           '💊 Elderzha • Noon Before Food',
           'daily',
-          soundUrl: _tonePath,
+          soundUrl: _tonePath ?? _toneUrl,
           imageUrl: img);
     if (medNoonAfterOn)
       await DailyScheduler.scheduleReminder(
@@ -378,7 +387,7 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
           _toStr(noonAfter),
           '💊 Elderzha • Noon After Food',
           'daily',
-          soundUrl: _tonePath,
+          soundUrl: _tonePath ?? _toneUrl,
           imageUrl: img);
     if (medNightBeforeOn)
       await DailyScheduler.scheduleReminder(
@@ -387,7 +396,7 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
           _toStr(nightBefore),
           '🌙 Elderzha • Night Before Food',
           'daily',
-          soundUrl: _tonePath,
+          soundUrl: _tonePath ?? _toneUrl,
           imageUrl: img);
     if (medNightAfterOn)
       await DailyScheduler.scheduleReminder(
@@ -396,7 +405,7 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
           _toStr(nightAfter),
           '🌙 Elderzha • Night After Food',
           'daily',
-          soundUrl: _tonePath,
+          soundUrl: _tonePath ?? _toneUrl,
           imageUrl: img);
   }
 
@@ -1455,7 +1464,9 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
                     child: Text(
                         _recordedPreviewPath?.split(RegExp(r'[/\\]')).last ??
                             _tonePath?.split(RegExp(r'[/\\]')).last ??
-                            'Select Tone',
+                            (_toneUrl != null && _toneUrl!.isNotEmpty
+                                ? '✅ Custom tone (from server)'
+                                : 'Select Tone'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.poppins(
@@ -1465,11 +1476,11 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
                                     _recordedPreviewPath == null
                                 ? _muted
                                 : Colors.black87))),
-                if (_tonePath != null || _recordedPreviewPath != null)
+                if (_tonePath != null || _toneUrl != null || _recordedPreviewPath != null)
                   IconButton(
                     visualDensity: VisualDensity.compact,
                     onPressed: () =>
-                        _previewTone(_recordedPreviewPath ?? _tonePath),
+                        _previewTone(_recordedPreviewPath ?? _tonePath ?? _toneUrl),
                     icon: Icon(
                       _previewPlaying
                           ? Icons.stop_circle_rounded

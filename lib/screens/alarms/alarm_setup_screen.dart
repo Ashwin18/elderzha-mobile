@@ -32,7 +32,10 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
   final _picker = ImagePicker();
   File? _medImage;
   File? _foodImage;
-  String? _tonePath;
+  String? _tonePath;      // local file path
+  String? _medImageUrl;   // server URL (loaded from API)
+  String? _foodImageUrl;  // server URL (loaded from API)
+  String? _toneUrl;       // server URL when no local tone
   String? _recordedPreviewPath;
   bool _recording = false;
   bool _previewPlaying = false;
@@ -87,8 +90,29 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
   Future<void> _loadSavedTone() async {
     final prefs = await SharedPreferences.getInstance();
     final tone = prefs.getString('alarm_tone');
-    if (!mounted || tone == null || tone.isEmpty) return;
-    setState(() => _tonePath = tone);
+    if (mounted && tone != null && tone.isNotEmpty) {
+      setState(() => _tonePath = tone);
+    }
+    // Gap 3+5: Also load image/tone URLs from API for display
+    try {
+      final res = await AlarmService().getMedicalRecords();
+      final rawData = res?['data'];
+      if (rawData != null && mounted) {
+        Map<String, dynamic> data = {};
+        if (rawData is Map) data = Map<String, dynamic>.from(rawData);
+        final medUrl  = data['medical_file']?.toString() ?? '';
+        final foodUrl = data['food_file']?.toString() ?? '';
+        final toneUrl = data['alaram_tone']?.toString() ?? '';
+        setState(() {
+          if (medUrl.isNotEmpty) _medImageUrl = medUrl;
+          if (foodUrl.isNotEmpty) _foodImageUrl = foodUrl;
+          // Only use server tone URL if no local tone
+          if ((_tonePath == null || _tonePath!.isEmpty) && toneUrl.isNotEmpty) {
+            _toneUrl = toneUrl;
+          }
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _pickTime(String key, Map<String, String> map) async {
@@ -499,6 +523,7 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
 
   Widget _alarmMediaPanel({required bool medical}) {
     final image = medical ? _medImage : _foodImage;
+    final imageUrl = medical ? _medImageUrl : _foodImageUrl;
     final title = medical ? 'Medical alarm media' : 'Food alarm media';
     return _premiumPanel([
       Row(children: [
@@ -1088,7 +1113,10 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
       ...payload,
       if (_medImage != null) 'medical_file': _medImage!.path,
       if (_foodImage != null) 'food_file': _foodImage!.path,
-      if (_tonePath != null && _tonePath!.isNotEmpty) 'alaram_tone': _tonePath,
+      if (_tonePath != null && _tonePath!.isNotEmpty)
+        'alaram_tone': _tonePath
+      else if (_toneUrl != null && _toneUrl!.isNotEmpty)
+        'alaram_tone': _toneUrl,
       'saved_from': 'first_time_setup',
       'saved_at': DateTime.now().toIso8601String(),
     });
