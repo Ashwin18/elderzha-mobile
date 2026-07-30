@@ -123,6 +123,23 @@ class AuthService {
   Future<Map<String, dynamic>?> getFamilyMasterList() =>
       _api.safeGet('/user/get/family/master');
 
+
+  // ── family_member_table ID mappings ──────────────────────────────────────
+  static const Map<String, int> _relationIds = {
+    'Father': 1, 'Mother': 2, 'Wife': 3, 'Husband': 4,
+    'Son': 5, 'Daughter': 6, 'Grand Son': 7, 'Grand Daughter': 8,
+    'Self': 11, 'Spouse': 12, 'Child': 5, 'Parent': 1,
+    'Sibling': 5, 'Friend': 5, 'Other': 5,
+  };
+  static const int _birthdayEventId   = 9;
+  static const int _anniversaryEventId = 10;
+
+  int? _resolveRelationId(String relation) =>
+      _relationIds[relation] ?? _relationIds.entries
+          .firstWhere((e) => e.key.toLowerCase() == relation.toLowerCase(),
+              orElse: () => const MapEntry('', 5))
+          .value;
+
   // ── POST /user/family/add-for-user ───────────────────────
   Future<Map<String, dynamic>> addFamily({
     required String name,
@@ -139,9 +156,11 @@ class AuthService {
       '/user/family/add-for-user',
       data: {
         'name': name,
-        if (phone != null) 'phone': phone,  // for fall alert SOS SMS
+        if (phone != null && phone.isNotEmpty) 'phone': phone,
         'relation': relation,
         'relation_name': relation,
+        'relation_id': _resolveRelationId(relation) ?? 5,
+        'event_id': birthdayApi.isNotEmpty ? _birthdayEventId : _anniversaryEventId,
         'event_type': eventType,
         'date': primaryDate,
         'event_date': primaryDate,
@@ -176,8 +195,11 @@ class AuthService {
         if (phone != null && phone.isNotEmpty) 'phone': phone,
         'relation': relation,
         'relation_name': relation,
-        if (relationId != null) 'relation_id': relationId,
-        if (eventId != null) 'event_id': eventId,
+        // Use passed IDs or resolve from relation name
+        'relation_id': relationId ?? _resolveRelationId(relation) ?? 5,
+        if (eventId != null) 'event_id': eventId
+        else if (birthdayApi.isNotEmpty) 'event_id': _birthdayEventId
+        else if (anniversaryApi.isNotEmpty) 'event_id': _anniversaryEventId,
         'event_type': eventType,
         'date': primaryDate,
         'event_date': primaryDate,
