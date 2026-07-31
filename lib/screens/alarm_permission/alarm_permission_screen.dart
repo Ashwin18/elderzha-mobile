@@ -60,16 +60,20 @@ class _AlarmPermissionScreenState extends State<AlarmPermissionScreen> {
 
   Future<void> _grantOverlay() async {
     try {
+      // Opens directly to ElderZha overlay permission page
       await AndroidIntent(
         action: 'android.settings.action.MANAGE_OVERLAY_PERMISSION',
         data: 'package:com.batechnology.elderzha',
         flags: <int>[Flag.FLAG_ACTIVITY_NEW_TASK],
       ).launch();
-      await Future.delayed(const Duration(seconds: 2));
+      await Future.delayed(const Duration(seconds: 3));
+      await _checkAll();
     } catch (_) {
-      await Permission.systemAlertWindow.request();
+      try {
+        await Permission.systemAlertWindow.request();
+        await _checkAll();
+      } catch (_) {}
     }
-    await _checkAll();
   }
 
   Future<void> _grantBattery() async {
@@ -87,16 +91,20 @@ class _AlarmPermissionScreenState extends State<AlarmPermissionScreen> {
   }
 
   Future<void> _grantExactAlarm() async {
+    // First try direct permission request dialog
+    try {
+      final status = await Permission.scheduleExactAlarm.request();
+      if (status.isGranted) { await _checkAll(); return; }
+    } catch (_) {}
+    // Fallback: open app's alarm settings directly
     try {
       await AndroidIntent(
-        action: 'android.settings.REQUEST_SCHEDULE_EXACT_ALARM',
+        action: 'android.settings.APPLICATION_DETAILS_SETTINGS',
         data: 'package:com.batechnology.elderzha',
         flags: <int>[Flag.FLAG_ACTIVITY_NEW_TASK],
       ).launch();
       await Future.delayed(const Duration(seconds: 2));
-    } catch (_) {
-      try { await Permission.scheduleExactAlarm.request(); } catch (_) {}
-    }
+    } catch (_) {}
     await _checkAll();
   }
 
@@ -106,6 +114,29 @@ class _AlarmPermissionScreenState extends State<AlarmPermissionScreen> {
   }
 
   Future<void> _grantAll() async {
+    // Show guide dialog before opening settings
+    await showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text('Grant Permissions',
+            style: poppins(16, w: FontWeight.w700, c: C.ink)),
+        content: Text(
+          'We will open Settings pages one by one.\n\n'
+          '1. Notifications → Allow\n'
+          '2. Display over apps → Find ElderZha → Allow\n'
+          '3. Battery → ElderZha → Unrestricted\n'
+          '4. Alarms → Allow\n\n'
+          'Tap OK to start.',
+          style: poppins(13, c: C.txm, h: 1.5)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('OK', style: poppins(14, w: FontWeight.w700, c: C.yellowDark)),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
     if (!_notificationGranted) await _grantNotification();
     if (!_overlayGranted)      await _grantOverlay();
     if (!_batteryGranted)      await _grantBattery();
@@ -180,24 +211,24 @@ class _AlarmPermissionScreenState extends State<AlarmPermissionScreen> {
                   _permCard(
                     icon: '🖥️',
                     title: 'Display over other apps',
-                    desc: 'Shows full screen alarm over lock screen — '
-                          'no need to tap notification',
+                    desc: 'Tap Allow → Settings opens → find ElderZha → '
+                          'toggle ON',
                     granted: _overlayGranted,
                     onGrant: _grantOverlay,
                   ),
                   _permCard(
                     icon: '🔋',
                     title: 'Battery — Unrestricted',
-                    desc: 'Prevents Android killing alarm service. '
-                          'Fixes alarm sound cutting off',
+                    desc: 'Tap Allow → Settings opens → tap ElderZha → '
+                          'select Unrestricted',
                     granted: _batteryGranted,
                     onGrant: _grantBattery,
                   ),
                   _permCard(
                     icon: '⏰',
                     title: 'Alarms & reminders',
-                    desc: 'Fires alarm at exact set time even '
-                          'in battery saver mode',
+                    desc: 'Tap Allow → system dialog appears → '
+                          'tap Allow to confirm',
                     granted: _exactAlarmGranted,
                     onGrant: _grantExactAlarm,
                   ),
