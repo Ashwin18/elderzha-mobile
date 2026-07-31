@@ -9,7 +9,6 @@ import '../../alaram/family_event_scheduler.dart';
 import '../../api/models/fetch_profile_model.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_routes.dart';
-import '../alarm_permission/alarm_permission_screen.dart';
 import '../../services/services.dart';
 import '../../widgets/ez_button.dart';
 
@@ -247,7 +246,8 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
                   EzButton(
                     label: 'Go to Home →',
                     onTap: () =>
-                        _goHome(context),
+                        Navigator.pushNamedAndRemoveUntil(
+                            context, AppRoutes.home, (route) => false),
                   ),
                 ],
               ),
@@ -256,19 +256,6 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
         ],
       ),
     );
-  }
-
-  Future<void> _goHome(BuildContext ctx) async {
-    if (!ctx.mounted) return;
-    if (await AlarmPermissionScreen.shouldShow()) {
-      if (!ctx.mounted) return;
-      Navigator.pushNamedAndRemoveUntil(
-          ctx, AppRoutes.alarmPermission, (route) => false);
-    } else {
-      if (!ctx.mounted) return;
-      Navigator.pushNamedAndRemoveUntil(
-          ctx, AppRoutes.home, (route) => false);
-    }
   }
 
   Future<List<Map<String, dynamic>>> _loadAlarmSummary() async {
@@ -520,18 +507,5 @@ class _ConfettiLayerState extends State<_ConfettiLayer>
       ),
     );
   }
-  Future<void> _goHome(BuildContext ctx) async {
-    if (!ctx.mounted) return;
-    if (await AlarmPermissionScreen.shouldShow()) {
-      if (!ctx.mounted) return;
-      Navigator.pushNamedAndRemoveUntil(
-          ctx, AppRoutes.alarmPermission, (route) => false);
-    } else {
-      if (!ctx.mounted) return;
-      Navigator.pushNamedAndRemoveUntil(
-          ctx, AppRoutes.home, (route) => false);
-    }
-  }
-
 
 }
