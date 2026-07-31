@@ -59,14 +59,24 @@ class _AlarmPermissionScreenState extends State<AlarmPermissionScreen> {
       _exactAlarmGranted && _notificationGranted;
 
   Future<void> _grantOverlay() async {
+    // Android 14 fix: MANAGE_OVERLAY_PERMISSION shows app list
+    // Open App Details directly, user taps "Display over other apps"
     try {
-      // Opens directly to ElderZha overlay permission page
       await AndroidIntent(
-        action: 'android.settings.action.MANAGE_OVERLAY_PERMISSION',
+        action: 'android.settings.APPLICATION_DETAILS_SETTINGS',
         data: 'package:com.batechnology.elderzha',
         flags: <int>[Flag.FLAG_ACTIVITY_NEW_TASK],
       ).launch();
-      await Future.delayed(const Duration(seconds: 3));
+      // Show instruction to user
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Tap "Display over other apps" and turn it ON',
+              style: GoogleFonts.poppins(fontSize: 13)),
+          duration: const Duration(seconds: 5),
+          backgroundColor: const Color(0xFF2D1B69),
+        ));
+      }
+      await Future.delayed(const Duration(seconds: 4));
       await _checkAll();
     } catch (_) {
       try {
@@ -78,15 +88,27 @@ class _AlarmPermissionScreenState extends State<AlarmPermissionScreen> {
 
   Future<void> _grantBattery() async {
     try {
+      // Try direct dialog first
+      await Permission.ignoreBatteryOptimizations.request();
+      if (_batteryGranted) { await _checkAll(); return; }
+    } catch (_) {}
+    try {
+      // Open app details for manual grant
       await AndroidIntent(
-        action: 'android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS',
+        action: 'android.settings.APPLICATION_DETAILS_SETTINGS',
         data: 'package:com.batechnology.elderzha',
         flags: <int>[Flag.FLAG_ACTIVITY_NEW_TASK],
       ).launch();
-      await Future.delayed(const Duration(seconds: 2));
-    } catch (_) {
-      await Permission.ignoreBatteryOptimizations.request();
-    }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Tap Battery → select "Unrestricted"',
+              style: GoogleFonts.poppins(fontSize: 13)),
+          duration: const Duration(seconds: 5),
+          backgroundColor: const Color(0xFF1B5E20),
+        ));
+      }
+      await Future.delayed(const Duration(seconds: 4));
+    } catch (_) {}
     await _checkAll();
   }
 
@@ -121,12 +143,12 @@ class _AlarmPermissionScreenState extends State<AlarmPermissionScreen> {
         title: Text('Grant Permissions',
             style: poppins(16, w: FontWeight.w700, c: C.ink)),
         content: Text(
-          'We will open Settings pages one by one.\n\n'
-          '1. Notifications → Allow\n'
-          '2. Display over apps → Find ElderZha → Allow\n'
-          '3. Battery → ElderZha → Unrestricted\n'
-          '4. Alarms → Allow\n\n'
-          'Tap OK to start.',
+          'We will open ElderZha settings pages one by one.\n\n'
+          '1. Notifications → Tap Allow\n'
+          '2. App Details → Tap "Display over other apps" → ON\n'
+          '3. App Details → Tap Battery → Unrestricted\n'
+          '4. Alarms → Tap Allow\n\n'
+          'A hint will appear for each step. Tap OK to begin.',
           style: poppins(13, c: C.txm, h: 1.5)),
         actions: [
           TextButton(

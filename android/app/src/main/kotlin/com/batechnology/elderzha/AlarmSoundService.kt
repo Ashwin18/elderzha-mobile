@@ -41,25 +41,9 @@ class AlarmSoundService : Service() {
                 val notification = buildNotification(alarmId, title, notes, soundUrl, imageUrl)
                 startForeground(FOREGROUND_ID, notification)
 
-                // Launch AlarmActivity directly for locked screen
-                // fullScreenIntent handles it automatically on most devices
-                // but we also launch directly as backup
-                try {
-                    val actIntent = Intent(this, AlarmActivity::class.java).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                        addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                        putExtra(AlarmActivity.EXTRA_TITLE, title)
-                        putExtra(AlarmActivity.EXTRA_NOTES, notes)
-                        putExtra(AlarmActivity.EXTRA_SOUND_URL, soundUrl)
-                        putExtra(AlarmActivity.EXTRA_IMAGE_URL, imageUrl)
-                        putExtra(AlarmActivity.EXTRA_PLAY_SOUND, false)
-                        putExtra(AlarmActivity.EXTRA_NOTIFICATION_ID, alarmId)
-                    }
-                    startActivity(actIntent)
-                } catch (_: Exception) {
-                    // Blocked by Android — fullScreenIntent will handle it
-                }
+                // fullScreenIntent in notification handles AlarmActivity launch
+                // Do NOT call startActivity here — blocked on Android 14+
+                // and can cause SecurityException that destabilizes the service
 
                 // Start sound only if not already playing for this alarm
                 if (player == null || activeAlarmId != alarmId) {

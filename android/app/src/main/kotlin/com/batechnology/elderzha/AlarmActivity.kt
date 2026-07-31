@@ -133,6 +133,31 @@ class AlarmActivity : Activity() {
         handler.removeCallbacksAndMessages(null)
     }
 
+    // Prevent AlarmActivity from being dismissed when:
+    // - User presses home button
+    // - Screen locks
+    // - Another app comes to foreground
+    override fun onUserLeaveHint() {
+        // Do NOT call super or finish — keep alarm showing
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // Keep screen on even when paused
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Re-assert full screen on resume
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.insetsController?.hide(
+                android.view.WindowInsets.Type.statusBars() or
+                android.view.WindowInsets.Type.navigationBars()
+            )
+        }
+    }
+
     // ── Theme resolution ────────────────────────────────────────────────────
     data class AlarmTheme(
         val bgStart: Int, val bgEnd: Int,
