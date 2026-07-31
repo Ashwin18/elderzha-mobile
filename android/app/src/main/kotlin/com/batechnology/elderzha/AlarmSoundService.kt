@@ -39,7 +39,19 @@ class AlarmSoundService : Service() {
 
                 // Start foreground IMMEDIATELY (Android requires within 5s)
                 val notification = buildNotification(alarmId, title, notes, soundUrl, imageUrl)
-                startForeground(FOREGROUND_ID, notification)
+                try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        startForeground(
+                            FOREGROUND_ID, notification,
+                            android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+                        )
+                    } else {
+                        startForeground(FOREGROUND_ID, notification)
+                    }
+                } catch (e: Exception) {
+                    // BUG 1 Fix: fallback if mediaPlayback type rejected by OEM
+                    try { startForeground(FOREGROUND_ID, notification) } catch (_: Exception) {}
+                }
 
                 // fullScreenIntent in notification handles AlarmActivity launch
                 // Do NOT call startActivity here — blocked on Android 14+
@@ -248,12 +260,24 @@ class AlarmSoundService : Service() {
         }
 
         fun stop(context: Context) {
-            val i = Intent(context, AlarmSoundService::class.java).apply {
-                action = ACTION_STOP
+            // Send ACTION_STOP only — service handles stopAlarmSound() + stopSelf()
+            // Do NOT also call stopService() — causes race condition where
+            // service is killed before ACTION_STOP is processed, leaving
+            // MediaPlayer running without release()
+            try {
+                val i = Intent(context, AlarmSoundService::class.java).apply {
+                    action = ACTION_STOP
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(i)
+                } else {
+                    context.startService(i)
+                }
+            } catch (_: Exception) {
+                // Fallback: force stop if ACTION_STOP delivery fails
+                try { context.stopService(Intent(context, AlarmSoundService::class.java)) }
+                catch (_: Exception) {}
             }
-            try { context.startService(i) } catch (_: Exception) {}
-            // Also force stop after brief delay to ensure onDestroy is called
-            context.stopService(Intent(context, AlarmSoundService::class.java))
         }
     }
 }

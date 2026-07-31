@@ -14,6 +14,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.view.Gravity
 import android.view.GestureDetector
 import android.view.MotionEvent
@@ -34,6 +35,7 @@ class AlarmActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var gestureDetector: GestureDetector
     private var pulseAnimator: AnimatorSet? = null
+    private var wakeLock: PowerManager.WakeLock? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -71,6 +73,16 @@ class AlarmActivity : Activity() {
                 View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
             )
         }
+
+        // BUG 8 Fix: Acquire wake lock so screen doesn't turn off during alarm
+        try {
+            val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+            wakeLock = pm.newWakeLock(
+                PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
+                "ElderZha:AlarmWakeLock"
+            )
+            wakeLock?.acquire(10 * 60 * 1000L) // max 10 minutes safety timeout
+        } catch (_: Exception) {}
 
         val title          = intent.getStringExtra(EXTRA_TITLE)           ?: "ElderZha Reminder"
         val notes          = intent.getStringExtra(EXTRA_NOTES)           ?: ""
@@ -131,6 +143,9 @@ class AlarmActivity : Activity() {
         super.onDestroy()
         pulseAnimator?.cancel()
         handler.removeCallbacksAndMessages(null)
+        try {
+            if (wakeLock?.isHeld == true) wakeLock?.release()
+        } catch (_: Exception) {}
     }
 
     // Prevent AlarmActivity from being dismissed when:
@@ -299,8 +314,11 @@ class AlarmActivity : Activity() {
         iconBox.addView(iconBg, FrameLayout.LayoutParams(dp(88), dp(88)))
         iconBox.addView(iconText, FrameLayout.LayoutParams(dp(88), dp(88)))
 
+        // BUG 5 Fix: calculate overlap based on actual glow size (190dp) + icon size (88dp)
+        // Center icon within glow ring: overlap = glowSize/2 + iconSize/2 - small gap
+        val overlapMargin = (glowSize / 2) + dp(44) - dp(20)
         col.addView(iconBox, LinearLayout.LayoutParams(dp(88), dp(88)).apply {
-            topMargin = -dp(140) // pull up to overlap glow ring
+            topMargin = -overlapMargin
             gravity = Gravity.CENTER_HORIZONTAL
         })
 
@@ -400,11 +418,13 @@ class AlarmActivity : Activity() {
             ViewGroup.LayoutParams.MATCH_PARENT, dp(58)
         ))
 
-        // Scroll wrapper
-        val scroll = ScrollView(this)
+        // Scroll wrapper — BUG 6 Fix: child must be WRAP_CONTENT for ScrollView
+        val scroll = ScrollView(this).apply {
+            isFillViewport = true // makes content fill screen if shorter than viewport
+        }
         scroll.addView(col, ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT
+            ViewGroup.LayoutParams.WRAP_CONTENT
         ))
         root.addView(scroll, FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -515,6 +535,9 @@ class AlarmActivity : Activity() {
             Color.red(color), Color.green(color), Color.blue(color))
         colors = intArrayOf(c, Color.TRANSPARENT)
         gradientType = GradientDrawable.RADIAL_GRADIENT
+        // BUG 4 Fix: explicit gradient radius prevents crash on some devices
+        // where RADIAL_GRADIENT without radius causes IllegalArgumentException
+        gradientRadius = dp(95).toFloat()
     }
 
     private fun roundedGradient(c1: Int, c2: Int, radius: Float) =
