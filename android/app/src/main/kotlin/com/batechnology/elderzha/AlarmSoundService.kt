@@ -46,9 +46,9 @@ class AlarmSoundService : Service() {
                 // but we also launch directly as backup
                 try {
                     val actIntent = Intent(this, AlarmActivity::class.java).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                                Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                                Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                        addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
                         putExtra(AlarmActivity.EXTRA_TITLE, title)
                         putExtra(AlarmActivity.EXTRA_NOTES, notes)
                         putExtra(AlarmActivity.EXTRA_SOUND_URL, soundUrl)
