@@ -8,8 +8,6 @@ import android.app.NotificationManager
 import android.content.Context
 import android.graphics.BitmapFactory
 import android.graphics.Color
-import android.graphics.LinearGradient
-import android.graphics.Shader
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
@@ -433,10 +431,12 @@ class AlarmActivity : Activity() {
     private fun dismiss(notificationId: Int) {
         try {
             val mgr = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            // Cancel both the alarm notification ID and fixed foreground ID
             if (notificationId != 0) mgr.cancel(notificationId)
+            mgr.cancel(AlarmSoundService.FOREGROUND_ID) // fixed foreground notification
         } catch (_: Exception) {}
+        // Stop service (this stops sound + removes foreground notification)
         AlarmSoundService.stop(this)
-        stopService(android.content.Intent(this, AlarmSoundService::class.java))
         finish()
     }
 

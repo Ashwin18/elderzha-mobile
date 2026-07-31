@@ -46,7 +46,7 @@
             android:hardwareAccelerated="true"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:windowSoftInputMode="stateHidden"
-            android:theme="@style/NormalTheme" />
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" />
         <service
             android:name=".AlarmSoundService"
             android:exported="false"
@@ -61,7 +61,11 @@
             android:value="high_importance_channel" />
         <receiver
             android:name=".AlarmReceiver"
-            android:exported="false" />
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.batechnology.elderzha.DISMISS_ALARM" />
+            </intent-filter>
+        </receiver>
             <!-- BootReceiver: reschedules alarms after phone restart -->
         <receiver
             android:name=".BootReceiver"

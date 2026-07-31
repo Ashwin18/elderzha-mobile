@@ -131,13 +131,13 @@ class AlarmSoundService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // dismissIntent → stops sound + removes notification
-        val dismissPi = PendingIntent.getBroadcast(
+        // dismissIntent → stops sound service directly
+        val dismissServiceIntent = Intent(this, AlarmSoundService::class.java).apply {
+            action = ACTION_STOP
+        }
+        val dismissPi = PendingIntent.getService(
             this, alarmId + 500_000,
-            Intent(this, AlarmReceiver::class.java).apply {
-                action = AlarmReceiver.ACTION_DISMISS
-                putExtra("id", alarmId)
-            },
+            dismissServiceIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
@@ -237,6 +237,11 @@ class AlarmSoundService : Service() {
         }
 
         fun stop(context: Context) {
+            val i = Intent(context, AlarmSoundService::class.java).apply {
+                action = ACTION_STOP
+            }
+            try { context.startService(i) } catch (_: Exception) {}
+            // Also force stop after brief delay to ensure onDestroy is called
             context.stopService(Intent(context, AlarmSoundService::class.java))
         }
     }
