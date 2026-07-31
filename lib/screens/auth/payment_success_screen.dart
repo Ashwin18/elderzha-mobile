@@ -247,14 +247,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
                   EzButton(
                     label: 'Go to Home →',
                     onTap: () =>
-                        // Show permission screen for new users after payment
-                        if (await AlarmPermissionScreen.shouldShow()) {
-                          Navigator.pushNamedAndRemoveUntil(
-                              context, AppRoutes.alarmPermission, (route) => false);
-                        } else {
-                          Navigator.pushNamedAndRemoveUntil(
-                              context, AppRoutes.home, (route) => false);
-                        },
+                        _goHome(context),
                   ),
                 ],
               ),
@@ -514,4 +507,18 @@ class _ConfettiLayerState extends State<_ConfettiLayer>
       ),
     );
   }
+  Future<void> _goHome(BuildContext ctx) async {
+    if (!ctx.mounted) return;
+    if (await AlarmPermissionScreen.shouldShow()) {
+      if (!ctx.mounted) return;
+      Navigator.pushNamedAndRemoveUntil(
+          ctx, AppRoutes.alarmPermission, (route) => false);
+    } else {
+      if (!ctx.mounted) return;
+      Navigator.pushNamedAndRemoveUntil(
+          ctx, AppRoutes.home, (route) => false);
+    }
+  }
+
+
 }

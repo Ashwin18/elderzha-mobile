@@ -5,6 +5,7 @@ class AppRoutes {
   static const otp = '/otp';
   static const setupProfile = '/setup-profile';
   static const alarmSetup = '/alarm-setup';
+  static const alarmPermission = '/alarm-permission';
   static const payment = '/payment';
   static const paymentSuccess = '/payment-success';
   static const home = '/home';
