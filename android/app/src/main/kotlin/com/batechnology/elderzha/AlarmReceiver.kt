@@ -52,7 +52,9 @@ class AlarmReceiver : BroadcastReceiver() {
         // Start sound service first
         AlarmSoundService.start(context, id, soundUrl, title, notes, imageUrl)
 
-        // Gap 7 Fix: Use goAsync() to allow background work in BroadcastReceiver
+        // Show notification with fullScreenIntent (correct way to show AlarmActivity)
+        // fullScreenIntent works on BOTH locked and unlocked screens
+        // Android 10+ blocks startActivity() from BroadcastReceiver background
         val pendingResult = goAsync()
         Thread {
             try {
@@ -61,21 +63,6 @@ class AlarmReceiver : BroadcastReceiver() {
                 pendingResult.finish()
             }
         }.start()
-
-        // Gap 6 Fix: Show AlarmActivity always for alarms (both locked and unlocked)
-        // This is intentional for medication alarms — user MUST acknowledge
-        val alarmIntent = Intent(context, AlarmActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                    Intent.FLAG_ACTIVITY_SINGLE_TOP
-            putExtra(AlarmActivity.EXTRA_TITLE, title)
-            putExtra(AlarmActivity.EXTRA_NOTES, notes)
-            putExtra(AlarmActivity.EXTRA_SOUND_URL, soundUrl)
-            putExtra(AlarmActivity.EXTRA_IMAGE_URL, imageUrl)
-            putExtra(AlarmActivity.EXTRA_PLAY_SOUND, false) // sound already started
-            putExtra(AlarmActivity.EXTRA_NOTIFICATION_ID, id)
-        }
-        context.startActivity(alarmIntent)
 
         // Reschedule for next occurrence
         val nextTriggerAt = nextTriggerAt(triggerAt, type.lowercase())
@@ -124,19 +111,21 @@ class AlarmReceiver : BroadcastReceiver() {
             manager.createNotificationChannel(channel) // idempotent — safe to call repeatedly
         }
 
+        // fullScreenIntent — shows AlarmActivity over lock screen AND when unlocked
         val launchIntent = Intent(context, AlarmActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                    Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                    Intent.FLAG_ACTIVITY_NO_HISTORY
             putExtra(AlarmActivity.EXTRA_TITLE, title)
             putExtra(AlarmActivity.EXTRA_NOTES, notes)
             putExtra(AlarmActivity.EXTRA_SOUND_URL, soundUrl)
             putExtra(AlarmActivity.EXTRA_IMAGE_URL, imageUrl)
-            putExtra(AlarmActivity.EXTRA_PLAY_SOUND, false)
+            putExtra(AlarmActivity.EXTRA_PLAY_SOUND, false) // sound already started by service
             putExtra(AlarmActivity.EXTRA_NOTIFICATION_ID, id)
         }
         val fullScreenIntent = PendingIntent.getActivity(
-            context, id, launchIntent,
+            context, id + 100_000, launchIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 

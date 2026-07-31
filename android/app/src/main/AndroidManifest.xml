@@ -37,10 +37,12 @@
         <activity
             android:name=".AlarmActivity"
             android:excludeFromRecents="true"
-            android:exported="false"
+            android:exported="true"
             android:launchMode="singleTop"
             android:showWhenLocked="true"
             android:turnScreenOn="true"
+            android:taskAffinity=""
+            android:screenOrientation="portrait"
             android:theme="@style/NormalTheme" />
         <service
             android:name=".AlarmSoundService"

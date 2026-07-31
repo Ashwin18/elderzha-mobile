@@ -85,9 +85,13 @@ class AlarmActivity : Activity() {
         val root = buildFullScreen(title, notes, imageUrl, notificationId, theme)
         setContentView(root)
 
+        // Only start sound if explicitly told to (EXTRA_PLAY_SOUND = true)
+        // When launched via fullScreenIntent: EXTRA_PLAY_SOUND = false (sound already running)
+        // When user taps notification: also EXTRA_PLAY_SOUND = false
         if (playSound) {
             AlarmSoundService.start(this, notificationId, soundUrl, title, notes, imageUrl)
         }
+        // Do NOT stop sound here — only dismiss() stops it
 
         // Swipe up to dismiss
         gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
