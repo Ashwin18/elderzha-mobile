@@ -81,16 +81,30 @@ class AlarmActivity : Activity() {
 
         val theme = resolveTheme(title)
 
-        val root = buildFullScreen(title, notes, imageUrl, notificationId, theme)
-        setContentView(root)
-
-        // Cancel notification from tray when AlarmActivity opens
-        // So tray clears immediately — user sees full screen only
         try {
-            val mgr = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            mgr.cancel(AlarmSoundService.FOREGROUND_ID)
-            if (notificationId != 0) mgr.cancel(notificationId)
-        } catch (_: Exception) {}
+            val root = buildFullScreen(title, notes, imageUrl, notificationId, theme)
+            setContentView(root)
+        } catch (e: Exception) {
+            // Fallback simple layout if premium UI crashes
+            val simple = android.widget.LinearLayout(this).apply {
+                orientation = android.widget.LinearLayout.VERTICAL
+                gravity = android.view.Gravity.CENTER
+                setBackgroundColor(android.graphics.Color.parseColor("#2D1B69"))
+            }
+            val tv = android.widget.TextView(this).apply {
+                text = "⏰ $title"
+                textSize = 22f
+                setTextColor(android.graphics.Color.WHITE)
+                gravity = android.view.Gravity.CENTER
+            }
+            val btn = android.widget.Button(this).apply {
+                text = "Dismiss"
+                setOnClickListener { dismiss(notificationId) }
+            }
+            simple.addView(tv)
+            simple.addView(btn)
+            setContentView(simple)
+        }
 
         if (playSound) {
             AlarmSoundService.start(this, notificationId, soundUrl, title, notes, imageUrl)
@@ -435,12 +449,12 @@ class AlarmActivity : Activity() {
     private fun dismiss(notificationId: Int) {
         try {
             val mgr = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            // Cancel both the alarm notification ID and fixed foreground ID
             if (notificationId != 0) mgr.cancel(notificationId)
-            mgr.cancel(AlarmSoundService.FOREGROUND_ID) // fixed foreground notification
+            mgr.cancel(9999) // AlarmSoundService.FOREGROUND_ID
         } catch (_: Exception) {}
-        // Stop service (this stops sound + removes foreground notification)
-        AlarmSoundService.stop(this)
+        try {
+            AlarmSoundService.stop(this)
+        } catch (_: Exception) {}
         finish()
     }
 
