@@ -37,12 +37,29 @@ class AlarmSoundService : Service() {
                 val notes     = intent?.getStringExtra(EXTRA_NOTES) ?: "Alarm is ringing."
                 val imageUrl  = intent?.getStringExtra(EXTRA_IMAGE_URL) ?: ""
 
-                // Show ONE foreground notification with fullScreenIntent
-                // This is the ONLY notification — AlarmReceiver does NOT show a separate one
-                startForeground(
-                    FOREGROUND_ID,
-                    buildNotification(alarmId, title, notes, soundUrl, imageUrl)
-                )
+                // Start foreground IMMEDIATELY (Android requires within 5s)
+                val notification = buildNotification(alarmId, title, notes, soundUrl, imageUrl)
+                startForeground(FOREGROUND_ID, notification)
+
+                // Launch AlarmActivity directly for locked screen
+                // fullScreenIntent handles it automatically on most devices
+                // but we also launch directly as backup
+                try {
+                    val actIntent = Intent(this, AlarmActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                                Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        putExtra(AlarmActivity.EXTRA_TITLE, title)
+                        putExtra(AlarmActivity.EXTRA_NOTES, notes)
+                        putExtra(AlarmActivity.EXTRA_SOUND_URL, soundUrl)
+                        putExtra(AlarmActivity.EXTRA_IMAGE_URL, imageUrl)
+                        putExtra(AlarmActivity.EXTRA_PLAY_SOUND, false)
+                        putExtra(AlarmActivity.EXTRA_NOTIFICATION_ID, alarmId)
+                    }
+                    startActivity(actIntent)
+                } catch (_: Exception) {
+                    // Blocked by Android — fullScreenIntent will handle it
+                }
 
                 // Start sound only if not already playing for this alarm
                 if (player == null || activeAlarmId != alarmId) {
