@@ -1,9 +1,10 @@
 package com.batechnology.elderzha
 
-import android.app.Service
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
@@ -16,6 +17,7 @@ import androidx.core.app.NotificationCompat
 import java.io.File
 
 class AlarmSoundService : Service() {
+
     private var player: MediaPlayer? = null
     private var audioManager: AudioManager? = null
     private var previousAlarmVolume: Int? = null
@@ -29,15 +31,20 @@ class AlarmSoundService : Service() {
                 return START_NOT_STICKY
             }
             else -> {
-                val alarmId = intent?.getIntExtra(EXTRA_ALARM_ID, 0) ?: 0
-                val soundUrl = intent?.getStringExtra(EXTRA_SOUND_URL) ?: ""
-                val title = intent?.getStringExtra(EXTRA_TITLE) ?: "ElderZha reminder"
-                val notes = intent?.getStringExtra(EXTRA_NOTES) ?: "Alarm is ringing."
-                val imageUrl = intent?.getStringExtra(EXTRA_IMAGE_URL) ?: ""
+                val alarmId   = intent?.getIntExtra(EXTRA_ALARM_ID, 0) ?: 0
+                val soundUrl  = intent?.getStringExtra(EXTRA_SOUND_URL) ?: ""
+                val title     = intent?.getStringExtra(EXTRA_TITLE) ?: "ElderZha Reminder"
+                val notes     = intent?.getStringExtra(EXTRA_NOTES) ?: "Alarm is ringing."
+                val imageUrl  = intent?.getStringExtra(EXTRA_IMAGE_URL) ?: ""
+
+                // Show ONE foreground notification with fullScreenIntent
+                // This is the ONLY notification — AlarmReceiver does NOT show a separate one
                 startForeground(
-                    alarmId.coerceAtLeast(1),
-                    notification(alarmId, title, notes, soundUrl, imageUrl),
+                    FOREGROUND_ID,
+                    buildNotification(alarmId, title, notes, soundUrl, imageUrl)
                 )
+
+                // Start sound only if not already playing for this alarm
                 if (player == null || activeAlarmId != alarmId) {
                     activeAlarmId = alarmId
                     play(soundUrl)
@@ -74,42 +81,46 @@ class AlarmSoundService : Service() {
         } catch (_: Exception) {
             try {
                 boostAlarmVolume()
-                player = MediaPlayer.create(this, android.provider.Settings.System.DEFAULT_ALARM_ALERT_URI)
-                player?.isLooping = true
-                player?.setVolume(1f, 1f)
-                player?.start()
-            } catch (_: Exception) {
-            }
+                player = MediaPlayer.create(
+                    this,
+                    android.provider.Settings.System.DEFAULT_ALARM_ALERT_URI
+                )?.apply {
+                    isLooping = true
+                    setVolume(1f, 1f)
+                    start()
+                }
+            } catch (_: Exception) {}
         }
     }
 
-    private fun notification(
+    private fun buildNotification(
         alarmId: Int,
         title: String,
         notes: String,
         soundUrl: String,
         imageUrl: String,
-    ): android.app.Notification {
+    ): Notification {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "ElderZha Alarms",
-                NotificationManager.IMPORTANCE_HIGH,
+            val ch = NotificationChannel(
+                CHANNEL_ID, "ElderZha Alarms",
+                NotificationManager.IMPORTANCE_MAX
             ).apply {
-                description = "Medical, food, family, and reminder alarms"
+                description = "Medication, food and family alarms"
                 enableVibration(true)
                 setSound(null, null)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             }
-            manager.createNotificationChannel(channel)
+            manager.createNotificationChannel(ch)
         }
-        val contentIntent = PendingIntent.getActivity(
-            this,
-            alarmId,
+
+        // fullScreenIntent → opens AlarmActivity (premium UI) over lock screen
+        val fullScreenPi = PendingIntent.getActivity(
+            this, alarmId + 200_000,
             Intent(this, AlarmActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                    Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP
                 putExtra(AlarmActivity.EXTRA_TITLE, title)
                 putExtra(AlarmActivity.EXTRA_NOTES, notes)
                 putExtra(AlarmActivity.EXTRA_SOUND_URL, soundUrl)
@@ -117,28 +128,39 @@ class AlarmSoundService : Service() {
                 putExtra(AlarmActivity.EXTRA_PLAY_SOUND, false)
                 putExtra(AlarmActivity.EXTRA_NOTIFICATION_ID, alarmId)
             },
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        val dismissIntent = PendingIntent.getBroadcast(
-            this,
-            alarmId + DISMISS_REQUEST_OFFSET,
+
+        // dismissIntent → stops sound + removes notification
+        val dismissPi = PendingIntent.getBroadcast(
+            this, alarmId + 500_000,
             Intent(this, AlarmReceiver::class.java).apply {
-                action = ACTION_DISMISS
+                action = AlarmReceiver.ACTION_DISMISS
                 putExtra("id", alarmId)
             },
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(title)
-            .setContentText(notes.ifBlank { "Alarm is ringing." })
+            .setContentText("Tap 'Dismiss' to stop the alarm")
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setContentIntent(contentIntent)
-            .setDeleteIntent(dismissIntent)
+            .setOngoing(true)
             .setAutoCancel(false)
             .setOnlyAlertOnce(true)
+            // contentIntent = dismiss (tapping notification stops alarm, not open app)
+            .setContentIntent(dismissPi)
+            .setDeleteIntent(dismissPi)
+            // fullScreenIntent = shows AlarmActivity immediately over lock screen
+            .setFullScreenIntent(fullScreenPi, true)
+            .addAction(
+                android.R.drawable.ic_menu_close_clear_cancel,
+                "Dismiss Alarm",
+                dismissPi
+            )
             .build()
     }
 
@@ -149,91 +171,73 @@ class AlarmSoundService : Service() {
                 setDataSource(this@AlarmSoundService, Uri.parse(raw))
             raw.startsWith("file://") -> {
                 val file = File(Uri.parse(raw).path ?: raw.removePrefix("file://"))
-                if (file.exists()) {
-                    setDataSource(file.absolutePath)
-                } else {
-                    setDataSource(this@AlarmSoundService, android.provider.Settings.System.DEFAULT_ALARM_ALERT_URI)
-                }
+                if (file.exists()) setDataSource(file.absolutePath)
+                else setDataSource(this@AlarmSoundService,
+                    android.provider.Settings.System.DEFAULT_ALARM_ALERT_URI)
             }
             raw.isNotBlank() && File(raw).exists() ->
                 setDataSource(File(raw).absolutePath)
             else ->
-                setDataSource(this@AlarmSoundService, android.provider.Settings.System.DEFAULT_ALARM_ALERT_URI)
+                setDataSource(this@AlarmSoundService,
+                    android.provider.Settings.System.DEFAULT_ALARM_ALERT_URI)
         }
     }
 
     private fun boostAlarmVolume() {
-        val manager = getSystemService(AUDIO_SERVICE) as AudioManager
-        audioManager = manager
+        val mgr = getSystemService(AUDIO_SERVICE) as AudioManager
+        audioManager = mgr
         if (previousAlarmVolume == null) {
-            previousAlarmVolume = manager.getStreamVolume(AudioManager.STREAM_ALARM)
+            previousAlarmVolume = mgr.getStreamVolume(AudioManager.STREAM_ALARM)
         }
         try {
-            val max = manager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
-            if (max > 0) manager.setStreamVolume(AudioManager.STREAM_ALARM, max, 0)
-        } catch (_: Exception) {
-        }
+            val max = mgr.getStreamMaxVolume(AudioManager.STREAM_ALARM)
+            if (max > 0) mgr.setStreamVolume(AudioManager.STREAM_ALARM, max, 0)
+        } catch (_: Exception) {}
     }
 
     private fun stopAlarmSound() {
-        try {
-            player?.stop()
-        } catch (_: Exception) {
-        }
-        try {
-            player?.release()
-        } catch (_: Exception) {
-        }
+        try { player?.stop() } catch (_: Exception) {}
+        try { player?.release() } catch (_: Exception) {}
         player = null
-        val previous = previousAlarmVolume
-        if (previous != null) {
-            try {
-                audioManager?.setStreamVolume(AudioManager.STREAM_ALARM, previous, 0)
-            } catch (_: Exception) {
-            }
+        previousAlarmVolume?.let {
+            try { audioManager?.setStreamVolume(AudioManager.STREAM_ALARM, it, 0) }
+            catch (_: Exception) {}
         }
         previousAlarmVolume = null
         activeAlarmId = 0
     }
 
     companion object {
-        private const val ACTION_STOP = "com.batechnology.elderzha.STOP_ALARM_SOUND"
-        private const val ACTION_DISMISS = "com.batechnology.elderzha.DISMISS_ALARM"
-        private const val DISMISS_REQUEST_OFFSET = 500_000
-        private const val EXTRA_ALARM_ID = "alarmId"
+        const val CHANNEL_ID           = "elderzha_alarm_v5"
+        const val FOREGROUND_ID        = 9999  // fixed ID for foreground notification
+        private const val ACTION_STOP  = "com.batechnology.elderzha.STOP_ALARM_SOUND"
+        private const val EXTRA_ALARM_ID  = "alarmId"
         private const val EXTRA_SOUND_URL = "soundUrl"
         private const val EXTRA_IMAGE_URL = "imageUrl"
-        private const val EXTRA_TITLE = "title"
-        private const val EXTRA_NOTES = "notes"
-        private const val CHANNEL_ID = "elderzha_alarm_channel_v4"
+        private const val EXTRA_TITLE     = "title"
+        private const val EXTRA_NOTES     = "notes"
 
         fun start(
-            context: Context,
-            alarmId: Int,
-            soundUrl: String,
-            title: String = "ElderZha reminder",
+            context: Context, alarmId: Int, soundUrl: String,
+            title: String = "ElderZha Reminder",
             notes: String = "Alarm is ringing.",
             imageUrl: String = "",
         ) {
-            val intent = Intent(context, AlarmSoundService::class.java).apply {
+            val i = Intent(context, AlarmSoundService::class.java).apply {
                 putExtra(EXTRA_ALARM_ID, alarmId)
                 putExtra(EXTRA_SOUND_URL, soundUrl)
                 putExtra(EXTRA_IMAGE_URL, imageUrl)
                 putExtra(EXTRA_TITLE, title)
                 putExtra(EXTRA_NOTES, notes)
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                context.startForegroundService(i)
+            else
+                context.startService(i)
         }
 
         fun stop(context: Context) {
-            val intent = Intent(context, AlarmSoundService::class.java).apply {
-                action = ACTION_STOP
-            }
-            context.stopService(intent)
+            context.stopService(Intent(context, AlarmSoundService::class.java))
         }
     }
 }
