@@ -107,7 +107,20 @@ class AlarmReceiver : BroadcastReceiver() {
                 description = "Medical, food, and family reminders"
                 enableVibration(true)
                 setSound(null, null)
+                // Allow full screen intent to bypass DND
+                lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
             }
+            // Also create a MAX importance channel for alarm full screen
+            val alarmChannel = NotificationChannel(
+                ALARM_CHANNEL_ID, "ElderZha Alarm Fullscreen",
+                NotificationManager.IMPORTANCE_MAX,
+            ).apply {
+                description = "Full screen alarm alerts"
+                enableVibration(true)
+                setSound(null, null)
+                lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+            }
+            manager.createNotificationChannel(alarmChannel)
             manager.createNotificationChannel(channel) // idempotent — safe to call repeatedly
         }
 
@@ -141,23 +154,26 @@ class AlarmReceiver : BroadcastReceiver() {
         )
 
         val image = loadBitmap(imageUrl)
-        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
+        // Use MAX importance channel for full screen
+        val builder = NotificationCompat.Builder(context, ALARM_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(title)
-            .setContentText(notes.ifBlank { "Tap to open ElderZha." })
+            .setContentText(notes.ifBlank { "Tap Dismiss to stop alarm" })
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setAutoCancel(true)
+            .setAutoCancel(false)   // keep showing until dismissed
+            .setOngoing(true)       // can't be swiped away accidentally
             .setVibrate(longArrayOf(0, 600, 250, 600))
-            .setContentIntent(fullScreenIntent)
-            .setDeleteIntent(dismissIntent) // swipe = dismiss + stop sound
-            .setFullScreenIntent(fullScreenIntent, true) // always show full screen
-            .setOnlyAlertOnce(true)
-            // Gap 3 Fix: Explicit "Dismiss" action button on notification
+            // contentIntent = dismiss (NOT open AlarmActivity — causes cache issue)
+            .setContentIntent(dismissIntent)
+            .setDeleteIntent(dismissIntent)
+            // fullScreenIntent = opens AlarmActivity over lock screen automatically
+            .setFullScreenIntent(fullScreenIntent, true)
+            // Dismiss button in notification
             .addAction(
                 android.R.drawable.ic_menu_close_clear_cancel,
-                "Dismiss",
+                "Dismiss Alarm",
                 dismissIntent
             )
 
@@ -193,6 +209,7 @@ class AlarmReceiver : BroadcastReceiver() {
         const val ACTION_DISMISS        = "com.batechnology.elderzha.DISMISS_ALARM"
         const val DISMISS_REQUEST_OFFSET = 500_000
         const val CHANNEL_ID            = "elderzha_alarm_channel_v4"
+        const val ALARM_CHANNEL_ID      = "elderzha_alarm_fullscreen_v1"
         const val EXTRA_ID              = "id"
         const val EXTRA_TRIGGER_AT      = "triggerAt"
         const val EXTRA_TITLE           = "title"

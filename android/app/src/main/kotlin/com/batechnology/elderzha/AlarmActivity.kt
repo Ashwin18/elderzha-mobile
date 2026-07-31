@@ -54,7 +54,8 @@ class AlarmActivity : Activity() {
         window.addFlags(
             WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
             WindowManager.LayoutParams.FLAG_FULLSCREEN or
-            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
         )
         // Hide system bars — immersive full screen
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {

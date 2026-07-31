@@ -38,11 +38,14 @@
             android:name=".AlarmActivity"
             android:excludeFromRecents="true"
             android:exported="true"
-            android:launchMode="singleTop"
+            android:launchMode="singleTask"
             android:showWhenLocked="true"
             android:turnScreenOn="true"
-            android:taskAffinity=""
+            android:taskAffinity="com.batechnology.elderzha.alarm"
             android:screenOrientation="portrait"
+            android:hardwareAccelerated="true"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:windowSoftInputMode="stateHidden"
             android:theme="@style/NormalTheme" />
         <service
             android:name=".AlarmSoundService"
