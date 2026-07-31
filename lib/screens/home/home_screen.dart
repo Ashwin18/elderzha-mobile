@@ -1360,6 +1360,38 @@ class _HomeScreenState extends State<HomeScreen> {
     return rows;
   }
 
+
+  List<Widget> _buildCheckInChips(Map<String, dynamic> data) {
+    final chips = <Widget>[];
+    final fields = [
+      {'keys': ['mood', 'mood_name', 'feeling'], 'icon': '😊', 'label': 'Mood'},
+      {'keys': ['weather', 'weather_type'], 'icon': '🌤️', 'label': 'Weather'},
+      {'keys': ['sleep_time', 'sleep', 'sleeping_time'], 'icon': '😴', 'label': 'Sleep'},
+      {'keys': ['energy', 'energy_level'], 'icon': '⚡', 'label': 'Energy'},
+      {'keys': ['exercise', 'activity_name'], 'icon': '💪', 'label': 'Exercise'},
+      {'keys': ['water', 'water_intake'], 'icon': '💧', 'label': 'Water'},
+      {'keys': ['pain', 'pain_level'], 'icon': '🩺', 'label': 'Pain'},
+      {'keys': ['notes', 'note', 'description'], 'icon': '📝', 'label': 'Note'},
+    ];
+    for (final f in fields) {
+      final val = _field(data, List<String>.from(f['keys'] as List));
+      if (val.isEmpty) continue;
+      chips.add(_checkInChip('${f['icon']} ${f['label']}: $val'));
+    }
+    return chips;
+  }
+
+  Widget _checkInChip(String label) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+    decoration: BoxDecoration(
+      color: Colors.white.withOpacity(0.12),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: Colors.white.withOpacity(0.15)),
+    ),
+    child: Text(label,
+        style: poppins(11, w: FontWeight.w600, c: Colors.white70)),
+  );
+
   String _checkInSummary(Map<String, dynamic>? item) {
     final explicit = _field(item, ['summary', 'one_word', 'word']);
     final mood = _field(item, ['mood', 'mood_name', 'feeling']);
