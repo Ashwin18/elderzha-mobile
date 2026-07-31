@@ -9,6 +9,7 @@ import '../../alaram/family_event_scheduler.dart';
 import '../../api/models/fetch_profile_model.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_routes.dart';
+import '../alarm_permission/alarm_permission_screen.dart';
 import '../../services/services.dart';
 import '../../widgets/ez_button.dart';
 
@@ -246,8 +247,14 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
                   EzButton(
                     label: 'Go to Home →',
                     onTap: () =>
-                        Navigator.pushNamedAndRemoveUntil(
-                            context, AppRoutes.home, (route) => false),
+                        // Show permission screen for new users after payment
+                        if (await AlarmPermissionScreen.shouldShow()) {
+                          Navigator.pushNamedAndRemoveUntil(
+                              context, AppRoutes.alarmPermission, (route) => false);
+                        } else {
+                          Navigator.pushNamedAndRemoveUntil(
+                              context, AppRoutes.home, (route) => false);
+                        },
                   ),
                 ],
               ),

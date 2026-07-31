@@ -13,6 +13,7 @@ import '../../services/services.dart';
 import '../../providers/auth_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_routes.dart';
+import '../alarm_permission/alarm_permission_screen.dart';
 
 class OtpScreen extends StatefulWidget {
   const OtpScreen({super.key});
@@ -196,10 +197,14 @@ class _OtpScreenState extends State<OtpScreen> {
     if (!mounted) return;
 
     // ── EXISTING SUBSCRIBED USER ─────────────────────────────────────────────
-    // Plan is active → go straight to Home. Never show alarm/payment again.
     if (isPlanActive) {
       _scheduleAlarmsAfterLogin();
-      Navigator.pushReplacementNamed(context, AppRoutes.home);
+      // Show alarm permission screen once if not granted
+      if (await AlarmPermissionScreen.shouldShow()) {
+        Navigator.pushReplacementNamed(context, AppRoutes.alarmPermission);
+      } else {
+        Navigator.pushReplacementNamed(context, AppRoutes.home);
+      }
       return;
     }
 

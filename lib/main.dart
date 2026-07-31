@@ -23,6 +23,7 @@ import 'utils/app_routes.dart';
 import 'services/fall_detection/fall_detection_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'screens/fall_detection/fall_alert_screen.dart';
+import 'screens/alarm_permission/alarm_permission_screen.dart';
 import 'widgets/main_scaffold.dart';
 
 // ── Screens ───────────────────────────────────────────────────────────────────
@@ -707,6 +708,7 @@ class _ElderZhaAppState extends State<ElderZhaApp> {
         AppRoutes.otp: (_) => const OtpScreen(),
         AppRoutes.setupProfile: (_) => const SetupProfileScreen(),
         AppRoutes.alarmSetup: (_) => const AlarmSetupScreen(),
+        AppRoutes.alarmPermission: (_) => const AlarmPermissionScreen(),
         AppRoutes.payment: (_) => const PaymentScreen(),
         AppRoutes.paymentSuccess: (_) => const PaymentSuccessScreen(),
         AppRoutes.reminder: (_) => const ReminderScreen(),
