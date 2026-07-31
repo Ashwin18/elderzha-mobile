@@ -258,6 +258,19 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
     );
   }
 
+  Future<void> _goHome(BuildContext ctx) async {
+    if (!ctx.mounted) return;
+    if (await AlarmPermissionScreen.shouldShow()) {
+      if (!ctx.mounted) return;
+      Navigator.pushNamedAndRemoveUntil(
+          ctx, AppRoutes.alarmPermission, (route) => false);
+    } else {
+      if (!ctx.mounted) return;
+      Navigator.pushNamedAndRemoveUntil(
+          ctx, AppRoutes.home, (route) => false);
+    }
+  }
+
   Future<List<Map<String, dynamic>>> _loadAlarmSummary() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString('setup_alarm_summary');
