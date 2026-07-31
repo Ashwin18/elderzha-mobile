@@ -132,50 +132,60 @@ class AlarmSoundService : Service() {
         }
 
         // fullScreenIntent → opens AlarmActivity (premium UI) over lock screen
-        val fullScreenPi = PendingIntent.getActivity(
+        // AlarmActivity intent — opens full screen alarm
+        val alarmActivityIntent = Intent(this, AlarmActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            putExtra(AlarmActivity.EXTRA_TITLE, title)
+            putExtra(AlarmActivity.EXTRA_NOTES, notes)
+            putExtra(AlarmActivity.EXTRA_SOUND_URL, soundUrl)
+            putExtra(AlarmActivity.EXTRA_IMAGE_URL, imageUrl)
+            putExtra(AlarmActivity.EXTRA_PLAY_SOUND, false)
+            putExtra(AlarmActivity.EXTRA_NOTIFICATION_ID, alarmId)
+        }
+
+        // contentIntent = TAP notification → open AlarmActivity (full screen)
+        val contentPi = PendingIntent.getActivity(
             this, alarmId + 200_000,
-            Intent(this, AlarmActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                        Intent.FLAG_ACTIVITY_SINGLE_TOP
-                putExtra(AlarmActivity.EXTRA_TITLE, title)
-                putExtra(AlarmActivity.EXTRA_NOTES, notes)
-                putExtra(AlarmActivity.EXTRA_SOUND_URL, soundUrl)
-                putExtra(AlarmActivity.EXTRA_IMAGE_URL, imageUrl)
-                putExtra(AlarmActivity.EXTRA_PLAY_SOUND, false)
-                putExtra(AlarmActivity.EXTRA_NOTIFICATION_ID, alarmId)
-            },
+            alarmActivityIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // dismissIntent → stops sound service directly
-        val dismissServiceIntent = Intent(this, AlarmSoundService::class.java).apply {
-            action = ACTION_STOP
-        }
+        // fullScreenIntent = AUTO launch AlarmActivity when alarm fires
+        val fullScreenPi = PendingIntent.getActivity(
+            this, alarmId + 300_000,
+            alarmActivityIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        // dismissIntent = SWIPE notification → stop alarm (left/right swipe)
         val dismissPi = PendingIntent.getService(
             this, alarmId + 500_000,
-            dismissServiceIntent,
+            Intent(this, AlarmSoundService::class.java).apply { action = ACTION_STOP },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(title)
-            .setContentText("Tap 'Dismiss' to stop the alarm")
+            .setContentText("Tap to view alarm • Swipe to dismiss")
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setOngoing(true)
-            .setAutoCancel(false)
+            .setOngoing(false)          // ALLOW swipe dismiss
+            .setAutoCancel(true)        // dismiss on tap
             .setOnlyAlertOnce(true)
-            // contentIntent = dismiss (tapping notification stops alarm, not open app)
-            .setContentIntent(dismissPi)
+            // TAP → opens AlarmActivity (full screen with OK button)
+            .setContentIntent(contentPi)
+            // SWIPE left/right → dismiss alarm (stop sound)
             .setDeleteIntent(dismissPi)
-            // fullScreenIntent = shows AlarmActivity immediately over lock screen
+            // AUTO launch over lock screen when alarm fires
             .setFullScreenIntent(fullScreenPi, true)
+            // Dismiss button as fallback
             .addAction(
                 android.R.drawable.ic_menu_close_clear_cancel,
-                "Dismiss Alarm",
+                "Dismiss",
                 dismissPi
             )
             .build()
