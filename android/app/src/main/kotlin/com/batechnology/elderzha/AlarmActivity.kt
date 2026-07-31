@@ -290,9 +290,9 @@ class AlarmActivity : Activity() {
             col.addView(TextView(this).apply {
                 text = notes
                 textSize = 13f
-                setTextColor(0x99FFFFFF)
+                setTextColor(Color.argb(0x99, 0xFF, 0xFF, 0xFF))
                 gravity = Gravity.CENTER
-                lineSpacingMultiplier = 1.35f
+                setLineSpacing(0f, 1.35f)
             }, LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -375,14 +375,26 @@ class AlarmActivity : Activity() {
     }
 
     private fun startPulseAnimation(view: View) {
-        val scaleX = ObjectAnimator.ofFloat(view, "scaleX", 1f, 1.18f, 1f)
-        val scaleY = ObjectAnimator.ofFloat(view, "scaleY", 1f, 1.18f, 1f)
-        val alpha  = ObjectAnimator.ofFloat(view, "alpha", 0.18f, 0.28f, 0.18f)
-        pulseAnimator = AnimatorSet().apply {
-            playTogether(scaleX, scaleY, alpha)
+        val scaleX = ObjectAnimator.ofFloat(view, "scaleX", 1f, 1.18f, 1f).apply {
             duration = 2000
             repeatCount = ValueAnimator.INFINITE
+            repeatMode = ValueAnimator.RESTART
             interpolator = DecelerateInterpolator()
+        }
+        val scaleY = ObjectAnimator.ofFloat(view, "scaleY", 1f, 1.18f, 1f).apply {
+            duration = 2000
+            repeatCount = ValueAnimator.INFINITE
+            repeatMode = ValueAnimator.RESTART
+            interpolator = DecelerateInterpolator()
+        }
+        val alpha = ObjectAnimator.ofFloat(view, "alpha", 0.18f, 0.28f, 0.18f).apply {
+            duration = 2000
+            repeatCount = ValueAnimator.INFINITE
+            repeatMode = ValueAnimator.RESTART
+            interpolator = DecelerateInterpolator()
+        }
+        pulseAnimator = AnimatorSet().apply {
+            playTogether(scaleX, scaleY, alpha)
             start()
         }
     }
