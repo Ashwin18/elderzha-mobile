@@ -20,9 +20,7 @@ import 'services/api_client.dart';
 import 'services/notification_service.dart';
 import 'theme/app_theme.dart';
 import 'utils/app_routes.dart';
-import 'services/fall_detection/fall_detection_service.dart';
 import 'package:geolocator/geolocator.dart';
-import 'screens/fall_detection/fall_alert_screen.dart';
 import 'widgets/main_scaffold.dart';
 
 // ── Screens ───────────────────────────────────────────────────────────────────
@@ -621,25 +619,32 @@ class _ElderZhaAppState extends State<ElderZhaApp> {
   void initState() {
     super.initState();
     _lifecycleListener = AppLifecycleListener(onResume: _onResume);
-    // Start fall detection
-    _startFallDetection();
+    // Fall detection now runs as a native Android foreground service
+    // (survives app kill) — controlled from Profile > Fall Detection.
+    // Just request location permission upfront so it's ready if a
+    // fall is ever detected and the SOS screen needs to attach a map link.
+    _requestLocationPermissionUpfront();
   }
 
   @override
   void dispose() {
     _lifecycleListener.dispose();
-    FallDetectionService().stop();
     super.dispose();
+  }
+
+  Future<void> _requestLocationPermissionUpfront() async {
+    try {
+      final locPerm = await Geolocator.checkPermission();
+      if (locPerm == LocationPermission.denied) {
+        await Geolocator.requestPermission();
+      }
+    } catch (_) {}
   }
 
   Future<void> _onResume() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token') ?? '';
     if (token.isEmpty) return;
-    // Restart fall detection on resume
-    if (!FallDetectionService().isRunning) {
-      _startFallDetection();
-    }
     // Check plan on every resume with timeout — prevents UI freeze
     bool isActive = false;
     try {
@@ -661,33 +666,6 @@ class _ElderZhaAppState extends State<ElderZhaApp> {
           AppRoutes.subscriptionGate, (r) => false);
       }
     }
-  }
-
-  void _startFallDetection() async {
-    // Request location permission upfront so it's ready when fall happens
-    try {
-      final locPerm = await Geolocator.checkPermission();
-      if (locPerm == LocationPermission.denied) {
-        await Geolocator.requestPermission();
-      }
-      // If permanently denied, open settings
-      if (locPerm == LocationPermission.deniedForever) {
-        await Geolocator.openLocationSettings();
-      }
-    } catch (_) {}
-
-    FallDetectionService().start(onFallDetected: () {
-      final nav = appNavigatorKey.currentState;
-      if (nav == null) return;
-      SharedPreferences.getInstance().then((prefs) {
-        final token = prefs.getString('auth_token') ?? '';
-        if (token.isEmpty) return;
-        nav.push(MaterialPageRoute(
-          fullscreenDialog: true,
-          builder: (_) => const FallAlertScreen(),
-        ));
-      });
-    });
   }
 
   @override

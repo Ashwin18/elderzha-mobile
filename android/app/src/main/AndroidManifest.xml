@@ -13,6 +13,8 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
     <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
     <application
         android:label="elderzha"
         android:name="${applicationName}"
@@ -51,6 +53,22 @@
             android:name=".AlarmSoundService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
+        <activity
+            android:name=".FallSOSActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:theme="@style/NormalTheme" />
+        <service
+            android:name=".FallMonitorService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Fall detection monitoring for senior safety app — accelerometer-based, no camera/mic/location involved" />
+        </service>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

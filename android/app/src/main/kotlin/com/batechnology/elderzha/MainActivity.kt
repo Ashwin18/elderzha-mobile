@@ -88,6 +88,45 @@ class MainActivity : FlutterActivity() {
                         stopTonePreview()
                         result.success(true)
                     }
+                    // ── Native fall detection (survives app kill) ────────
+                    "startFallMonitoring" -> {
+                        val prefs = getSharedPreferences("${packageName}_preferences", Context.MODE_PRIVATE)
+                        prefs.edit().putBoolean("flutter.fall_monitor_enabled", true).apply()
+                        val i = Intent(this, FallMonitorService::class.java)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            startForegroundService(i)
+                        } else {
+                            startService(i)
+                        }
+                        result.success(true)
+                    }
+                    "stopFallMonitoring" -> {
+                        val prefs = getSharedPreferences("${packageName}_preferences", Context.MODE_PRIVATE)
+                        prefs.edit().putBoolean("flutter.fall_monitor_enabled", false).apply()
+                        stopService(Intent(this, FallMonitorService::class.java))
+                        result.success(true)
+                    }
+                    "isFallMonitoringRunning" -> result.success(FallMonitorService.isServiceRunning)
+                    "testFallAlert" -> {
+                        val testIntent = Intent(this, FallMonitorService::class.java).apply {
+                            action = FallMonitorService.ACTION_TEST_ALERT
+                        }
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            startForegroundService(testIntent)
+                        } else {
+                            startService(testIntent)
+                        }
+                        result.success(true)
+                    }
+                    "openBatterySettings" -> {
+                        try {
+                            startActivity(Intent(
+                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                Uri.parse("package:$packageName")
+                            ))
+                        } catch (_: Exception) {}
+                        result.success(true)
+                    }
                     else -> result.notImplemented()
                 }
             }

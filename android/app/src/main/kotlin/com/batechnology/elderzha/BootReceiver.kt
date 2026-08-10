@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.os.Build
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -32,13 +33,21 @@ class BootReceiver : BroadcastReceiver() {
         // Gap 3 Fix: Flutter setStringList stores as Set<String> internally
         // The actual key has "flutter." prefix added by the Flutter plugin
         val alarmStrings = getFlutterStringList(prefs, "scheduled_alarms")
-        if (alarmStrings.isEmpty()) return
-
         for (alarmStr in alarmStrings) {
             try {
                 val alarm = JSONObject(alarmStr)
                 rescheduleAlarm(context, alarm, now)
             } catch (_: JSONException) {}
+        }
+
+        // Restart fall detection monitoring if it was enabled before restart
+        if (prefs.getBoolean("flutter.fall_monitor_enabled", false)) {
+            val serviceIntent = Intent(context, FallMonitorService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(serviceIntent)
+            } else {
+                context.startService(serviceIntent)
+            }
         }
     }
 
