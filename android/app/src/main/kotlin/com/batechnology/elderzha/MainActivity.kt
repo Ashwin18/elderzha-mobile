@@ -127,6 +127,22 @@ class MainActivity : FlutterActivity() {
                         } catch (_: Exception) {}
                         result.success(true)
                     }
+                    // Dart's shared_preferences plugin (2.3.0+) writes to
+                    // Android DataStore, not classic SharedPreferences —
+                    // native code cannot read it directly anymore. Flutter
+                    // explicitly hands the token over here instead, into a
+                    // dedicated native-only file, so FallSOSActivity (and
+                    // any other native code) can read it reliably.
+                    "cacheAuthTokenNative" -> {
+                        val token = call.argument<String>("token")
+                        val nativePrefs = getSharedPreferences("elderzha_native_cache", Context.MODE_PRIVATE)
+                        if (token.isNullOrBlank()) {
+                            nativePrefs.edit().remove("auth_token").apply()
+                        } else {
+                            nativePrefs.edit().putString("auth_token", token).apply()
+                        }
+                        result.success(true)
+                    }
                     else -> result.notImplemented()
                 }
             }

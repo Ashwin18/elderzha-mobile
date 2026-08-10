@@ -195,13 +195,21 @@ class FallSOSActivity : Activity() {
     }
 
     private fun readAuthToken(): String? {
-        val prefs: SharedPreferences = getSharedPreferences(
+        // Written explicitly by Flutter via 'cacheAuthTokenNative' — see
+        // MainActivity.kt. Flutter's own shared_preferences plugin (2.3.0+)
+        // stores in Android DataStore, which native code cannot read
+        // directly, so we don't rely on that here at all.
+        val nativePrefs = getSharedPreferences("elderzha_native_cache", Context.MODE_PRIVATE)
+        val token = nativePrefs.getString("auth_token", null)
+        if (!token.isNullOrBlank()) return token
+
+        // Legacy fallback, in case an older Flutter plugin version on this
+        // device still used classic SharedPreferences directly.
+        val legacyPrefs: SharedPreferences = getSharedPreferences(
             "${packageName}_preferences", Context.MODE_PRIVATE
         )
-        // Primary key (matches BootReceiver's proven pattern for scheduled_alarms)
-        prefs.getString("flutter.auth_token", null)?.let { if (it.isNotBlank()) return it }
-        // Fallback without the flutter. prefix, just in case
-        prefs.getString("auth_token", null)?.let { if (it.isNotBlank()) return it }
+        legacyPrefs.getString("flutter.auth_token", null)?.let { if (it.isNotBlank()) return it }
+        legacyPrefs.getString("auth_token", null)?.let { if (it.isNotBlank()) return it }
         return null
     }
 

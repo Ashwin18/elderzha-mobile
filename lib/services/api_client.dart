@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// ─────────────────────────────────────────────────────────────────────────────
@@ -13,6 +14,13 @@ class ApiClient {
 
   // ⚠️  Token key MUST match original app — 'auth_token' (not ez_auth_token)
   static const String _tokenKey = 'auth_token';
+
+  // Native code (FallSOSActivity — runs independently of the Flutter engine,
+  // even if the app was killed) cannot read Flutter's own shared_preferences
+  // storage on newer plugin versions (they moved to Android DataStore).
+  // So the token is explicitly mirrored into a native-only cache file
+  // every time it changes.
+  static const MethodChannel _nativeChannel = MethodChannel('alarm_service');
 
   static final ApiClient _instance = ApiClient._internal();
   factory ApiClient() => _instance;
@@ -60,6 +68,7 @@ class ApiClient {
   Future<void> saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, token);
+    await _syncTokenToNative(token);
   }
 
   Future<String?> getToken() async {
@@ -70,6 +79,27 @@ class ApiClient {
   Future<void> clearToken() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
+    await _syncTokenToNative(null);
+  }
+
+  /// Mirrors the current token into native storage. Safe to call anytime —
+  /// e.g. on every app start, so already-logged-in users get their token
+  /// cached natively without needing to log out and back in.
+  Future<void> _syncTokenToNative(String? token) async {
+    try {
+      await _nativeChannel.invokeMethod('cacheAuthTokenNative', {'token': token});
+    } catch (_) {
+      // Non-fatal — SOS still works if this happens to fail, it'll just
+      // retry on the next app open/login.
+    }
+  }
+
+  /// Call once on app startup to make sure native fall-detection code has
+  /// the latest token, even for users who were already logged in before
+  /// this native cache existed.
+  Future<void> syncCurrentTokenToNative() async {
+    final token = await getToken();
+    await _syncTokenToNative(token);
   }
 
   Future<bool> isLoggedIn() async {

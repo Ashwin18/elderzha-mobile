@@ -624,6 +624,11 @@ class _ElderZhaAppState extends State<ElderZhaApp> {
     // Just request location permission upfront so it's ready if a
     // fall is ever detected and the SOS screen needs to attach a map link.
     _requestLocationPermissionUpfront();
+    // Native fall-detection SOS reads the auth token from a native-only
+    // cache (Flutter's own storage isn't readable by native code on this
+    // shared_preferences plugin version). Sync it on every app start so
+    // already-logged-in users get it without needing to log out/in.
+    ApiClient().syncCurrentTokenToNative();
   }
 
   @override
