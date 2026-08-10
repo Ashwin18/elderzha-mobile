@@ -110,17 +110,19 @@ class FallSOSActivity : Activity() {
                     put("location_url", locationUrl ?: "")
                     put("detected_at", isoNow())
                 }
+                var errorMsg: String? = null
                 val ok = try {
                     postJson("/user/fall-alert", body)
                     true
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    errorMsg = e.message
                     false
                 }
                 runOnUiThread {
                     statusView.text = if (ok)
                         "SOS sent — family and admin notified"
                     else
-                        "Could not reach server — please call for help directly"
+                        "SOS failed: ${errorMsg ?: "unknown error"}"
                 }
             }
         }
@@ -169,7 +171,8 @@ class FallSOSActivity : Activity() {
 
     // ── Native HTTP (no extra dependency — plain HttpURLConnection) ────────
     private fun postJson(path: String, body: JSONObject) {
-        val token = readAuthToken() ?: return
+        val token = readAuthToken()
+            ?: throw IllegalStateException("No auth token found — user may need to log in again")
         val url = URL("https://elderzhacopy.elderzha.online/api$path")
         val conn = url.openConnection() as HttpURLConnection
         conn.requestMethod = "POST"
@@ -180,7 +183,14 @@ class FallSOSActivity : Activity() {
         conn.connectTimeout = 10_000
         conn.readTimeout = 10_000
         conn.outputStream.use { it.write(body.toString().toByteArray()) }
-        conn.responseCode // triggers the request
+        val code = conn.responseCode
+        if (code !in 200..299) {
+            val errBody = try {
+                conn.errorStream?.bufferedReader()?.readText() ?: ""
+            } catch (_: Exception) { "" }
+            conn.disconnect()
+            throw IllegalStateException("Server returned $code: $errBody")
+        }
         conn.disconnect()
     }
 
@@ -188,7 +198,11 @@ class FallSOSActivity : Activity() {
         val prefs: SharedPreferences = getSharedPreferences(
             "${packageName}_preferences", Context.MODE_PRIVATE
         )
-        return prefs.getString("flutter.auth_token", null)
+        // Primary key (matches BootReceiver's proven pattern for scheduled_alarms)
+        prefs.getString("flutter.auth_token", null)?.let { if (it.isNotBlank()) return it }
+        // Fallback without the flutter. prefix, just in case
+        prefs.getString("auth_token", null)?.let { if (it.isNotBlank()) return it }
+        return null
     }
 
     private fun isoNow(): String {
