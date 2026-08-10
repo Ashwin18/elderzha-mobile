@@ -111,8 +111,12 @@ class FallSOSActivity : Activity() {
                     put("detected_at", isoNow())
                 }
                 var errorMsg: String? = null
+                var serverMessage: String? = null
                 val ok = try {
-                    postJson("/user/fall-alert", body)
+                    val respBody = postJson("/user/fall-alert", body)
+                    serverMessage = try {
+                        JSONObject(respBody).optString("message", null)
+                    } catch (_: Exception) { null }
                     true
                 } catch (e: Exception) {
                     errorMsg = e.message
@@ -120,7 +124,7 @@ class FallSOSActivity : Activity() {
                 }
                 runOnUiThread {
                     statusView.text = if (ok)
-                        "SOS sent — family and admin notified"
+                        (serverMessage ?: "SOS sent — admin notified")
                     else
                         "SOS failed: ${errorMsg ?: "unknown error"}"
                 }
@@ -170,7 +174,7 @@ class FallSOSActivity : Activity() {
     }
 
     // ── Native HTTP (no extra dependency — plain HttpURLConnection) ────────
-    private fun postJson(path: String, body: JSONObject) {
+    private fun postJson(path: String, body: JSONObject): String {
         val token = readAuthToken()
             ?: throw IllegalStateException("No auth token found — user may need to log in again")
         val url = URL("https://elderzhacopy.elderzha.online/api$path")
@@ -191,7 +195,9 @@ class FallSOSActivity : Activity() {
             conn.disconnect()
             throw IllegalStateException("Server returned $code: $errBody")
         }
+        val respBody = conn.inputStream.bufferedReader().readText()
         conn.disconnect()
+        return respBody
     }
 
     private fun readAuthToken(): String? {
