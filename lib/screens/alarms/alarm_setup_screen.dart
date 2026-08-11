@@ -1085,8 +1085,9 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
     );
     await _saveLocalAlarmConfig(payload);
     await _saveSetupFamilyFallback();
+    final familySaveErrors = <String>[];
     for (final member in _family) {
-      await _authService.addFamily(
+      final res = await _authService.addFamily(
         name: member['name'] ?? '',
         phone: (member['phone'] ?? '').toString().trim().isEmpty
             ? null
@@ -1099,10 +1100,42 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
             ? null
             : member['anniversary_date'],
       );
+      if (res['status'] != true && res['data'] == null) {
+        final err = res['message']?.toString() ??
+            res['errors']?.toString() ?? 'unknown error';
+        familySaveErrors.add('${member['name'] ?? 'Member'}: $err');
+      }
     }
     await _saveAlarmSummary();
     setState(() => _saving = false);
     if (!mounted) return;
+    if (familySaveErrors.isNotEmpty) {
+      // Surface the real failure instead of silently proceeding as if
+      // every family member saved — this was previously discarded,
+      // which is why members could appear in Reminders (a purely local
+      // schedule cache) but never actually show up in Family Members
+      // (which reads from the server).
+      await showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: Text('Some family members did not save',
+              style: poppins(16, w: FontWeight.w700, c: C.ink)),
+          content: Text(
+            '${familySaveErrors.join('\n\n')}\n\n'
+            'You can re-add them later from Profile > Family Members.',
+            style: poppins(13, c: C.txm, h: 1.5),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('OK',
+                  style: poppins(14, w: FontWeight.w700, c: C.yellowDark)),
+            ),
+          ],
+        ),
+      );
+      if (!mounted) return;
+    }
     Navigator.pushReplacementNamed(context, AppRoutes.payment);
   }
 
