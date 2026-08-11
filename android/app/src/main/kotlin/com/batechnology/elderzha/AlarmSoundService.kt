@@ -145,6 +145,8 @@ class AlarmSoundService : Service() {
     private fun MediaPlayer.setAlarmDataSource(soundUrl: String) {
         val raw = soundUrl.trim()
         when {
+            raw.startsWith("android.resource://") ->
+                setDataSource(this@AlarmSoundService, Uri.parse(raw))
             raw.startsWith("http://") || raw.startsWith("https://") ->
                 setDataSource(this@AlarmSoundService, Uri.parse(raw))
             raw.startsWith("file://") -> {

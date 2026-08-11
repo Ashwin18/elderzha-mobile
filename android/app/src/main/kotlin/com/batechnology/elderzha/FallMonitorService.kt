@@ -196,6 +196,22 @@ class FallMonitorService : Service(), SensorEventListener {
             .build()
         manager.notify(ALERT_NOTIF_ID, alertNotification)
 
+        // Ring continuously using the same proven AlarmSoundService that
+        // already handles medical/food alarms reliably — a fall SOS is
+        // just as urgent and needs the phone to actually ring, not just
+        // show a notification with a one-shot chime.
+        AlarmSoundService.start(
+            this,
+            FALL_ALARM_SOUND_ID,
+            // Distinct, loud two-tone siren bundled with the app — never
+            // shares a tone with the user's own medical/food alarms,
+            // regardless of what they've set for those.
+            "android.resource://$packageName/raw/sos_alarm",
+            "Fall Detected!",
+            "Are you okay? Tap to respond.",
+            ""
+        )
+
         android.os.Handler(mainLooper).postDelayed({ alertShowing = false }, 35_000)
     }
 
@@ -231,6 +247,7 @@ class FallMonitorService : Service(), SensorEventListener {
         const val CHANNEL_ID = "elderzha_fall_monitor_channel"
         const val ALERT_CHANNEL_ID = "elderzha_fall_sos_alert_channel"
         const val NOTIF_ID = 7777
+        const val FALL_ALARM_SOUND_ID = 7779 // distinct from real scheduled alarms
         const val ALERT_NOTIF_ID = 7778
         const val ACTION_TEST_ALERT = "com.batechnology.elderzha.TEST_FALL_ALERT"
         var isServiceRunning = false
