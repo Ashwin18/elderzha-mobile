@@ -12,9 +12,14 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.media.AudioAttributes
+import android.media.AudioManager
+import android.media.MediaPlayer
+import android.net.Uri
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import kotlin.math.sqrt
 
@@ -35,6 +40,8 @@ class FallMonitorService : Service(), SensorEventListener {
     private lateinit var sensorManager: SensorManager
     private var accelerometer: Sensor? = null
     private var wakeLock: PowerManager.WakeLock? = null
+    private var sosPlayer: MediaPlayer? = null
+    private var previousAlarmVolume: Int? = null
 
     private val freefallThreshold = 5.0
     private val impactThreshold = 15.5
@@ -67,12 +74,16 @@ class FallMonitorService : Service(), SensorEventListener {
         if (intent?.action == ACTION_TEST_ALERT) {
             triggerFallAlert()
         }
+        if (intent?.action == ACTION_STOP_SOS_SIREN) {
+            stopSosSiren()
+        }
         return START_STICKY
     }
 
     override fun onDestroy() {
         sensorManager.unregisterListener(this)
         if (wakeLock?.isHeld == true) wakeLock?.release()
+        stopSosSiren()
         isServiceRunning = false
         super.onDestroy()
     }
@@ -196,23 +207,69 @@ class FallMonitorService : Service(), SensorEventListener {
             .build()
         manager.notify(ALERT_NOTIF_ID, alertNotification)
 
-        // Ring continuously using the same proven AlarmSoundService that
-        // already handles medical/food alarms reliably — a fall SOS is
-        // just as urgent and needs the phone to actually ring, not just
-        // show a notification with a one-shot chime.
-        AlarmSoundService.start(
-            this,
-            FALL_ALARM_SOUND_ID,
-            // Distinct, loud two-tone siren bundled with the app — never
-            // shares a tone with the user's own medical/food alarms,
-            // regardless of what they've set for those.
-            "android.resource://$packageName/raw/sos_alarm",
-            "Fall Detected!",
-            "Are you okay? Tap to respond.",
-            ""
-        )
-
+        // Play the siren directly inside THIS already-running foreground
+        // service, instead of starting a second separate foreground
+        // service (AlarmSoundService) — Android can silently block a
+        // service starting another foreground service in some situations,
+        // which is the likely reason no sound was heard previously even
+        // though the visual alert worked fine.
+        playSosSiren()
         android.os.Handler(mainLooper).postDelayed({ alertShowing = false }, 35_000)
+    }
+
+    private fun playSosSiren() {
+        stopSosSiren()
+        try {
+            val am = getSystemService(AUDIO_SERVICE) as AudioManager
+            if (previousAlarmVolume == null) {
+                previousAlarmVolume = am.getStreamVolume(AudioManager.STREAM_ALARM)
+            }
+            try {
+                val max = am.getStreamMaxVolume(AudioManager.STREAM_ALARM)
+                if (max > 0) am.setStreamVolume(AudioManager.STREAM_ALARM, max, 0)
+            } catch (_: Exception) {}
+
+            val uri = Uri.parse("android.resource://$packageName/raw/sos_alarm")
+            sosPlayer = MediaPlayer().apply {
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                )
+                setDataSource(this@FallMonitorService, uri)
+                isLooping = true
+                setVolume(1f, 1f)
+                prepare()
+                start()
+            }
+        } catch (e: Exception) {
+            Log.e("FallMonitorService", "Bundled siren failed, using system fallback", e)
+            try {
+                sosPlayer = MediaPlayer.create(
+                    this, android.provider.Settings.System.DEFAULT_ALARM_ALERT_URI
+                )?.apply {
+                    isLooping = true
+                    setVolume(1f, 1f)
+                    start()
+                }
+            } catch (e2: Exception) {
+                Log.e("FallMonitorService", "System fallback siren also failed", e2)
+            }
+        }
+    }
+
+    private fun stopSosSiren() {
+        try { sosPlayer?.stop() } catch (_: Exception) {}
+        try { sosPlayer?.release() } catch (_: Exception) {}
+        sosPlayer = null
+        previousAlarmVolume?.let {
+            try {
+                val am = getSystemService(AUDIO_SERVICE) as AudioManager
+                am.setStreamVolume(AudioManager.STREAM_ALARM, it, 0)
+            } catch (_: Exception) {}
+        }
+        previousAlarmVolume = null
     }
 
     private fun buildNotification(): Notification {
@@ -250,6 +307,7 @@ class FallMonitorService : Service(), SensorEventListener {
         const val FALL_ALARM_SOUND_ID = 7779 // distinct from real scheduled alarms
         const val ALERT_NOTIF_ID = 7778
         const val ACTION_TEST_ALERT = "com.batechnology.elderzha.TEST_FALL_ALERT"
+        const val ACTION_STOP_SOS_SIREN = "com.batechnology.elderzha.STOP_SOS_SIREN"
         var isServiceRunning = false
             private set
 
@@ -258,6 +316,20 @@ class FallMonitorService : Service(), SensorEventListener {
                 "${context.packageName}_preferences", Context.MODE_PRIVATE
             )
             return prefs.getBoolean("flutter.fall_monitor_enabled", false)
+        }
+
+        /** Called from FallSOSActivity when the user responds — stops the siren. */
+        fun stopSiren(context: Context) {
+            val i = Intent(context, FallMonitorService::class.java).apply {
+                action = ACTION_STOP_SOS_SIREN
+            }
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(i)
+                } else {
+                    context.startService(i)
+                }
+            } catch (_: Exception) {}
         }
     }
 }

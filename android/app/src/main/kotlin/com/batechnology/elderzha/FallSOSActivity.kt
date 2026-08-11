@@ -78,13 +78,13 @@ class FallSOSActivity : Activity() {
     override fun onDestroy() {
         timer?.cancel()
         // Safety net: stop ringing no matter how this screen closes.
-        AlarmSoundService.stop(this)
+        FallMonitorService.stopSiren(this)
         super.onDestroy()
     }
 
     private fun imFine() {
         timer?.cancel()
-        AlarmSoundService.stop(this)
+        FallMonitorService.stopSiren(this)
         thread {
             try {
                 postJson(
@@ -101,7 +101,7 @@ class FallSOSActivity : Activity() {
     private fun sendSOS() {
         if (sosSent) return
         sosSent = true
-        AlarmSoundService.stop(this)
+        FallMonitorService.stopSiren(this)
         runOnUiThread { statusView.text = "Sending SOS…" }
 
         fetchLocation { lat, lon ->
