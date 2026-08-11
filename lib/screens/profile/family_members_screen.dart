@@ -30,17 +30,27 @@ class _FamilyMembersScreenState extends State<FamilyMembersScreen> {
     setState(() => _loading = true);
     final res = await _authService.getProfileWithFamily();
     final apiMembers = _extractFamily(res);
-    final fallback = await _loadSetupFamilyFallback();
     if (!mounted) return;
-    // Use API data as primary — merge with local only for offline-added members
-    // API members always win (they have phone + full data)
-    final family = _mergeFamily(apiMembers, fallback);
+    // API is now the single source of truth — no more local cache merge.
+    // (That local layer was causing edited/added members to appear as
+    // duplicate "ghost" entries, and could even cause the real server
+    // record to be deleted alongside an unsynced local-only edit.)
     setState(() {
-      _members = family;
+      _members = apiMembers;
       _loading = false;
     });
+    // One-time cleanup: purge any stale local cache left over from
+    // before this fix, so old ghost entries can never resurface.
+    _purgeStaleLocalCache();
     // Re-schedule family event alarms whenever family list updates
-    _rescheduleFamilyAlarms(family);
+    _rescheduleFamilyAlarms(apiMembers);
+  }
+
+  Future<void> _purgeStaleLocalCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('setup_family_members');
+    } catch (_) {}
   }
 
   List _extractFamily(Map<String, dynamic>? res) {
@@ -69,60 +79,6 @@ class _FamilyMembersScreenState extends State<FamilyMembersScreen> {
       }
     }
     return [];
-  }
-
-  Future<List<Map<String, dynamic>>> _loadSetupFamilyFallback() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString('setup_family_members');
-    if (raw == null || raw.trim().isEmpty) return [];
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is List) {
-        return decoded
-            .whereType<Map>()
-            .map((m) => Map<String, dynamic>.from(m))
-            .toList();
-      }
-    } catch (_) {}
-    return [];
-  }
-
-  List _mergeFamily(List remote, List<Map<String, dynamic>> fallback) {
-    if (remote.isEmpty && fallback.isEmpty) return [];
-    if (fallback.isEmpty) return remote;
-    if (remote.isEmpty) return fallback;
-
-    // API members are authoritative — deduplicate by name+relation
-    // preferring API version (has phone, real ID) over local version
-    final out = <dynamic>[...remote]; // start with all API members
-    final remoteNames = <String>{};
-
-    for (final item in remote) {
-      if (item is! Map) continue;
-      final map = Map<String, dynamic>.from(item);
-      final name = (map['name'] ?? '').toString().toLowerCase().trim();
-      final rel = (map['relation'] is Map
-              ? map['relation']['name']
-              : map['relation'] ?? '')
-          .toString().toLowerCase().trim();
-      remoteNames.add('$name|$rel');
-    }
-
-    // Only add local members not already in API response
-    for (final item in fallback) {
-      if (item is! Map) continue;
-      final map = Map<String, dynamic>.from(item);
-      final name = (map['name'] ?? '').toString().toLowerCase().trim();
-      final rel = (map['relation'] is Map
-              ? map['relation']['name']
-              : map['relation'] ?? '')
-          .toString().toLowerCase().trim();
-      // Skip if API already has this member
-      if (!remoteNames.contains('$name|$rel')) {
-        out.add(map);
-      }
-    }
-    return out;
   }
 
   String _eventTypeOf(dynamic m) {
@@ -159,47 +115,12 @@ class _FamilyMembersScreenState extends State<FamilyMembersScreen> {
   }
 
   Future<void> _delete(int id) async {
-    final member = _members.firstWhere(
-      (m) => m is Map && (int.tryParse((m['id'] ?? 0).toString()) ?? 0) == id,
-      orElse: () => null,
-    );
     if (id > 0) await _authService.deleteFamily(id);
-    if (member is Map)
-      await _removeLocalFamily(Map<String, dynamic>.from(member));
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Deleted!', style: GoogleFonts.poppins()),
         backgroundColor: AppColors.green,
         duration: const Duration(seconds: 1)));
     _load();
-  }
-
-  Future<void> _removeLocalFamily(Map<String, dynamic> member) async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString('setup_family_members');
-    if (raw == null || raw.trim().isEmpty) return;
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is! List) return;
-      final localId = member['local_id']?.toString();
-      final id = member['id']?.toString();
-      final name = member['name']?.toString().toLowerCase().trim();
-      final relation = member['relation'] is Map
-          ? member['relation']['name']?.toString().toLowerCase().trim()
-          : member['relation']?.toString().toLowerCase().trim();
-      final remaining = decoded.where((item) {
-        if (item is! Map) return true;
-        if (localId != null && item['local_id']?.toString() == localId) {
-          return false;
-        }
-        if (id != null && item['id']?.toString() == id) return false;
-        final sameName = item['name']?.toString().toLowerCase().trim() == name;
-        final itemRelation = item['relation'] is Map
-            ? item['relation']['name']?.toString().toLowerCase().trim()
-            : item['relation']?.toString().toLowerCase().trim();
-        return !(sameName && itemRelation == relation);
-      }).toList();
-      await prefs.setString('setup_family_members', jsonEncode(remaining));
-    } catch (_) {}
   }
 
   Future<void> _rescheduleFamilyAlarms(List family) async {

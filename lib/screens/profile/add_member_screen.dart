@@ -149,61 +149,24 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
     setState(() => _saving = false);
     if (!mounted) return;
     if (res['status'] == true || res['data'] != null) {
-      await _upsertLocalFamily(existing, synced: true);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Member added! Alarm scheduled 🎉',
               style: GoogleFonts.poppins()),
           backgroundColor: AppColors.green));
       Navigator.pop(context, true);
     } else {
-      await _upsertLocalFamily(existing, synced: false);
-      // Show actual API error for debugging
+      // Show actual API error — do NOT cache a local-only duplicate.
+      // A silent local copy alongside the real (unsaved) server record
+      // is exactly what caused members to show as duplicated entries.
       final errMsg = res['message']?.toString() ??
-          res['errors']?.toString() ?? 'Sync failed';
+          res['errors']?.toString() ?? 'Save failed';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Error: $errMsg',
               style: GoogleFonts.poppins()),
           backgroundColor: AppColors.red,
           duration: const Duration(seconds: 6)));
-      // Don't pop — let user retry
+      // Don't pop — let user see the error and retry
     }
-  }
-
-  Future<void> _upsertLocalFamily(Map? existing, {required bool synced}) async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString('setup_family_members');
-    final members = <Map<String, dynamic>>[];
-    if (raw != null && raw.trim().isNotEmpty) {
-      try {
-        final decoded = jsonDecode(raw);
-        if (decoded is List) {
-          members.addAll(decoded
-              .whereType<Map>()
-              .map((m) => Map<String, dynamic>.from(m)));
-        }
-      } catch (_) {}
-    }
-    final localId = (existing?['local_id'] ??
-            existing?['id'] ??
-            'local-${DateTime.now().millisecondsSinceEpoch}')
-        .toString();
-    final updated = {
-      ...?existing?.cast<String, dynamic>(),
-      'local_id': localId,
-      if (existing?['id'] != null) 'id': existing!['id'],
-      'name': _nameCtrl.text.trim(),
-      'relation': _relation,
-      'phone': _phoneCtrl.text.trim(),
-      'birthday_date': _birthdayCtrl.text.trim(),
-      'anniversary_date': _anniversaryCtrl.text.trim(),
-      'local_only': !synced,
-    };
-    members.removeWhere((m) =>
-        (m['local_id']?.toString() == localId) ||
-        (existing?['id'] != null &&
-            m['id']?.toString() == existing!['id'].toString()));
-    members.insert(0, updated);
-    await prefs.setString('setup_family_members', jsonEncode(members));
   }
 
   @override
