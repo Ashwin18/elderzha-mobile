@@ -1086,6 +1086,10 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
     await _saveLocalAlarmConfig(payload);
     await _saveSetupFamilyFallback();
     final familySaveErrors = <String>[];
+    final familySaveResults = <String>[];
+    if (_family.isEmpty) {
+      familySaveResults.add('(no family members were added at this step)');
+    }
     for (final member in _family) {
       final res = await _authService.addFamily(
         name: member['name'] ?? '',
@@ -1100,14 +1104,42 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
             ? null
             : member['anniversary_date'],
       );
+      final name = member['name'] ?? 'Member';
       if (res['status'] != true && res['data'] == null) {
         final err = res['message']?.toString() ??
             res['errors']?.toString() ?? 'unknown error';
-        familySaveErrors.add('${member['name'] ?? 'Member'}: $err');
+        familySaveErrors.add('$name: $err');
+        familySaveResults.add('$name → FAILED: $res');
+      } else {
+        familySaveResults.add('$name → OK: $res');
       }
     }
     await _saveAlarmSummary();
     setState(() => _saving = false);
+    if (!mounted) return;
+    // TEMPORARY diagnostic: always show what actually happened, so the
+    // real cause (empty list / auth issue / server response shape) is
+    // visible regardless of whether it "looks like" success or failure.
+    await showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text('Family save result (debug)',
+            style: poppins(14, w: FontWeight.w700, c: C.ink)),
+        content: SingleChildScrollView(
+          child: Text(
+            familySaveResults.join('\n\n'),
+            style: poppins(11, c: C.txm, h: 1.4),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('OK',
+                style: poppins(14, w: FontWeight.w700, c: C.yellowDark)),
+          ),
+        ],
+      ),
+    );
     if (!mounted) return;
     if (familySaveErrors.isNotEmpty) {
       // Surface the real failure instead of silently proceeding as if
