@@ -1088,6 +1088,9 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
     for (final member in _family) {
       await _authService.addFamily(
         name: member['name'] ?? '',
+        phone: (member['phone'] ?? '').toString().trim().isEmpty
+            ? null
+            : member['phone'].toString().trim(),
         relation: member['relation'] ?? '',
         birthdayDate: member['birthday_date']?.isEmpty == true
             ? null
