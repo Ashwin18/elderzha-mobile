@@ -43,12 +43,31 @@ class FallMonitorService : Service(), SensorEventListener {
     private var sosPlayer: MediaPlayer? = null
     private var previousAlarmVolume: Int? = null
 
-    private val freefallThreshold = 5.0
-    private val impactThreshold = 15.5
-    private val stillnessWindowMs = 1200L
+    // ── Two-tier detection thresholds ───────────────────────────────────────
+    // Tier 1: freefall THEN impact — the reliable combo. A genuine fall
+    //   makes the phone briefly weightless before hitting something; an
+    //   ordinary hand shake essentially never does. Because this combo is
+    //   already a strong signal on its own, the impact bar for this tier
+    //   can stay moderate.
+    // Tier 2: impact with NO preceding freefall — covers falls where the
+    //   phone was slowed by pocket/clothing friction and never went fully
+    //   weightless. Without the freefall precondition to rule out shakes,
+    //   this tier needs a much higher, harder-to-fake impact spike.
+    private val freefallThreshold = 4.5       // g < this = near-weightless
+    private val freefallMinDurationMs = 100L  // must SUSTAIN freefall briefly,
+                                               // filters single-sample noise
+    private val impactThresholdWithFreefall = 18.0   // Tier 1 (~1.8G)
+    private val impactThresholdNoFreefall   = 27.0   // Tier 2 (~2.75G) —
+                                               // well above what a firm
+                                               // hand shake typically produces
+    private val stillnessWindowMs = 1600L     // slightly longer — real
+                                               // falls onto a bed/soft
+                                               // surface can bounce/settle
+                                               // for a bit before going still
 
     private var freefallDetected = false
     private var freefallTime = 0L
+    private var freefallConfirmedTime = 0L    // when duration requirement was met
     private var impactDetected = false
     private var impactTime = 0L
     private val postImpactReadings = mutableListOf<Double>()
@@ -76,6 +95,14 @@ class FallMonitorService : Service(), SensorEventListener {
         }
         if (intent?.action == ACTION_STOP_SOS_SIREN) {
             stopSosSiren()
+            // Immediately allow a new fall to be detected — don't wait
+            // out the full 35s cooldown once this alert is genuinely
+            // handled (I'm Fine, Send SOS, notification dismissed).
+            alertShowing = false
+            try {
+                val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                manager.cancel(ALERT_NOTIF_ID)
+            } catch (_: Exception) {}
         }
         return START_STICKY
     }
@@ -131,7 +158,10 @@ class FallMonitorService : Service(), SensorEventListener {
                 val variance = postImpactReadings
                     .map { (it - mean) * (it - mean) }
                     .average()
-                if (mean in 7.0..13.0 && variance < 8.0 && !alertShowing) {
+                // Widened tolerance — a real fall onto carpet/bed/mattress
+                // can bounce or keep settling slightly rather than going
+                // instantly still, unlike a hard floor.
+                if (mean in 5.0..15.0 && variance < 14.0 && !alertShowing) {
                     triggerFallAlert()
                 }
                 resetState()
@@ -139,20 +169,35 @@ class FallMonitorService : Service(), SensorEventListener {
             return
         }
 
-        if (!freefallDetected && g < freefallThreshold) {
-            freefallDetected = true
-            freefallTime = now
-            return
+        // Track freefall state — must SUSTAIN below threshold for
+        // freefallMinDurationMs, not just a single noisy sample, before
+        // it counts as a confirmed freefall precondition for Tier 1.
+        if (g < freefallThreshold) {
+            if (!freefallDetected) {
+                freefallDetected = true
+                freefallTime = now
+            }
+        } else if (freefallDetected && freefallConfirmedTime == 0L &&
+            now - freefallTime >= freefallMinDurationMs
+        ) {
+            freefallConfirmedTime = now
         }
 
-        if (g > impactThreshold) {
+        val freefallWasConfirmed = freefallConfirmedTime != 0L &&
+            (now - freefallConfirmedTime) <= 2000
+
+        val requiredImpact = if (freefallWasConfirmed)
+            impactThresholdWithFreefall else impactThresholdNoFreefall
+
+        if (g > requiredImpact) {
             impactDetected = true
             impactTime = now
             postImpactReadings.clear()
             return
         }
 
-        if (freefallDetected && now - freefallTime > 2000) {
+        // Reset if freefall was seen but nothing else happened for too long
+        if (freefallDetected && now - freefallTime > 2500) {
             resetState()
         }
     }
@@ -162,6 +207,7 @@ class FallMonitorService : Service(), SensorEventListener {
     private fun resetState() {
         freefallDetected = false
         freefallTime = 0L
+        freefallConfirmedTime = 0L
         impactDetected = false
         impactTime = 0L
         postImpactReadings.clear()
@@ -192,6 +238,13 @@ class FallMonitorService : Service(), SensorEventListener {
                 }
             )
         }
+        val stopIntent = Intent(this, FallMonitorService::class.java).apply {
+            action = ACTION_STOP_SOS_SIREN
+        }
+        val stopPendingIntent = PendingIntent.getService(
+            this, 3, stopIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
         val alertNotification = NotificationCompat.Builder(this, ALERT_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setContentTitle("Possible fall detected")
@@ -204,6 +257,11 @@ class FallMonitorService : Service(), SensorEventListener {
             .setAutoCancel(true)
             .setContentIntent(fullScreenPendingIntent)
             .setFullScreenIntent(fullScreenPendingIntent, true)
+            // If the OS allows this to be swiped away (some devices permit
+            // swiping ongoing notifications), stop the siren and reset the
+            // detection lock immediately instead of leaving both stuck
+            // until the 35s safety-net timer.
+            .setDeleteIntent(stopPendingIntent)
             .build()
         manager.notify(ALERT_NOTIF_ID, alertNotification)
 
