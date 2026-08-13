@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../theme/app_theme.dart';
+import '../../services/api_client.dart';
 
 /// Fall detection now runs as a NATIVE Android foreground service —
 /// survives the app being swiped from Recent Apps (does not survive
@@ -16,20 +17,31 @@ class FallSettingsScreen extends StatefulWidget {
 class _FallSettingsScreenState extends State<FallSettingsScreen>
     with WidgetsBindingObserver {
   static const _channel = MethodChannel('alarm_service');
+  final _api = ApiClient();
 
   bool _monitoring = false;
   bool _loading = true;
+
+  // SOS contact — dedicated to Fall Detection, independent of
+  // Family Members entirely.
+  final _sosNameCtrl = TextEditingController();
+  final _sosPhoneCtrl = TextEditingController();
+  bool _sosSaving = false;
+  bool _sosLoaded = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _refresh();
+    _loadSosContact();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _sosNameCtrl.dispose();
+    _sosPhoneCtrl.dispose();
     super.dispose();
   }
 
@@ -76,6 +88,51 @@ class _FallSettingsScreenState extends State<FallSettingsScreen>
 
   Future<void> _openBatterySettings() async {
     await _channel.invokeMethod('openBatterySettings');
+  }
+
+  Future<void> _loadSosContact() async {
+    try {
+      final res = await _api.safeGet('/user/sos-contact');
+      final data = res?['data'];
+      if (data is Map) {
+        _sosNameCtrl.text = data['name']?.toString() ?? '';
+        _sosPhoneCtrl.text = data['phone']?.toString() ?? '';
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _sosLoaded = true);
+  }
+
+  Future<void> _saveSosContact() async {
+    final name = _sosNameCtrl.text.trim();
+    final phone = _sosPhoneCtrl.text.trim();
+    if (name.isEmpty || phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Enter both name and phone number',
+            style: poppins(12, c: C.white)),
+        backgroundColor: C.red,
+      ));
+      return;
+    }
+    setState(() => _sosSaving = true);
+    try {
+      final res = await _api.safePost('/user/sos-contact', data: {
+        'name': name,
+        'phone': phone,
+      });
+      if (!mounted) return;
+      final ok = res?['status'] == true;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(
+          ok
+              ? 'SOS contact saved'
+              : 'Could not save: ${res?['message'] ?? 'unknown error'}',
+          style: poppins(12, c: C.white),
+        ),
+        backgroundColor: ok ? const Color(0xFF2E7D32) : C.red,
+      ));
+    } finally {
+      if (mounted) setState(() => _sosSaving = false);
+    }
   }
 
   @override
@@ -138,6 +195,82 @@ class _FallSettingsScreenState extends State<FallSettingsScreen>
                         onChanged: _toggle,
                       ),
                     ]),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  // ── SOS Emergency Contact — independent of Family Members ──
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: C.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: C.bd, width: 1.5),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(children: [
+                          const Icon(Icons.contact_phone_rounded,
+                              size: 20, color: C.ink),
+                          const SizedBox(width: 8),
+                          Text('SOS Emergency Contact',
+                              style: poppins(15, w: FontWeight.w700, c: C.ink)),
+                        ]),
+                        const SizedBox(height: 4),
+                        Text(
+                          'This number gets an SMS if a fall is detected. '
+                          'Separate from Family Members.',
+                          style: poppins(11.5, c: C.txl, h: 1.4),
+                        ),
+                        const SizedBox(height: 14),
+                        if (!_sosLoaded)
+                          const Center(child: Padding(
+                            padding: EdgeInsets.all(12),
+                            child: CircularProgressIndicator(
+                                color: C.yellowDark, strokeWidth: 2),
+                          ))
+                        else ...[
+                          TextField(
+                            controller: _sosNameCtrl,
+                            textCapitalization: TextCapitalization.words,
+                            decoration: const InputDecoration(
+                              labelText: 'Contact name',
+                              prefixIcon: Icon(Icons.person_outline_rounded),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          TextField(
+                            controller: _sosPhoneCtrl,
+                            keyboardType: TextInputType.phone,
+                            maxLength: 10,
+                            decoration: const InputDecoration(
+                              labelText: 'Phone number',
+                              prefixIcon: Icon(Icons.phone_outlined),
+                              counterText: '',
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          FilledButton(
+                            onPressed: _sosSaving ? null : _saveSosContact,
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size.fromHeight(46),
+                              backgroundColor: C.ink,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: _sosSaving
+                                ? const SizedBox(
+                                    width: 18, height: 18,
+                                    child: CircularProgressIndicator(
+                                        color: Colors.white, strokeWidth: 2))
+                                : Text('Save SOS Contact',
+                                    style: poppins(13, w: FontWeight.w700,
+                                        c: C.yellow)),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
 
                   const SizedBox(height: 14),

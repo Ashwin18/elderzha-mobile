@@ -7,13 +7,9 @@ import android.content.SharedPreferences
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
-import android.location.Location
-import android.location.LocationListener
-import android.location.LocationManager
 import android.os.Build
 import android.os.Bundle
 import android.os.CountDownTimer
-import android.os.Looper
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -104,25 +100,17 @@ class FallSOSActivity : Activity() {
         FallMonitorService.stopSiren(this)
         runOnUiThread { statusView.text = "Sending SOS…" }
 
-        // Fire the alert IMMEDIATELY — every second matters in a real
-        // fall. Location is attached as a fast follow-up once GPS
-        // resolves, instead of blocking the whole SOS on it (GPS fix
-        // can take several seconds, sometimes longer indoors).
+        // Client requirement: SOS alerts do NOT share location.
         thread {
             val body = JSONObject().apply {
-                put("latitude", "")
-                put("longitude", "")
-                put("location_url", "")
                 put("detected_at", isoNow())
             }
             var errorMsg: String? = null
             var serverMessage: String? = null
-            var alertId: String? = null
             val ok = try {
                 val respBody = postJson("/user/fall-alert", body)
                 val json = JSONObject(respBody)
                 serverMessage = json.optString("message", null)
-                alertId = json.optString("alert_id", null)
                 true
             } catch (e: Exception) {
                 errorMsg = e.message
@@ -134,75 +122,10 @@ class FallSOSActivity : Activity() {
                 else
                     "SOS failed: ${errorMsg ?: "unknown error"}"
             }
-
-            // Now resolve location in the background and attach it to
-            // the same alert once available — does not block/delay the
-            // alert itself, which already went out above.
-            if (ok && alertId != null) {
-                fetchLocation { lat, lon ->
-                    if (lat == null || lon == null) return@fetchLocation
-                    thread {
-                        try {
-                            val locBody = JSONObject().apply {
-                                put("latitude", lat.toString())
-                                put("longitude", lon.toString())
-                                put("location_url", "https://maps.google.com/?q=$lat,$lon")
-                            }
-                            postJson("/user/fall-alert/$alertId/update-location", locBody)
-                            runOnUiThread {
-                                statusView.text = (serverMessage ?: "SOS sent") + " • location added"
-                            }
-                        } catch (_: Exception) {
-                            // Non-fatal — the alert itself already went
-                            // through; location is a best-effort extra.
-                        }
-                    }
-                }
-            }
         }
     }
 
     // ── Native location (no Google Play Services dependency needed) ────────
-    private fun fetchLocation(callback: (Double?, Double?) -> Unit) {
-        try {
-            val lm = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-            val hasFine = checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) ==
-                android.content.pm.PackageManager.PERMISSION_GRANTED
-            if (!hasFine) { callback(null, null); return }
-
-            val last = try {
-                lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-                    ?: lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
-            } catch (_: Exception) { null }
-
-            if (last != null) { callback(last.latitude, last.longitude); return }
-
-            var delivered = false
-            val listener = object : LocationListener {
-                override fun onLocationChanged(location: Location) {
-                    if (delivered) return
-                    delivered = true
-                    callback(location.latitude, location.longitude)
-                    try { lm.removeUpdates(this) } catch (_: Exception) {}
-                }
-            }
-            val provider = if (lm.isProviderEnabled(LocationManager.GPS_PROVIDER))
-                LocationManager.GPS_PROVIDER else LocationManager.NETWORK_PROVIDER
-            lm.requestLocationUpdates(provider, 0L, 0f, listener, Looper.getMainLooper())
-
-            // Give it up to 8s, then give up gracefully
-            android.os.Handler(Looper.getMainLooper()).postDelayed({
-                if (!delivered) {
-                    delivered = true
-                    try { lm.removeUpdates(listener) } catch (_: Exception) {}
-                    callback(null, null)
-                }
-            }, 8000)
-        } catch (_: Exception) {
-            callback(null, null)
-        }
-    }
-
     // ── Native HTTP (no extra dependency — plain HttpURLConnection) ────────
     private fun postJson(path: String, body: JSONObject): String {
         val token = readAuthToken()

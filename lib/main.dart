@@ -20,7 +20,6 @@ import 'services/api_client.dart';
 import 'services/notification_service.dart';
 import 'theme/app_theme.dart';
 import 'utils/app_routes.dart';
-import 'package:geolocator/geolocator.dart';
 import 'widgets/main_scaffold.dart';
 
 // ── Screens ───────────────────────────────────────────────────────────────────
@@ -619,11 +618,6 @@ class _ElderZhaAppState extends State<ElderZhaApp> {
   void initState() {
     super.initState();
     _lifecycleListener = AppLifecycleListener(onResume: _onResume);
-    // Fall detection now runs as a native Android foreground service
-    // (survives app kill) — controlled from Profile > Fall Detection.
-    // Just request location permission upfront so it's ready if a
-    // fall is ever detected and the SOS screen needs to attach a map link.
-    _requestLocationPermissionUpfront();
     // Native fall-detection SOS reads the auth token from a native-only
     // cache (Flutter's own storage isn't readable by native code on this
     // shared_preferences plugin version). Sync it on every app start so
@@ -635,15 +629,6 @@ class _ElderZhaAppState extends State<ElderZhaApp> {
   void dispose() {
     _lifecycleListener.dispose();
     super.dispose();
-  }
-
-  Future<void> _requestLocationPermissionUpfront() async {
-    try {
-      final locPerm = await Geolocator.checkPermission();
-      if (locPerm == LocationPermission.denied) {
-        await Geolocator.requestPermission();
-      }
-    } catch (_) {}
   }
 
   Future<void> _onResume() async {
