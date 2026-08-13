@@ -726,7 +726,7 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
           ),
           const SizedBox(height: 10),
           OutlinedButton.icon(
-            onPressed: () => _showAlarmPreview(isFood: isFood),
+            onPressed: () => _showAlarmPreview(isFood: _step == 1),
             icon: const Icon(Icons.visibility_rounded, size: 18),
             label: Text('Preview this alarm',
                 style: poppins(13, w: FontWeight.w700)),
