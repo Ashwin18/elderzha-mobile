@@ -40,7 +40,9 @@ class AlarmService {
     required Map<String, dynamic> payload,
     File? medicalFile,
     File? foodFile,
-    File? alarmTone,
+    File? alarmTone, // legacy shared tone — kept for backward compatibility
+    File? medicalTone,
+    File? foodTone,
   }) async {
     final form = FormData.fromMap({
       ...payload,
@@ -50,6 +52,10 @@ class AlarmService {
         'food_file': await MultipartFile.fromFile(foodFile.path),
       if (alarmTone != null)
         'alaram_tone': await MultipartFile.fromFile(alarmTone.path),
+      if (medicalTone != null)
+        'medical_tone': await MultipartFile.fromFile(medicalTone.path),
+      if (foodTone != null)
+        'food_tone': await MultipartFile.fromFile(foodTone.path),
     });
     final res = await _api.safeMultipartPost('/user/store/medical-settings',
         data: form);

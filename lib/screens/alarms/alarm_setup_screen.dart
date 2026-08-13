@@ -32,10 +32,26 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
   final _picker = ImagePicker();
   File? _medImage;
   File? _foodImage;
-  String? _tonePath;      // local file path
   String? _medImageUrl;   // server URL (loaded from API)
   String? _foodImageUrl;  // server URL (loaded from API)
-  String? _toneUrl;       // server URL when no local tone
+
+  // Separate medical/food tones. All existing code below still just
+  // reads/writes `_tonePath` / `_toneUrl` as if they were plain fields —
+  // these getters/setters transparently route to the correct one based
+  // on which step (0=Medical, 1=Food) is currently active, so picking or
+  // recording a tone on the Food step never touches the Medical tone
+  // and vice versa.
+  String? _medTonePath, _medToneUrl;
+  String? _foodTonePath, _foodToneUrl;
+  String? get _tonePath => _step == 1 ? _foodTonePath : _medTonePath;
+  set _tonePath(String? v) {
+    if (_step == 1) { _foodTonePath = v; } else { _medTonePath = v; }
+  }
+  String? get _toneUrl => _step == 1 ? _foodToneUrl : _medToneUrl;
+  set _toneUrl(String? v) {
+    if (_step == 1) { _foodToneUrl = v; } else { _medToneUrl = v; }
+  }
+
   String? _recordedPreviewPath;
   bool _recording = false;
   bool _previewPlaying = false;
@@ -89,11 +105,20 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
 
   Future<void> _loadSavedTone() async {
     final prefs = await SharedPreferences.getInstance();
-    final tone = prefs.getString('alarm_tone');
-    if (mounted && tone != null && tone.isNotEmpty) {
-      setState(() => _tonePath = tone);
+    // Legacy shared local tone (from before medical/food were split) —
+    // used only as a fallback if a type-specific one isn't set yet.
+    final legacyLocalTone = prefs.getString('alarm_tone');
+    final medLocalTone = prefs.getString('medical_alarm_tone');
+    final foodLocalTone = prefs.getString('food_alarm_tone');
+    if (mounted) {
+      setState(() {
+        _medTonePath = medLocalTone?.isNotEmpty == true
+            ? medLocalTone : legacyLocalTone;
+        _foodTonePath = foodLocalTone?.isNotEmpty == true
+            ? foodLocalTone : legacyLocalTone;
+      });
     }
-    // Gap 3+5: Also load image/tone URLs from API for display
+    // Also load image/tone URLs from API for display
     try {
       final res = await AlarmService().getMedicalRecords();
       final rawData = res?['data'];
@@ -102,13 +127,22 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
         if (rawData is Map) data = Map<String, dynamic>.from(rawData);
         final medUrl  = data['medical_file']?.toString() ?? '';
         final foodUrl = data['food_file']?.toString() ?? '';
-        final toneUrl = data['alaram_tone']?.toString() ?? '';
+        final legacyToneUrl = data['alaram_tone']?.toString() ?? '';
+        final medToneUrl = data['medical_tone']?.toString() ?? '';
+        final foodToneUrl = data['food_tone']?.toString() ?? '';
         setState(() {
           if (medUrl.isNotEmpty) _medImageUrl = medUrl;
           if (foodUrl.isNotEmpty) _foodImageUrl = foodUrl;
-          // Only use server tone URL if no local tone
-          if ((_tonePath == null || _tonePath!.isEmpty) && toneUrl.isNotEmpty) {
-            _toneUrl = toneUrl;
+          // Only use server tone URL if no local tone already picked.
+          // Prefer the new type-specific field, fall back to the old
+          // shared one for users who set a tone before this split.
+          if (_medTonePath == null || _medTonePath!.isEmpty) {
+            final url = medToneUrl.isNotEmpty ? medToneUrl : legacyToneUrl;
+            if (url.isNotEmpty) _medToneUrl = url;
+          }
+          if (_foodTonePath == null || _foodTonePath!.isEmpty) {
+            final url = foodToneUrl.isNotEmpty ? foodToneUrl : legacyToneUrl;
+            if (url.isNotEmpty) _foodToneUrl = url;
           }
         });
       }
@@ -424,7 +458,8 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
     if (await File(target).exists()) await File(target).delete();
     await src.copy(target);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('alarm_tone', target);
+    await prefs.setString(
+        _step == 1 ? 'food_alarm_tone' : 'medical_alarm_tone', target);
     await _stopTonePreview();
     if (!mounted) return;
     setState(() {
@@ -593,7 +628,8 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
     if (path == null || path.isEmpty) return;
     await _stopTonePreview();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('alarm_tone', path);
+    await prefs.setString(
+        _step == 1 ? 'food_alarm_tone' : 'medical_alarm_tone', path);
     if (!mounted) return;
     setState(() {
       _tonePath = path;
@@ -614,9 +650,7 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
   }
 
   Widget _alarmMediaPanel({required bool medical}) {
-    final image = medical ? _medImage : _foodImage;
-    final imageUrl = medical ? _medImageUrl : _foodImageUrl;
-    final title = medical ? 'Medical alarm media' : 'Food alarm media';
+    final title = medical ? 'Medical alarm tone' : 'Food alarm tone';
     return _premiumPanel([
       Row(children: [
         Container(
@@ -638,38 +672,12 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
             children: [
               Text(title, style: poppins(15, w: FontWeight.w800, c: C.ink)),
               const SizedBox(height: 2),
-              Text('Photo and custom alarm tone',
+              Text('Choose the sound for this alarm',
                   style: poppins(11, w: FontWeight.w600, c: C.txl)),
             ],
           ),
         ),
       ]),
-      const SizedBox(height: 12),
-      GestureDetector(
-        onTap: () => _pickImage(medical ? 'medical' : 'food'),
-        child: Container(
-          height: 136,
-          width: double.infinity,
-          clipBehavior: Clip.hardEdge,
-          decoration: BoxDecoration(
-            color: C.bg2,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: C.bd),
-          ),
-          child: image == null
-              ? Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.add_photo_alternate_outlined,
-                        color: C.txl, size: 30),
-                    const SizedBox(height: 6),
-                    Text('Upload alarm image',
-                        style: poppins(12, w: FontWeight.w700, c: C.txm)),
-                  ],
-                )
-              : Image.file(image, fit: BoxFit.cover),
-        ),
-      ),
       const SizedBox(height: 12),
       _toneCard(),
     ]);
@@ -1181,12 +1189,19 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
     // Final step — save alarms and proceed to payment
     setState(() => _saving = true);
     final payload = _alarmPayload();
+    // NOTE: _step is 2 (Family) here, so reference the medical/food
+    // backing fields directly rather than through _tonePath/_toneUrl
+    // (which dispatch based on _step and would incorrectly resolve to
+    // Medical only at this point in the flow).
     await _alarmService.saveMedicalSettingsMultipart(
       payload: payload,
       medicalFile: _medImage,
       foodFile: _foodImage,
-      alarmTone: _tonePath != null && File(_tonePath!).existsSync()
-          ? File(_tonePath!)
+      medicalTone: _medTonePath != null && File(_medTonePath!).existsSync()
+          ? File(_medTonePath!)
+          : null,
+      foodTone: _foodTonePath != null && File(_foodTonePath!).existsSync()
+          ? File(_foodTonePath!)
           : null,
     );
     await _saveLocalAlarmConfig(payload);
@@ -1199,9 +1214,6 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
     for (final member in _family) {
       final res = await _authService.addFamily(
         name: member['name'] ?? '',
-        phone: (member['phone'] ?? '').toString().trim().isEmpty
-            ? null
-            : member['phone'].toString().trim(),
         relation: member['relation'] ?? '',
         birthdayDate: member['birthday_date']?.isEmpty == true
             ? null
@@ -1287,10 +1299,16 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
       ...payload,
       if (_medImage != null) 'medical_file': _medImage!.path,
       if (_foodImage != null) 'food_file': _foodImage!.path,
-      if (_tonePath != null && _tonePath!.isNotEmpty)
-        'alaram_tone': _tonePath
-      else if (_toneUrl != null && _toneUrl!.isNotEmpty)
-        'alaram_tone': _toneUrl,
+      // Separate medical/food tones — DailyScheduler picks the right
+      // one based on which alarm type is actually firing.
+      if (_medTonePath != null && _medTonePath!.isNotEmpty)
+        'medical_tone': _medTonePath
+      else if (_medToneUrl != null && _medToneUrl!.isNotEmpty)
+        'medical_tone': _medToneUrl,
+      if (_foodTonePath != null && _foodTonePath!.isNotEmpty)
+        'food_tone': _foodTonePath
+      else if (_foodToneUrl != null && _foodToneUrl!.isNotEmpty)
+        'food_tone': _foodToneUrl,
       'saved_from': 'first_time_setup',
       'saved_at': DateTime.now().toIso8601String(),
     });
@@ -1714,7 +1732,6 @@ class _AddFamilySheet extends StatefulWidget {
 
 class _AddFamilySheetState extends State<_AddFamilySheet> {
   final _nameCtrl = TextEditingController();
-  final _phoneCtrl = TextEditingController();
   final _birthdayCtrl = TextEditingController();
   final _anniversaryCtrl = TextEditingController();
   DateTime? _birthdayDate;
@@ -1732,7 +1749,6 @@ class _AddFamilySheetState extends State<_AddFamilySheet> {
   @override
   void dispose() {
     _nameCtrl.dispose();
-    _phoneCtrl.dispose();
     _birthdayCtrl.dispose();
     _anniversaryCtrl.dispose();
     super.dispose();
@@ -1828,21 +1844,6 @@ class _AddFamilySheetState extends State<_AddFamilySheet> {
             ),
           ),
           const SizedBox(height: 10),
-          Text('PHONE (FOR FALL ALERT SMS)',
-              style: poppins(11, w: FontWeight.w700, c: C.txl)),
-          const SizedBox(height: 6),
-          TextField(
-            controller: _phoneCtrl,
-            keyboardType: TextInputType.phone,
-            maxLength: 10,
-            decoration: const InputDecoration(
-              hintText: 'e.g. 9876543210',
-              helperText: 'SMS sent if fall detected',
-              prefixIcon: Icon(Icons.phone_outlined),
-              counterText: '',
-            ),
-          ),
-          const SizedBox(height: 10),
           Row(children: [
             Expanded(
               child: _dateTile(
@@ -1888,7 +1889,6 @@ class _AddFamilySheetState extends State<_AddFamilySheet> {
               }
               Navigator.pop(context, {
                 'name': _nameCtrl.text.trim(),
-                'phone': _phoneCtrl.text.trim(),
                 'relation': _relation,
                 'birthday_date': _birthdayCtrl.text,
                 'anniversary_date': _anniversaryCtrl.text,

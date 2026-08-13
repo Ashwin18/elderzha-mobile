@@ -329,9 +329,6 @@ class _FamilyMembersScreenState extends State<FamilyMembersScreen> {
                         if (anniversary.isNotEmpty)
                           _datePill('💍 Anniversary · $anniversary',
                               AppColors.purpleLight, AppColors.purple),
-                        if ((map['phone']?.toString() ?? '').isNotEmpty)
-                          _datePill('🆘 SOS · ${map['phone']}',
-                              const Color(0xFFFFEBEE), const Color(0xFFB71C1C)),
                       ]),
                     ])),
                 GestureDetector(

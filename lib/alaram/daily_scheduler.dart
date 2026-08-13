@@ -97,7 +97,14 @@ class DailyScheduler {
       final prefs = await SharedPreferences.getInstance();
       // Gap 10 Fix: verify local tone file still exists before using
       // If it doesn't exist (e.g. after reinstall), fall back to passed soundUrl
-      final alarmTone = prefs.getString("alarm_tone");
+      // Separate medical/food tones — pick based on which type of alarm
+      // is actually being scheduled. Falls back to the old shared
+      // 'alarm_tone' key for users who set a tone before the split.
+      final typeSpecificKey = alarmType == AlarmType.food
+          ? 'food_alarm_tone'
+          : 'medical_alarm_tone';
+      final alarmTone = prefs.getString(typeSpecificKey) ??
+          prefs.getString('alarm_tone');
       String finalSoundUrl;
       if (alarmTone != null && alarmTone.isNotEmpty) {
         // Check if it's a local file that still exists
@@ -137,8 +144,8 @@ class DailyScheduler {
           }
           if (await cachedFile.exists()) {
             cachedSoundUrl = cachedFile.path;
-            // Update prefs with cached local path
-            await prefs.setString('alarm_tone', cachedSoundUrl);
+            // Update prefs with cached local path — type-specific key
+            await prefs.setString(typeSpecificKey, cachedSoundUrl);
           }
         } catch (_) {
           cachedSoundUrl = finalSoundUrl; // fallback to URL

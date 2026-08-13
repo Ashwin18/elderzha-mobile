@@ -68,8 +68,23 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
   // Extras
   File? _medImage, _foodImage;
   String? _medImageUrl, _foodImageUrl;
-  String? _tonePath;  // local file path
-  String? _toneUrl;    // server URL (when no local file)
+
+  // Separate medical/food tones — all existing code below still reads/
+  // writes `_tonePath` / `_toneUrl` as plain fields; these getters/
+  // setters transparently route to the correct one based on `_mode`.
+  String? _medTonePath, _medToneUrl;
+  String? _foodTonePath, _foodToneUrl;
+  String? get _tonePath =>
+      _mode == AlarmViewMode.food ? _foodTonePath : _medTonePath;
+  set _tonePath(String? v) {
+    if (_mode == AlarmViewMode.food) { _foodTonePath = v; } else { _medTonePath = v; }
+  }
+  String? get _toneUrl =>
+      _mode == AlarmViewMode.food ? _foodToneUrl : _medToneUrl;
+  set _toneUrl(String? v) {
+    if (_mode == AlarmViewMode.food) { _foodToneUrl = v; } else { _medToneUrl = v; }
+  }
+
   bool _recording = false;
   String? _recordedPreviewPath;
   bool _previewPlaying = false;
@@ -113,7 +128,12 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
   Future<void> _loadFromApi() async {
     setState(() => _loading = true);
     final prefs = await SharedPreferences.getInstance();
-    _tonePath = prefs.getString('alarm_tone');
+    // Legacy shared tone (before medical/food were split) — fallback only.
+    final legacyTone = prefs.getString('alarm_tone');
+    final medLocal = prefs.getString('medical_alarm_tone');
+    final foodLocal = prefs.getString('food_alarm_tone');
+    _medTonePath = medLocal?.isNotEmpty == true ? medLocal : legacyTone;
+    _foodTonePath = foodLocal?.isNotEmpty == true ? foodLocal : legacyTone;
     final local = await AlarmConfigStore.load();
 
     final res = await _alarmSvc.getMedicalRecords();
@@ -192,14 +212,29 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
         _parseT(_firstValue(data, ['dinner_time', 'd_time']), foodDinnerTime);
     _medImageUrl = _firstValue(data, ['medical_file', 'medical_image']);
     _foodImageUrl = _firstValue(data, ['food_file', 'food_image']);
-    // Gap 2+4 Fix: tone from API is a URL — keep it as _toneUrl separately
-    // Don't overwrite local path with server URL (they behave differently)
-    final apiTone = _firstValue(data, ['alaram_tone', 'alarm_tone', 'alarmTone']);
+    // Separate medical/food tones from API, with fallback to the old
+    // shared 'alaram_tone' field for users who set a tone before the
+    // medical/food split existed. This function is mode-independent
+    // (runs once), so both sides are set explicitly here rather than
+    // through the _mode-dependent _tonePath/_toneUrl getters.
+    final legacyApiTone =
+        _firstValue(data, ['alaram_tone', 'alarm_tone', 'alarmTone']);
+    final medApiTone = _firstValue(data, ['medical_tone']);
+    final foodApiTone = _firstValue(data, ['food_tone']);
+
+    if (_medTonePath == null || _medTonePath!.isEmpty) {
+      final url = medApiTone.isNotEmpty ? medApiTone : legacyApiTone;
+      if (url.isNotEmpty) { _medToneUrl = url; }
+    }
+    if (_foodTonePath == null || _foodTonePath!.isEmpty) {
+      final url = foodApiTone.isNotEmpty ? foodApiTone : legacyApiTone;
+      if (url.isNotEmpty) { _foodToneUrl = url; }
+    }
+    // Legacy single savedTone param — only apply if neither side has
+    // a local file yet, as a last-resort fallback.
     if (savedTone != null && savedTone.isNotEmpty) {
-      _tonePath = savedTone; // use local file if available
-    } else if (apiTone.isNotEmpty) {
-      _toneUrl = apiTone;   // store server URL separately
-      _tonePath = null;     // no local file
+      if (_medTonePath == null || _medTonePath!.isEmpty) _medTonePath = savedTone;
+      if (_foodTonePath == null || _foodTonePath!.isEmpty) _foodTonePath = savedTone;
     }
   }
 
@@ -278,12 +313,19 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
       'dinner_status': foodDinnerOn ? 1 : 0,
       'd_time': _toStr(foodDinnerTime),
     };
+    // NOTE: this save pushes BOTH medical and food settings together
+    // regardless of which tab (_mode) is currently active, so reference
+    // the direct backing fields rather than the _mode-dependent
+    // _tonePath/_toneUrl getters (which would only capture one side).
     await _alarmSvc.saveMedicalSettingsMultipart(
       payload: payload,
       medicalFile: _medImage,
       foodFile: _foodImage,
-      alarmTone: _tonePath != null && File(_tonePath!).existsSync()
-          ? File(_tonePath!)
+      medicalTone: _medTonePath != null && File(_medTonePath!).existsSync()
+          ? File(_medTonePath!)
+          : null,
+      foodTone: _foodTonePath != null && File(_foodTonePath!).existsSync()
+          ? File(_foodTonePath!)
           : null,
     );
     await AlarmConfigStore.save({
@@ -294,8 +336,14 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
       if (_foodImage != null) 'food_file': _foodImage!.path,
       if (_foodImageUrl != null && _foodImageUrl!.isNotEmpty)
         'food_file': _foodImageUrl,
-      if (_tonePath != null && _tonePath!.isNotEmpty) 'alaram_tone': _tonePath
-          else if (_toneUrl != null && _toneUrl!.isNotEmpty) 'alaram_tone': _toneUrl,
+      if (_medTonePath != null && _medTonePath!.isNotEmpty)
+        'medical_tone': _medTonePath
+      else if (_medToneUrl != null && _medToneUrl!.isNotEmpty)
+        'medical_tone': _medToneUrl,
+      if (_foodTonePath != null && _foodTonePath!.isNotEmpty)
+        'food_tone': _foodTonePath
+      else if (_foodToneUrl != null && _foodToneUrl!.isNotEmpty)
+        'food_tone': _foodToneUrl,
       'saved_from': 'profile_alarm_settings',
       'saved_at': DateTime.now().toIso8601String(),
     });
@@ -328,7 +376,7 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
           _toStr(foodBreakfastTime),
           '🍳 Elderzha • Breakfast Time',
           'daily',
-          soundUrl: _tonePath ?? _toneUrl,
+          soundUrl: _foodTonePath ?? _foodToneUrl, // explicit — this schedules AlarmType.food
           imageUrl: _foodImage?.path ?? _foodImageUrl);
     if (foodLunchOn)
       await DailyScheduler.scheduleReminder(
@@ -337,7 +385,7 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
           _toStr(foodLunchTime),
           '🍽 Elderzha • Lunch Reminder',
           'daily',
-          soundUrl: _tonePath ?? _toneUrl,
+          soundUrl: _foodTonePath ?? _foodToneUrl, // explicit — this schedules AlarmType.food
           imageUrl: _foodImage?.path ?? _foodImageUrl);
     if (foodDinnerOn)
       await DailyScheduler.scheduleReminder(
@@ -346,7 +394,7 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
           _toStr(foodDinnerTime),
           '🍽 Elderzha • Dinner Reminder',
           'daily',
-          soundUrl: _tonePath ?? _toneUrl,
+          soundUrl: _foodTonePath ?? _foodToneUrl, // explicit — this schedules AlarmType.food
           imageUrl: _foodImage?.path ?? _foodImageUrl);
   }
 
@@ -360,7 +408,7 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
           _toStr(morningBefore),
           '💊 Elderzha • Morning Before Food',
           'daily',
-          soundUrl: _tonePath ?? _toneUrl,
+          soundUrl: _medTonePath ?? _medToneUrl, // explicit — this schedules AlarmType.medical
           imageUrl: img);
     if (medMorningAfterOn)
       await DailyScheduler.scheduleReminder(
@@ -369,7 +417,7 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
           _toStr(morningAfter),
           '💊 Elderzha • Morning After Food',
           'daily',
-          soundUrl: _tonePath ?? _toneUrl,
+          soundUrl: _medTonePath ?? _medToneUrl, // explicit — this schedules AlarmType.medical
           imageUrl: img);
     if (medNoonBeforeOn)
       await DailyScheduler.scheduleReminder(
@@ -378,7 +426,7 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
           _toStr(noonBefore),
           '💊 Elderzha • Noon Before Food',
           'daily',
-          soundUrl: _tonePath ?? _toneUrl,
+          soundUrl: _medTonePath ?? _medToneUrl, // explicit — this schedules AlarmType.medical
           imageUrl: img);
     if (medNoonAfterOn)
       await DailyScheduler.scheduleReminder(
@@ -387,7 +435,7 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
           _toStr(noonAfter),
           '💊 Elderzha • Noon After Food',
           'daily',
-          soundUrl: _tonePath ?? _toneUrl,
+          soundUrl: _medTonePath ?? _medToneUrl, // explicit — this schedules AlarmType.medical
           imageUrl: img);
     if (medNightBeforeOn)
       await DailyScheduler.scheduleReminder(
@@ -396,7 +444,7 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
           _toStr(nightBefore),
           '🌙 Elderzha • Night Before Food',
           'daily',
-          soundUrl: _tonePath ?? _toneUrl,
+          soundUrl: _medTonePath ?? _medToneUrl, // explicit — this schedules AlarmType.medical
           imageUrl: img);
     if (medNightAfterOn)
       await DailyScheduler.scheduleReminder(
@@ -405,7 +453,7 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
           _toStr(nightAfter),
           '🌙 Elderzha • Night After Food',
           'daily',
-          soundUrl: _tonePath ?? _toneUrl,
+          soundUrl: _medTonePath ?? _medToneUrl, // explicit — this schedules AlarmType.medical
           imageUrl: img);
   }
 
@@ -421,7 +469,9 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
     if (await File(tgt).exists()) await File(tgt).delete();
     await src.copy(tgt);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('alarm_tone', tgt);
+    await prefs.setString(
+        _mode == AlarmViewMode.food ? 'food_alarm_tone' : 'medical_alarm_tone',
+        tgt);
     await _stopTonePreview();
     setState(() {
       _tonePath = tgt;
@@ -495,7 +545,9 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
     if (path == null || path.isEmpty) return;
     await _stopTonePreview();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('alarm_tone', path);
+    await prefs.setString(
+        _mode == AlarmViewMode.food ? 'food_alarm_tone' : 'medical_alarm_tone',
+        path);
     if (!mounted) return;
     setState(() {
       _tonePath = path;
@@ -1376,54 +1428,9 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
                   fontWeight: FontWeight.w800,
                   color: Colors.black87)),
           const SizedBox(height: 14),
-          _imageCard(),
-          const SizedBox(height: 12),
           _toneCard(),
         ]),
       );
-
-  Widget _imageCard() {
-    final isFood = _mode == AlarmViewMode.food;
-    final file = isFood ? _foodImage : _medImage;
-    final url = isFood ? _foodImageUrl : _medImageUrl;
-    final type = isFood ? 'food' : 'medical';
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-          color: const Color(0xFFFFF9E8),
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: const Color(0xFFF3E3A3))),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(isFood ? 'Food Alarm Image' : 'Medical Alarm Image',
-            style: GoogleFonts.poppins(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87)),
-        const SizedBox(height: 10),
-        Container(
-            height: 88,
-            width: double.infinity,
-            decoration: BoxDecoration(
-                color: Colors.white, borderRadius: BorderRadius.circular(16)),
-            clipBehavior: Clip.antiAlias,
-            child: _imgPreview(file, url)),
-        const SizedBox(height: 10),
-        GestureDetector(
-            onTap: () => _pickImage(type),
-            child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                    color: _segBg, borderRadius: BorderRadius.circular(14)),
-                child: Center(
-                    child: Text('Upload File',
-                        style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black87))))),
-      ]),
-    );
-  }
 
   Widget _imgPreview(File? file, String? url) {
     if (file != null) return Image.file(file, fit: BoxFit.cover);

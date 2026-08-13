@@ -17,7 +17,6 @@ class AddMemberScreen extends StatefulWidget {
 class _AddMemberScreenState extends State<AddMemberScreen> {
   final _authService = AuthService();
   final _nameCtrl = TextEditingController();
-  final _phoneCtrl = TextEditingController();
   final _birthdayCtrl = TextEditingController();
   final _anniversaryCtrl = TextEditingController();
   DateTime? _birthdayDate;
@@ -41,7 +40,6 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
     final existing = ModalRoute.of(context)?.settings.arguments as Map?;
     if (existing != null) {
       _nameCtrl.text = existing['name']?.toString() ?? '';
-      _phoneCtrl.text = existing['phone']?.toString() ?? '';
       _relation = existing['relation'] is Map
           ? (existing['relation']['name']?.toString() ?? '')
           : (existing['relation']?.toString() ?? '');
@@ -67,7 +65,6 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
   @override
   void dispose() {
     _nameCtrl.dispose();
-    _phoneCtrl.dispose();
     _birthdayCtrl.dispose();
     _anniversaryCtrl.dispose();
     super.dispose();
@@ -124,7 +121,6 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
       res = await _authService.updateFamily(
           id: id,
           name: _nameCtrl.text.trim(),
-          phone: _phoneCtrl.text.trim(),
           relation: _relation,
           relationId: relationId,
           eventId: eventId,
@@ -137,7 +133,6 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
     } else {
       res = await _authService.addFamily(
           name: _nameCtrl.text.trim(),
-          phone: _phoneCtrl.text.trim(),
           relation: _relation,
           birthdayDate: _birthdayCtrl.text.trim().isEmpty
               ? null
@@ -225,18 +220,6 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
               decoration: const InputDecoration(
                   hintText: 'e.g. Father',
                   prefixIcon: Icon(Icons.person_outline_rounded))),
-
-          const SizedBox(height: 16),
-          _label('PHONE NUMBER (FOR FALL ALERT SMS)'),
-          TextField(
-              controller: _phoneCtrl,
-              keyboardType: TextInputType.phone,
-              maxLength: 10,
-              decoration: const InputDecoration(
-                  hintText: 'e.g. 9876543210',
-                  helperText: 'We will SMS this number if a fall is detected',
-                  prefixIcon: Icon(Icons.phone_outlined),
-                  counterText: '')),
 
           const SizedBox(height: 16),
           _label('IMPORTANT DATES'),
