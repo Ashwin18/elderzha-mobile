@@ -479,6 +479,98 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
     });
   }
 
+  Future<void> _showAlarmPreview({required bool isFood}) async {
+    // Play whatever tone is currently selected, same as the native alarm
+    // would, alongside the themed visual — a genuine preview of both.
+    final tonePath = _recordedPreviewPath ?? _tonePath;
+    if (tonePath != null && tonePath.isNotEmpty) {
+      await _alarmSetupChannel.invokeMethod('playTonePreview', {'path': tonePath});
+      if (mounted) setState(() => _previewPlaying = true);
+    }
+
+    // Match AlarmActivity.kt's resolveTheme() colors exactly, so this is
+    // a true preview of what the real full-screen alarm will look like.
+    final bgTop = isFood ? const Color(0xFF0B2A15) : const Color(0xFF160A33);
+    final bgBottom = isFood ? const Color(0xFF1B5E20) : const Color(0xFF2D1B69);
+    final accentA = const Color(0xFFFFCC01);
+    final accentB = isFood ? const Color(0xFF4CAF50) : const Color(0xFFFF9500);
+    final emoji = isFood ? '🍽️' : '💊';
+    final title = isFood ? 'Breakfast reminder' : 'Morning medicine';
+    final notes = isFood
+        ? 'Time for your healthy meal'
+        : 'Before food — take as prescribed';
+    final okLabel = isFood ? "I've had my breakfast" : 'I\'ve taken my medicine';
+
+    if (!mounted) return;
+    await showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) => Dialog(
+        insetPadding: EdgeInsets.zero,
+        backgroundColor: Colors.transparent,
+        child: Container(
+          width: double.infinity,
+          height: double.infinity,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter, end: Alignment.bottomCenter,
+              colors: [bgTop, bgBottom],
+            ),
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(28),
+              child: Column(children: [
+                const SizedBox(height: 20),
+                Text('PREVIEW — this is what will show',
+                    style: poppins(11, w: FontWeight.w700,
+                        c: Colors.white.withOpacity(.55))),
+                const Spacer(),
+                Container(
+                  width: 92, height: 92,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(colors: [accentA, accentB]),
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: Center(child: Text(emoji, style: const TextStyle(fontSize: 44))),
+                ),
+                const SizedBox(height: 20),
+                Text(title,
+                    textAlign: TextAlign.center,
+                    style: poppins(22, w: FontWeight.w800, c: Colors.white)),
+                const SizedBox(height: 8),
+                Text(notes,
+                    textAlign: TextAlign.center,
+                    style: poppins(13, c: Colors.white.withOpacity(.7))),
+                const Spacer(),
+                Container(
+                  width: double.infinity,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(colors: [accentA, accentB]),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Center(
+                    child: Text('✓  $okLabel',
+                        style: poppins(15, w: FontWeight.w800, c: const Color(0xFF1A1726))),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Text('Tap anywhere to close preview',
+                      style: poppins(12, c: Colors.white.withOpacity(.6))),
+                ),
+              ]),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await _stopTonePreview();
+  }
+
   Future<void> _previewTone(String? path) async {
     if (path == null || path.isEmpty) return;
     if (_previewPlaying) {
@@ -631,6 +723,20 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
                   ),
                 ),
             ]),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: () => _showAlarmPreview(isFood: isFood),
+            icon: const Icon(Icons.visibility_rounded, size: 18),
+            label: Text('Preview this alarm',
+                style: poppins(13, w: FontWeight.w700)),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(46),
+              foregroundColor: C.ink,
+              side: const BorderSide(color: C.bd, width: 1.5),
+              shape:
+                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
           ),
           if (_recording) ...[
             const SizedBox(height: 8),

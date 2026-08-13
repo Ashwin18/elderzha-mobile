@@ -104,33 +104,59 @@ class FallSOSActivity : Activity() {
         FallMonitorService.stopSiren(this)
         runOnUiThread { statusView.text = "Sending SOS…" }
 
-        fetchLocation { lat, lon ->
-            thread {
-                val locationUrl = if (lat != null && lon != null)
-                    "https://maps.google.com/?q=$lat,$lon" else null
-                val body = JSONObject().apply {
-                    put("latitude", lat?.toString() ?: "")
-                    put("longitude", lon?.toString() ?: "")
-                    put("location_url", locationUrl ?: "")
-                    put("detected_at", isoNow())
-                }
-                var errorMsg: String? = null
-                var serverMessage: String? = null
-                val ok = try {
-                    val respBody = postJson("/user/fall-alert", body)
-                    serverMessage = try {
-                        JSONObject(respBody).optString("message", null)
-                    } catch (_: Exception) { null }
-                    true
-                } catch (e: Exception) {
-                    errorMsg = e.message
-                    false
-                }
-                runOnUiThread {
-                    statusView.text = if (ok)
-                        (serverMessage ?: "SOS sent — admin notified")
-                    else
-                        "SOS failed: ${errorMsg ?: "unknown error"}"
+        // Fire the alert IMMEDIATELY — every second matters in a real
+        // fall. Location is attached as a fast follow-up once GPS
+        // resolves, instead of blocking the whole SOS on it (GPS fix
+        // can take several seconds, sometimes longer indoors).
+        thread {
+            val body = JSONObject().apply {
+                put("latitude", "")
+                put("longitude", "")
+                put("location_url", "")
+                put("detected_at", isoNow())
+            }
+            var errorMsg: String? = null
+            var serverMessage: String? = null
+            var alertId: String? = null
+            val ok = try {
+                val respBody = postJson("/user/fall-alert", body)
+                val json = JSONObject(respBody)
+                serverMessage = json.optString("message", null)
+                alertId = json.optString("alert_id", null)
+                true
+            } catch (e: Exception) {
+                errorMsg = e.message
+                false
+            }
+            runOnUiThread {
+                statusView.text = if (ok)
+                    (serverMessage ?: "SOS sent — admin notified")
+                else
+                    "SOS failed: ${errorMsg ?: "unknown error"}"
+            }
+
+            // Now resolve location in the background and attach it to
+            // the same alert once available — does not block/delay the
+            // alert itself, which already went out above.
+            if (ok && alertId != null) {
+                fetchLocation { lat, lon ->
+                    if (lat == null || lon == null) return@fetchLocation
+                    thread {
+                        try {
+                            val locBody = JSONObject().apply {
+                                put("latitude", lat.toString())
+                                put("longitude", lon.toString())
+                                put("location_url", "https://maps.google.com/?q=$lat,$lon")
+                            }
+                            postJson("/user/fall-alert/$alertId/update-location", locBody)
+                            runOnUiThread {
+                                statusView.text = (serverMessage ?: "SOS sent") + " • location added"
+                            }
+                        } catch (_: Exception) {
+                            // Non-fatal — the alert itself already went
+                            // through; location is a best-effort extra.
+                        }
+                    }
                 }
             }
         }

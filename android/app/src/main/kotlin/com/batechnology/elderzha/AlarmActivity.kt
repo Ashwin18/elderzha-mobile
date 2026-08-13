@@ -76,7 +76,7 @@ class AlarmActivity : Activity() {
         val notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, 0)
 
         try {
-            setContentView(buildView(title, notes, imageUrl, notificationId))
+            setContentView(buildView(title, notes, imageUrl, soundUrl, notificationId))
         } catch (_: Exception) {
             // Safety net — if the themed layout ever throws, fall back to a
             // minimal screen so the alarm still shows and can be dismissed.
@@ -132,7 +132,7 @@ class AlarmActivity : Activity() {
     }
 
     // ── Themed full-bleed layout ────────────────────────────────────────────
-    private fun buildView(title: String, notes: String, imageUrl: String, notificationId: Int): ViewGroup {
+    private fun buildView(title: String, notes: String, imageUrl: String, soundUrl: String, notificationId: Int): ViewGroup {
         val theme = resolveTheme(title)
 
         val root = FrameLayout(this).apply {
@@ -251,6 +251,25 @@ class AlarmActivity : Activity() {
             ViewGroup.LayoutParams.MATCH_PARENT, dp(56),
         ).apply { topMargin = dp(18) })
 
+        // Snooze button
+        col.addView(TextView(this).apply {
+            text = "⏰  Snooze 5 minutes"
+            textSize = 14f
+            setTextColor(Color.WHITE)
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                setColor(Color.argb(30, 255, 255, 255))
+                cornerRadius = dp(14).toFloat()
+                setStroke(dp(1), Color.argb(90, 255, 255, 255))
+            }
+            setOnClickListener {
+                snooze(notificationId, title, notes, soundUrl, imageUrl)
+            }
+        }, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, dp(48),
+        ).apply { topMargin = dp(10) })
+
         scroll.addView(col, ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
         ))
@@ -285,6 +304,19 @@ class AlarmActivity : Activity() {
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
         ).apply { topMargin = dp(20) })
         return root
+    }
+
+    private fun snooze(notificationId: Int, title: String, notes: String, soundUrl: String, imageUrl: String) {
+        cancelNotification(notificationId)
+        AlarmSoundService.stop(this)
+        // Distinct id from the real scheduled alarm, and from any other
+        // snooze — reuses the same one-shot ('once') scheduling path
+        // AlarmReceiver already supports, so it fires exactly once and
+        // does not interfere with the alarm's normal recurring schedule.
+        val snoozeId = ((notificationId.toLong() + 600_000L) % Int.MAX_VALUE).toInt()
+        val triggerAt = System.currentTimeMillis() + 5 * 60 * 1000L
+        AlarmReceiver.schedule(this, snoozeId, triggerAt, title, "once", notes, soundUrl, imageUrl)
+        finish()
     }
 
     private fun cancelNotification(notificationId: Int) {
