@@ -1,6 +1,7 @@
 // lib/screens/auth/subscription_gate_screen.dart
 // Full-screen paywall shown when plan expires.
-// Cannot be dismissed. User must subscribe to continue.
+// Cannot be dismissed. User must renew to continue.
+// Promo codes are for NEW users only (registration) — not shown here.
 // ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
@@ -27,14 +28,6 @@ class _SubscriptionGateScreenState extends State<SubscriptionGateScreen> {
   int?    _pendingPurchaseId;
   String? _pendingSubscriptionId;
 
-  final _couponCtrl       = TextEditingController();
-  String? _couponApplied;
-  String? _couponDiscount;
-  double? _couponPlanAmount;
-  bool _couponFirstMonthFree = false;
-  bool _checkingCoupon = false;
-  bool _autoPay = true;
-
   @override
   void initState() {
     super.initState();
@@ -48,7 +41,6 @@ class _SubscriptionGateScreenState extends State<SubscriptionGateScreen> {
   @override
   void dispose() {
     _rzp.clear();
-    _couponCtrl.dispose();
     super.dispose();
   }
 
@@ -69,40 +61,6 @@ class _SubscriptionGateScreenState extends State<SubscriptionGateScreen> {
     });
   }
 
-  Future<void> _checkCoupon() async {
-    final code = _couponCtrl.text.trim();
-    if (code.isEmpty || _selPlanId == null) return;
-    setState(() => _checkingCoupon = true);
-    final res = await _svc.checkCoupon(couponCode: code, planId: _selPlanId!);
-    if (!mounted) return;
-    setState(() => _checkingCoupon = false);
-    if (res['status'] == true) {
-      final applyRes = await _svc.applyCoupon(couponCode: code, planId: _selPlanId!);
-      final data = applyRes['data'] is Map ? applyRes['data'] as Map : applyRes;
-      final finalAmount  = _toDouble(data['final_amount'] ?? data['amount']);
-      final planAmount   = _toDouble(data['plan_amount'] ?? data['original_amount'] ?? _selPlan?['amount']);
-      final discountAmt  = data['discount_amount'] ?? data['discount'] ?? applyRes['discount'];
-      setState(() {
-        _couponApplied         = code;
-        _couponDiscount        = discountAmt?.toString();
-        _couponPlanAmount      = planAmount;
-        _couponFirstMonthFree  = finalAmount != null && finalAmount <= 0;
-      });
-      _snack(
-        _couponFirstMonthFree
-            ? 'Coupon applied! First month is FREE 🎉'
-            : 'Coupon applied! ${_couponDiscount ?? ''}',
-        ok: true,
-      );
-    } else {
-      setState(() {
-        _couponApplied = null; _couponDiscount = null;
-        _couponPlanAmount = null; _couponFirstMonthFree = false;
-      });
-      _snack(res['message'] ?? 'Invalid or expired coupon');
-    }
-  }
-
   Future<void> _pay() async {
     if (_selPlanId == null || _rzpKey == null) {
       _snack('Payment not ready. Please try again.');
@@ -110,46 +68,37 @@ class _SubscriptionGateScreenState extends State<SubscriptionGateScreen> {
     }
     setState(() => _paying = true);
 
-    // ── First month free via coupon ────────────────────────────────────────
-    if (_couponFirstMonthFree) {
-      final res = await _svc.initiatePlanPurchase(
-          planId: _selPlanId!, couponCode: _couponApplied);
-      setState(() => _paying = false);
-      if (!mounted) return;
-      if (res['status'] != true) { _snack(res['message'] ?? 'Failed'); return; }
-      await SubscriptionService.markSubscriptionActiveLocal();
-      _goHome();
+    // All users get real AutoPay — creates an actual recurring
+    // Razorpay subscription (previously called the one-time-purchase
+    // endpoint here, meaning renewals never actually set up real
+    // recurring billing). No promo code on this screen — promo codes
+    // are for new users at registration only.
+    final res = await _svc.createSubscription(planId: _selPlanId!);
+    setState(() => _paying = false);
+    if (!mounted) return;
+    if (res['status'] != true) {
+      _snack(res['message'] ?? 'Failed to start subscription');
       return;
     }
 
-    // ── Single payment flow — /user/purchase/plan ────────────────────────────
-    // createSubscription (/user/subscription/create) doesn't exist on backend
-    final res = await _svc.initiatePlanPurchase(
-        planId: _selPlanId!, couponCode: _couponApplied);
-    setState(() => _paying = false);
-    if (!mounted) return;
-    if (res['status'] != true) { _snack(res['message'] ?? 'Failed'); return; }
-    final data       = res['data'] is Map ? res['data'] : res;
+    final data = res['data'] is Map ? res['data'] as Map : {};
+    final subscriptionId = data['subscription_id']?.toString();
     final purchaseId = int.tryParse((data['purchase_id'] ?? '').toString());
-    final amount     = ((double.tryParse(
-          (data['final_amount'] ?? data['amount'] ?? '0').toString()) ?? 0) * 100)
-        .round();
-    if (purchaseId == null) { _snack('Invalid purchase response'); return; }
-    if (data['activate_without_payment'] == true || amount <= 0) {
-      await SubscriptionService.markSubscriptionActiveLocal();
-      _goHome();
+    if (subscriptionId == null || purchaseId == null) {
+      _snack('Invalid subscription response');
       return;
     }
     _pendingPurchaseId = purchaseId;
+    _pendingSubscriptionId = subscriptionId;
+
     _openRzp({
       'key': _rzpKey,
-      'amount': amount,
+      'subscription_id': subscriptionId,
       'name': 'ElderZha',
-      'description': data['plan_name'] ?? _planName(_selPlan),
+      'description': data['description'] ?? _planName(_selPlan),
       'prefill': {
-        'name':    data['userdetails']?['first_name'],
-        'email':   data['userdetails']?['email'],
-        'contact': data['userdetails']?['phone'],
+        'name':    data['user_name'],
+        'contact': data['user_phone'],
       },
       'theme': {'color': '#FFCC01'},
     });
@@ -164,10 +113,12 @@ class _SubscriptionGateScreenState extends State<SubscriptionGateScreen> {
     _paymentHandled = true;
     setState(() => _paying = true);
     try {
-      final conf = _svc.confirmOneTimePayment(
-              purchaseId: _pendingPurchaseId ?? 0,
-              planId: _selPlanId ?? 0,
-              razorpayPaymentId: r.paymentId ?? '');
+      final conf = _svc.confirmSubscription(
+        purchaseId: _pendingPurchaseId ?? 0,
+        razorpaySubscriptionId: _pendingSubscriptionId ?? '',
+        razorpayPaymentId: r.paymentId ?? '',
+        razorpaySignature: r.signature ?? '',
+      );
       await conf.timeout(const Duration(seconds: 8),
           onTimeout: () => {'status': true});
     } catch (_) {}
@@ -209,11 +160,6 @@ class _SubscriptionGateScreenState extends State<SubscriptionGateScreen> {
   String _planName(dynamic p) => p is Map
       ? (p['name'] ?? p['plan_name'] ?? p['type'] ?? 'Plan').toString()
       : 'Plan';
-  double? _toDouble(dynamic v) {
-    if (v == null) return null;
-    if (v is num) return v.toDouble();
-    return double.tryParse(v.toString().replaceAll(RegExp(r'[^0-9.]'), ''));
-  }
   String _amount(dynamic p) =>
       '₹${p['amount'] ?? p['price'] ?? p['plan_amount'] ?? ''}';
   String _period(dynamic p) =>
@@ -269,12 +215,7 @@ class _SubscriptionGateScreenState extends State<SubscriptionGateScreen> {
                           ..._plans.map<Widget>((plan) {
                             final sel = _selPlanId == plan['id'];
                             return GestureDetector(
-                              onTap: () => setState(() {
-                                _selPlanId = plan['id'];
-                                _couponApplied = null; _couponDiscount = null;
-                                _couponPlanAmount = null; _couponFirstMonthFree = false;
-                                _couponCtrl.clear();
-                              }),
+                              onTap: () => setState(() => _selPlanId = plan['id']),
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 150),
                                 margin: const EdgeInsets.only(bottom: 10),
@@ -299,75 +240,19 @@ class _SubscriptionGateScreenState extends State<SubscriptionGateScreen> {
                                           child: Text(_period(plan), style: poppins(12, c: C.txl)),
                                         ),
                                       ]),
+                                    const SizedBox(height: 6),
+                                    Row(children: [
+                                      const Icon(Icons.autorenew_rounded,
+                                          size: 14, color: C.txl),
+                                      const SizedBox(width: 5),
+                                      Text('Renews automatically',
+                                          style: poppins(11, c: C.txl)),
+                                    ]),
                                   ]),
                               ),
                             );
                           }),
 
-                          const SizedBox(height: 8),
-
-                          // Coupon field
-                          Row(children: [
-                            Expanded(child: TextField(
-                              controller: _couponCtrl,
-                              textCapitalization: TextCapitalization.characters,
-                              decoration: InputDecoration(
-                                hintText: 'Have a coupon code?',
-                                prefixIcon: const Icon(Icons.local_offer_outlined, size: 18),
-                                suffixIcon: _couponApplied != null
-                                    ? const Icon(Icons.check_circle_rounded,
-                                        color: C.green, size: 18)
-                                    : null,
-                              ),
-                            )),
-                            const SizedBox(width: 8),
-                            GestureDetector(
-                              onTap: _checkingCoupon ? null : _checkCoupon,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 14),
-                                decoration: BoxDecoration(
-                                    color: C.ink,
-                                    borderRadius: BorderRadius.circular(14)),
-                                child: _checkingCoupon
-                                    ? const SizedBox(width: 14, height: 14,
-                                        child: CircularProgressIndicator(
-                                            color: Colors.white, strokeWidth: 2))
-                                    : Text('Apply',
-                                        style: poppins(13, w: FontWeight.w700, c: Colors.white)),
-                              ),
-                            ),
-                          ]),
-
-                          if (_couponApplied != null) ...[
-                            const SizedBox(height: 8),
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: C.greenLight,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: C.green.withOpacity(.25)),
-                              ),
-                              child: Row(children: [
-                                const Icon(Icons.check_circle_rounded,
-                                    size: 16, color: C.green),
-                                const SizedBox(width: 7),
-                                Expanded(child: Text(
-                                  _couponFirstMonthFree
-                                      ? '1st month FREE, then ${_amount(_selPlan)}${_period(_selPlan)}'
-                                      : 'Coupon applied: $_couponDiscount',
-                                  style: poppins(12, w: FontWeight.w700, c: C.green),
-                                )),
-                              ]),
-                            ),
-                          ],
-
-                          const SizedBox(height: 20),
-                          _feature(Icons.medication_rounded, 'Daily medication reminders'),
-                          _feature(Icons.people_rounded,     'Family event alerts'),
-                          _feature(Icons.calendar_month_rounded, 'Wellness calendar'),
-                          _feature(Icons.forum_rounded,      'Senior community access'),
                           const SizedBox(height: 24),
 
                           // Pay button
@@ -400,13 +285,4 @@ class _SubscriptionGateScreenState extends State<SubscriptionGateScreen> {
       ),
     );
   }
-
-  Widget _feature(IconData icon, String label) => Padding(
-    padding: const EdgeInsets.only(bottom: 8),
-    child: Row(children: [
-      Icon(icon, size: 16, color: C.yellowDark),
-      const SizedBox(width: 10),
-      Text(label, style: poppins(13, c: C.txm)),
-    ]),
-  );
 }

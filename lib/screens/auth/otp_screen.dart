@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sms_autofill/sms_autofill.dart';
 import 'dart:async';
 
 import '../../alaram/daily_scheduler.dart';
@@ -20,7 +21,7 @@ class OtpScreen extends StatefulWidget {
   State<OtpScreen> createState() => _OtpScreenState();
 }
 
-class _OtpScreenState extends State<OtpScreen> {
+class _OtpScreenState extends State<OtpScreen> with CodeAutoFill {
   final _ctrls = List.generate(4, (_) => TextEditingController());
   final _focusNodes = List.generate(4, (_) => FocusNode());
   int _cd = 30;
@@ -49,9 +50,30 @@ class _OtpScreenState extends State<OtpScreen> {
   void initState() {
     super.initState();
     _startTimer();
+    // SMS User Consent API — listens for an incoming SMS with a 4-digit
+    // code and prompts the user with a system "Allow?" dialog to
+    // auto-fill it. Unlike SMS Retriever API, this needs no app-hash
+    // appended to the SMS text, so the existing DLT-approved template
+    // doesn't need to change at all.
+    listenForCode(smsCodeRegexPattern: r'(\d{4})');
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _focusNodes[0].requestFocus(),
     );
+  }
+
+  // Called automatically by the CodeAutoFill mixin when a code is
+  // detected and the user approves the system consent prompt.
+  @override
+  void codeUpdated() {
+    final autoCode = code?.trim() ?? '';
+    if (autoCode.length != 4) return;
+    if (!mounted) return;
+    for (int i = 0; i < 4; i++) {
+      _ctrls[i].text = autoCode[i];
+    }
+    setState(() {});
+    FocusScope.of(context).unfocus();
+    _verify();
   }
 
   void _startTimer() {
@@ -486,6 +508,7 @@ class _OtpScreenState extends State<OtpScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    cancel(); // stop SMS User Consent listening (CodeAutoFill mixin)
     for (final c in _ctrls) c.dispose();
     for (final f in _focusNodes) f.dispose();
     super.dispose();

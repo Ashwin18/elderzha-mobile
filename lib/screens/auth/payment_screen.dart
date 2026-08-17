@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
+import 'package:confetti/confetti.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_routes.dart';
 import '../../services/services.dart';
@@ -15,6 +16,7 @@ class PaymentScreen extends StatefulWidget {
 class _PaymentScreenState extends State<PaymentScreen> {
   final _subService = SubscriptionService();
   late Razorpay _rzp;
+  late ConfettiController _confettiController;
 
   bool _loadingPlans = true;
   bool _paying = false;
@@ -39,6 +41,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
     _rzp.on(Razorpay.EVENT_PAYMENT_SUCCESS, _onSuccess);
     _rzp.on(Razorpay.EVENT_PAYMENT_ERROR, _onError);
     _rzp.on(Razorpay.EVENT_EXTERNAL_WALLET, _onWallet);
+    _confettiController =
+        ConfettiController(duration: const Duration(seconds: 2));
     _load();
   }
 
@@ -46,6 +50,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   void dispose() {
     _rzp.clear();
     _promoCtrl.dispose();
+    _confettiController.dispose();
     super.dispose();
   }
 
@@ -80,6 +85,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         _promoFullAmount = _toDouble(data['plan_amount']) ?? _planAmount;
         _promoBillingNote = data['billing_note']?.toString();
       });
+      _confettiController.play();
       _snack('Promo code applied!', ok: true);
     } else {
       setState(() {
@@ -267,7 +273,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return Stack(children: [
+    Scaffold(
       backgroundColor: C.bg,
       body: Column(children: [
         Container(
@@ -485,15 +492,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                   ]),
                                 )),
 
-                          const SizedBox(height: 20),
-                          // Features
-                          _feature(Icons.medication_rounded,
-                              'Daily medication reminders'),
-                          _feature(Icons.people_rounded, 'Family event alerts'),
-                          _feature(Icons.calendar_month_rounded,
-                              'Wellness calendar & check-ins'),
-                          _feature(
-                              Icons.forum_rounded, 'Senior community access'),
                           const SizedBox(height: 24),
 
                           // Pay button
@@ -528,7 +526,20 @@ class _PaymentScreenState extends State<PaymentScreen> {
           ),
         ),
       ]),
-    );
+    ),
+    // Confetti burst — plays when a promo code is successfully applied
+    Align(
+      alignment: Alignment.topCenter,
+      child: ConfettiWidget(
+        confettiController: _confettiController,
+        blastDirectionality: BlastDirectionality.explosive,
+        shouldLoop: false,
+        numberOfParticles: 30,
+        gravity: 0.3,
+        colors: const [C.yellow, C.green, C.ink, Colors.pinkAccent, Colors.blueAccent],
+      ),
+    ),
+    ]);
   }
 
   Widget _feature(IconData icon, String label) => Padding(
