@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../alaram/alarm_config_store.dart';
+import '../../alaram/alarm_permission_service.dart';
 import '../../alaram/daily_scheduler.dart';
 import '../../alaram/family_event_scheduler.dart';
 import '../../api/models/fetch_profile_model.dart';
@@ -28,6 +29,11 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
 
   Future<void> _activateAndScheduleAlarms() async {
     await SubscriptionService.markSubscriptionActiveLocal();
+    // Same Android 14 full-screen-intent check already done on every
+    // returning login (otp_screen.dart) — was missing here entirely,
+    // meaning a brand-new user's very first alarms could silently
+    // degrade to normal notifications until their next login (if ever).
+    await AlarmPermissionService.ensureFullScreenIntentPermission();
     await _scheduleSetupAlarmsAfterPayment();
   }
 
@@ -131,15 +137,23 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
     await DailyScheduler.cancelAllAlarms();
     await DailyScheduler.clearStoredAlarms();
 
-    final tone = _firstText(config, ['alaram_tone', 'alarm_tone', 'alarmTone']);
+    // Separate medical/food tones — these are the CURRENT keys
+    // alarm_setup_screen.dart actually saves. Falls back to the old
+    // shared keys only for safety (pre-split installs).
+    final legacyTone =
+        _firstText(config, ['alaram_tone', 'alarm_tone', 'alarmTone']);
+    final medicalTone =
+        _firstText(config, ['medical_tone']) ?? legacyTone;
+    final foodTone =
+        _firstText(config, ['food_tone']) ?? legacyTone;
     final medicalImage = _firstText(config, ['medical_file', 'medical_image']);
     final foodImage = _firstText(config, ['food_file', 'food_image']);
 
     if (_truthy(config['medical_alarm'])) {
-      await _scheduleMedical(config, tone: tone, imageUrl: medicalImage);
+      await _scheduleMedical(config, tone: medicalTone, imageUrl: medicalImage);
     }
     if (_truthy(config['food_alarm'] ?? config['food_alaram'])) {
-      await _scheduleFood(config, tone: tone, imageUrl: foodImage);
+      await _scheduleFood(config, tone: foodTone, imageUrl: foodImage);
     }
     await _scheduleSetupFamilyEvents();
   }

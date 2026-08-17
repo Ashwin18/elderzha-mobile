@@ -352,7 +352,21 @@ class _OtpScreenState extends State<OtpScreen> with CodeAutoFill {
                   ? rawD.first : null;
       if (d != null) {
         final prefs = await SharedPreferences.getInstance();
-        final tone = prefs.getString('alarm_tone');
+        // API is the authoritative source at login — it now returns
+        // separate medical_tone/food_tone fields directly. Falls back
+        // to local per-type prefs (set when the user picks a tone on
+        // THIS device), then the old shared key as a last resort.
+        final legacyTone = prefs.getString('alarm_tone');
+        final medicalTone = (d['medical_tone']?.toString().trim().isNotEmpty == true
+                ? d['medical_tone'].toString()
+                : null) ??
+            prefs.getString('medical_alarm_tone') ??
+            legacyTone;
+        final foodTone = (d['food_tone']?.toString().trim().isNotEmpty == true
+                ? d['food_tone'].toString()
+                : null) ??
+            prefs.getString('food_alarm_tone') ??
+            legacyTone;
 
         await DailyScheduler.cancelAllAlarms();
         await DailyScheduler.clearStoredAlarms();
@@ -370,7 +384,7 @@ class _OtpScreenState extends State<OtpScreen> with CodeAutoFill {
                 _toStr(t),
                 '🍳 Elderzha • Breakfast Time',
                 'daily',
-                soundUrl: tone,
+                soundUrl: foodTone,
                 imageUrl: foodImg,
               );
           }
@@ -383,7 +397,7 @@ class _OtpScreenState extends State<OtpScreen> with CodeAutoFill {
                 _toStr(t),
                 '🍽 Elderzha • Lunch Reminder',
                 'daily',
-                soundUrl: tone,
+                soundUrl: foodTone,
                 imageUrl: foodImg,
               );
           }
@@ -396,7 +410,7 @@ class _OtpScreenState extends State<OtpScreen> with CodeAutoFill {
                 _toStr(t),
                 '🍽 Elderzha • Dinner Reminder',
                 'daily',
-                soundUrl: tone,
+                soundUrl: foodTone,
                 imageUrl: foodImg,
               );
           }
@@ -423,7 +437,7 @@ class _OtpScreenState extends State<OtpScreen> with CodeAutoFill {
                   _toStr(t),
                   e.key,
                   'daily',
-                  soundUrl: tone,
+                  soundUrl: medicalTone,
                   imageUrl: medImg,
                 );
             }
