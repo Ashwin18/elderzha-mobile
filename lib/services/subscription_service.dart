@@ -286,15 +286,33 @@ class SubscriptionService {
   // ─────────────────────────────────────────────────────────
 
   // Step 1 — POST /user/subscription/create
-  // Returns: { status, subscription_id, short_url, plan_id }
+  // Returns: { status, subscription_id, short_url, plan_id, promo_applied, ... }
+  //
+  // FIX: this previously called /user/purchase/plan (the one-time
+  // payment endpoint) — meaning "Auto Pay" never actually created a
+  // real recurring Razorpay subscription for ANY user. Now correctly
+  // calls the real endpoint.
   Future<Map<String, dynamic>> createSubscription({
     required int planId,
-    bool autoPay = true,
+    String? promoCode,
   }) async {
-    // Route: POST /user/purchase/plan (initiatePlanPurchase)
-    final res = await _api.safePost('/user/purchase/plan', data: {
+    final res = await _api.safePost('/user/subscription/create', data: {
       'plan_id': planId,
-      'auto_pay': autoPay ? 1 : 0,
+      if (promoCode != null && promoCode.isNotEmpty) 'promo_code': promoCode,
+    });
+    return res ?? {'status': false, 'message': 'Network error'};
+  }
+
+  // ── POST /user/promo-code/validate ───────────────────────
+  // Called while user is entering a promo code, before checkout —
+  // shows pricing preview ("Pay ₹1 now, ₹299/month from next cycle").
+  Future<Map<String, dynamic>> validatePromoCode({
+    required String code,
+    required int planId,
+  }) async {
+    final res = await _api.safePost('/user/promo-code/validate', data: {
+      'code': code,
+      'plan_id': planId,
     });
     return res ?? {'status': false, 'message': 'Network error'};
   }

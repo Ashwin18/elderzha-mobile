@@ -24,12 +24,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
   String? _rzpKey;
   int? _pendingPurchaseId;
   String? _pendingSubscriptionId;
-  final _couponCtrl = TextEditingController();
-  String? _couponApplied;
-  String? _couponDiscount;
-  double? _couponPlanAmount;
-  bool _couponFirstMonthFree = false;
-  bool _checkingCoupon = false;
+  final _promoCtrl = TextEditingController();
+  String? _promoApplied;      // the code, once validated
+  double? _promoValue;        // e.g. 1.00 — what they pay today
+  double? _promoFullAmount;   // e.g. 299.00 — what bills from next cycle
+  String? _promoBillingNote;  // human-readable line from backend
+  bool _checkingPromo = false;
   bool _paymentHandled = false;
 
   @override
@@ -45,7 +45,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   @override
   void dispose() {
     _rzp.clear();
-    _couponCtrl.dispose();
+    _promoCtrl.dispose();
     super.dispose();
   }
 
@@ -65,47 +65,30 @@ class _PaymentScreenState extends State<PaymentScreen> {
     });
   }
 
-  Future<void> _checkCoupon() async {
-    if (_couponCtrl.text.isEmpty || _selPlanId == null) return;
-    setState(() => _checkingCoupon = true);
-    final res = await _subService.checkCoupon(
-        couponCode: _couponCtrl.text.trim(), planId: _selPlanId!);
-    setState(() => _checkingCoupon = false);
+  Future<void> _validatePromo() async {
+    if (_promoCtrl.text.isEmpty || _selPlanId == null) return;
+    setState(() => _checkingPromo = true);
+    final res = await _subService.validatePromoCode(
+        code: _promoCtrl.text.trim(), planId: _selPlanId!);
+    setState(() => _checkingPromo = false);
     if (!mounted) return;
     if (res['status'] == true) {
-      // ── POST /user/plan/coupon/apply ─────────────────────
-      final applyRes = await _subService.applyCoupon(
-          couponCode: _couponCtrl.text.trim(), planId: _selPlanId!);
-      final data = applyRes['data'] is Map ? applyRes['data'] as Map : applyRes;
-      final finalAmount = _toDouble(data['final_amount'] ?? data['amount']);
-      final planAmount = _toDouble(data['plan_amount'] ??
-          data['original_amount'] ??
-          data['amount'] ??
-          _selPlan?['amount']);
-      final discountAmount = data['discount_amount'] ??
-          data['discount'] ??
-          applyRes['discount'] ??
-          res['discount'] ??
-          res['message'];
+      final data = res['data'] is Map ? res['data'] as Map : {};
       setState(() {
-        _couponApplied = _couponCtrl.text.trim();
-        _couponDiscount = discountAmount?.toString();
-        _couponPlanAmount = planAmount;
-        _couponFirstMonthFree = finalAmount != null && finalAmount <= 0;
+        _promoApplied = (data['code'] ?? _promoCtrl.text.trim()).toString();
+        _promoValue = _toDouble(data['promo_value']);
+        _promoFullAmount = _toDouble(data['plan_amount']) ?? _planAmount;
+        _promoBillingNote = data['billing_note']?.toString();
       });
-      _snack(
-          _couponFirstMonthFree
-              ? 'Coupon applied! First month is free.'
-              : 'Coupon applied! ${_couponDiscount ?? ''}',
-          ok: true);
+      _snack('Promo code applied!', ok: true);
     } else {
       setState(() {
-        _couponApplied = null;
-        _couponDiscount = null;
-        _couponPlanAmount = null;
-        _couponFirstMonthFree = false;
+        _promoApplied = null;
+        _promoValue = null;
+        _promoFullAmount = null;
+        _promoBillingNote = null;
       });
-      _snack(res['message'] ?? 'Invalid coupon');
+      _snack(res['message'] ?? 'Invalid promo code');
     }
   }
 
@@ -115,71 +98,49 @@ class _PaymentScreenState extends State<PaymentScreen> {
       return;
     }
     setState(() => _paying = true);
-    if (_couponFirstMonthFree) {
-      final res = await _subService.initiatePlanPurchase(
-          planId: _selPlanId!, couponCode: _couponApplied);
-      setState(() => _paying = false);
-      if (!mounted) return;
-      if (res['status'] != true) {
-        _snack(res['message'] ?? 'Failed to activate coupon');
-        return;
-      }
-      await SubscriptionService.markSubscriptionActiveLocal();
-      final data = res['data'] is Map ? res['data'] : res;
-      _goSuccess({
-        'plan_name': data['plan_name'] ?? _planName(_selPlan),
-        'payment_id': data['transaction_id'],
-        'auto_pay': _autoPay,
-        'first_month_free': true,
-        'recurring_amount': _formatAmount(_couponPlanAmount ?? _planAmount),
-      });
+
+    // Always create a REAL Razorpay recurring subscription — this used
+    // to call the one-time /user/purchase/plan endpoint regardless of
+    // the "auto pay" messaging shown above, meaning no actual recurring
+    // charge was ever set up. Now fixed to use the real endpoint.
+    //
+    // If a promo code is applied, the backend charges the promo value
+    // now (e.g. ₹1) via Razorpay's native upfront-amount mechanism, and
+    // schedules the subscription's own recurring billing (at the full
+    // plan price) to begin automatically at the next cycle — all as
+    // ONE Razorpay subscription, one checkout step.
+    final res = await _subService.createSubscription(
+      planId: _selPlanId!,
+      promoCode: _promoApplied,
+    );
+    setState(() => _paying = false);
+    if (!mounted) return;
+    if (res['status'] != true) {
+      _snack(res['message'] ?? 'Failed to start subscription');
       return;
     }
-    // Single flow for all payments — POST /user/purchase/plan
-    {
-      final res = await _subService.initiatePlanPurchase(
-          planId: _selPlanId!, couponCode: _couponApplied);
-      setState(() => _paying = false);
-      if (!mounted) return;
-      if (res['status'] != true) {
-        _snack(res['message'] ?? 'Failed to initiate payment');
-        return;
-      }
-      final data = res['data'] is Map ? res['data'] : res;
-      final purchaseId = int.tryParse((data['purchase_id'] ?? '').toString());
-      final amountText =
-          data['final_amount'] ?? data['amount'] ?? data['plan_amount'];
-      final amount =
-          ((double.tryParse(amountText.toString()) ?? 0) * 100).round();
-      if (purchaseId == null) {
-        _snack('Invalid purchase response');
-        return;
-      }
-      if (data['activate_without_payment'] == true || amount <= 0) {
-        await SubscriptionService.markSubscriptionActiveLocal();
-        _goSuccess({
-          'plan_name': data['plan_name'] ?? _planName(_selPlan),
-          'payment_id': data['transaction_id'],
-          'auto_pay': false,
-          'first_month_free': _couponFirstMonthFree,
-          'recurring_amount': _formatAmount(_couponPlanAmount ?? _planAmount),
-        });
-        return;
-      }
-      _pendingPurchaseId = purchaseId;
-      _openRzp({
-        'key': _rzpKey,
-        'amount': amount,
-        'name': 'ElderZha',
-        'description': data['plan_name'] ?? _planName(_selPlan),
-        'prefill': {
-          'name': data['userdetails']?['first_name'],
-          'email': data['userdetails']?['email'],
-          'contact': data['userdetails']?['phone'],
-        },
-        'theme': {'color': '#FFCC01'}
-      });
+
+    final data = res['data'] is Map ? res['data'] as Map : {};
+    final subscriptionId = data['subscription_id']?.toString();
+    final purchaseId = int.tryParse((data['purchase_id'] ?? '').toString());
+    if (subscriptionId == null || purchaseId == null) {
+      _snack('Invalid subscription response');
+      return;
     }
+    _pendingPurchaseId = purchaseId;
+    _pendingSubscriptionId = subscriptionId;
+
+    _openRzp({
+      'key': _rzpKey,
+      'subscription_id': subscriptionId,
+      'name': 'ElderZha',
+      'description': data['description'] ?? _planName(_selPlan),
+      'prefill': {
+        'name': data['user_name'],
+        'contact': data['user_phone'],
+      },
+      'theme': {'color': '#FFCC01'}
+    });
   }
 
   void _openRzp(Map<String, dynamic> opts) {
@@ -196,12 +157,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
     setState(() => _paying = true);
     Map<String, dynamic> res = {'status': true};
     try {
-      // POST /user/razorpay/sucess — confirm payment for all flows
-      final confirmation = _subService.confirmOneTimePayment(
-              purchaseId: _pendingPurchaseId ?? 0,
-              planId: _selPlanId ?? 0,
-              razorpayPaymentId: r.paymentId ?? '',
-            );
+      // POST /user/subscription/confirm — verifies and activates the
+      // real recurring subscription (was previously confirming as if
+      // it were a one-time payment, which doesn't apply here at all).
+      final confirmation = _subService.confirmSubscription(
+        purchaseId: _pendingPurchaseId ?? 0,
+        razorpaySubscriptionId: _pendingSubscriptionId ?? '',
+        razorpayPaymentId: r.paymentId ?? '',
+        razorpaySignature: r.signature ?? '',
+      );
       res = await confirmation.timeout(
         const Duration(seconds: 8),
         onTimeout: () => {
@@ -226,9 +190,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
     _goSuccess({
       'plan_name': _planName(_selPlan),
       'payment_id': r.paymentId,
-      'auto_pay': _autoPay,
-      'first_month_free': _couponFirstMonthFree,
-      'recurring_amount': _formatAmount(_couponPlanAmount ?? _planAmount),
+      'auto_pay': true,
+      'first_month_free': false,
+      'promo_applied': _promoApplied != null,
+      'promo_value': _promoValue,
+      'recurring_amount': _formatAmount(_promoFullAmount ?? _planAmount),
     });
   }
 
@@ -294,8 +260,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   String _renewalText() {
-    final amount = _formatAmount(_couponPlanAmount ?? _planAmount);
-    return '1st Month Rs 0, then Rs $amount/ Monthly';
+    if (_promoBillingNote != null) return _promoBillingNote!;
+    final amount = _formatAmount(_promoFullAmount ?? _planAmount);
+    return 'Pay ₹${_formatAmount(_promoValue ?? 0)} now, then Rs $amount/month';
   }
 
   @override
@@ -349,11 +316,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             return GestureDetector(
                               onTap: () => setState(() {
                                 _selPlanId = plan['id'];
-                                _couponApplied = null;
-                                _couponDiscount = null;
-                                _couponPlanAmount = null;
-                                _couponFirstMonthFree = false;
-                                _couponCtrl.clear();
+                                _promoApplied = null;
+                                _promoValue = null;
+                                _promoFullAmount = null;
+                                _promoBillingNote = null;
+                                _promoCtrl.clear();
                               }),
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 150),
@@ -456,14 +423,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           Row(children: [
                             Expanded(
                                 child: TextField(
-                              controller: _couponCtrl,
+                              controller: _promoCtrl,
                               textCapitalization: TextCapitalization.characters,
                               decoration: InputDecoration(
-                                hintText: 'Coupon code',
+                                hintText: 'Promo code',
                                 prefixIcon: const Icon(
                                     Icons.local_offer_outlined,
                                     size: 18),
-                                suffixIcon: _couponApplied != null
+                                suffixIcon: _promoApplied != null
                                     ? const Icon(Icons.check_circle_rounded,
                                         color: C.green, size: 18)
                                     : null,
@@ -471,14 +438,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             )),
                             const SizedBox(width: 8),
                             GestureDetector(
-                              onTap: _checkingCoupon ? null : _checkCoupon,
+                              onTap: _checkingPromo ? null : _validatePromo,
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 16, vertical: 14),
                                 decoration: BoxDecoration(
                                     color: C.ink,
                                     borderRadius: BorderRadius.circular(14)),
-                                child: _checkingCoupon
+                                child: _checkingPromo
                                     ? const SizedBox(
                                         width: 14,
                                         height: 14,
@@ -492,7 +459,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                               ),
                             ),
                           ]),
-                          if (_couponApplied != null)
+                          if (_promoApplied != null)
                             Padding(
                                 padding: const EdgeInsets.only(top: 8),
                                 child: Container(
@@ -510,9 +477,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                     const SizedBox(width: 7),
                                     Expanded(
                                       child: Text(
-                                        _couponFirstMonthFree
-                                            ? _renewalText()
-                                            : 'Coupon applied: $_couponDiscount',
+                                        _renewalText(),
                                         style: poppins(12,
                                             w: FontWeight.w700, c: C.green),
                                       ),
