@@ -37,12 +37,36 @@ class _CommunityScreenState extends State<CommunityScreen> {
     final res =
         _tab == 0 ? await _loadAllTabs() : await _svc.getFeed(_types[_tab]);
     if (!mounted) return;
+    final items = _extractItems(res);
+    // Always show most-recent-first, regardless of what order the
+    // backend happened to return — safety net on top of the
+    // backend's own sortByDesc('created_at').
+    items.sort((a, b) {
+      final da = _sortableDate(a);
+      final db = _sortableDate(b);
+      if (da == null && db == null) return 0;
+      if (da == null) return 1;
+      if (db == null) return -1;
+      return db.compareTo(da);
+    });
     setState(() {
-      _items = _extractItems(res);
+      _items = items;
       _error =
           res == null ? 'Unable to load ${_tabs[_tab].toLowerCase()}' : null;
       _loading = false;
     });
+  }
+
+  DateTime? _sortableDate(dynamic p) {
+    if (p is! Map) return null;
+    final candidates = [p['created_at'], p['updated_at'], p['date']];
+    for (final v in candidates) {
+      final s = v?.toString().trim();
+      if (s == null || s.isEmpty) continue;
+      final parsed = DateTime.tryParse(s);
+      if (parsed != null) return parsed;
+    }
+    return null;
   }
 
   Future<Map<String, dynamic>?> _loadAllTabs() async {
@@ -414,12 +438,13 @@ class _CommunityScreenState extends State<CommunityScreen> {
       return GestureDetector(
         onTap: () => _showPollSheet(Map<String, dynamic>.from(p)),
         child: Container(
-          margin: const EdgeInsets.only(bottom: 10),
+          margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
               color: C.yellowMid,
               border: Border.all(color: C.yellowBorder),
-              borderRadius: BorderRadius.circular(20)),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [BoxShadow(color: C.yellowDark.withOpacity(.06), blurRadius: 8, offset: const Offset(0, 2))]),
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Wrap(
@@ -465,12 +490,13 @@ class _CommunityScreenState extends State<CommunityScreen> {
                   ),
                 ),
         child: Container(
-          margin: const EdgeInsets.only(bottom: 10),
+          margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
               color: C.white,
               border: Border.all(color: C.bd),
-              borderRadius: BorderRadius.circular(20)),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [BoxShadow(color: C.ink.withOpacity(.03), blurRadius: 8, offset: const Offset(0, 2))]),
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
@@ -515,26 +541,64 @@ class _CommunityScreenState extends State<CommunityScreen> {
       );
     }
 
+    final userName = p['user_name']?.toString().trim() ?? '';
+    final userImage = p['user_image']?.toString();
+    final likesCount = int.tryParse((p['likes_count'] ?? 0).toString()) ?? 0;
+    final isLiked = p['is_liked'] == true;
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
           color: C.white,
           border: Border.all(color: C.bd),
-          borderRadius: BorderRadius.circular(20)),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [BoxShadow(color: C.ink.withOpacity(.03), blurRadius: 8, offset: const Offset(0, 2))]),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          _mixLabel(contentLabel),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(time,
-                textAlign: TextAlign.right, style: poppins(11, c: C.txl)),
-          ),
+          if (userName.isNotEmpty) ...[
+            CircleAvatar(
+              radius: 16,
+              backgroundColor: C.yellowLight,
+              backgroundImage: userImage != null && userImage.isNotEmpty ? NetworkImage(userImage) : null,
+              child: userImage == null || userImage.isEmpty
+                  ? Text(userName.substring(0, 1).toUpperCase(),
+                      style: poppins(12, w: FontWeight.w700, c: C.yellowDeep))
+                  : null,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(userName, style: poppins(12.5, w: FontWeight.w700, c: C.ink)),
+                Row(children: [
+                  _mixLabel(contentLabel),
+                  const SizedBox(width: 6),
+                  Text(time, style: poppins(10.5, c: C.txl)),
+                ]),
+              ]),
+            ),
+          ] else ...[
+            _mixLabel(contentLabel),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(time, textAlign: TextAlign.right, style: poppins(11, c: C.txl)),
+            ),
+          ],
         ]),
         const SizedBox(height: 10),
         if (text.isNotEmpty)
           Text(text, style: poppins(14, w: FontWeight.w700, c: C.ink, h: 1.45)),
         CommunityMedia(item: p, height: 240),
+        if (id != 0) ...[
+          const SizedBox(height: 10),
+          _LikeButton(
+            postId: id,
+            initialLiked: isLiked,
+            initialCount: likesCount,
+            svc: _svc,
+            isAdminPost: p['created_by'] == 'admin',
+          ),
+        ],
       ]),
     );
   }
@@ -558,9 +622,21 @@ class _CommunityScreenState extends State<CommunityScreen> {
           lower == 'activity' ||
           lower == 'activities' ||
           lower == 'polls') continue;
-      return text;
+      return _relativeTime(text) ?? text;
     }
     return '';
+  }
+
+  String? _relativeTime(String raw) {
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) return null;
+    final diff = DateTime.now().difference(parsed);
+    if (diff.isNegative || diff.inSeconds < 30) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return '${parsed.day} ${months[parsed.month - 1]}';
   }
 
   Future<void> _showPollSheet(Map<String, dynamic> poll) async {
@@ -775,5 +851,79 @@ class _CommunityScreenState extends State<CommunityScreen> {
         status == 'submitted' ||
         status == 'answered' ||
         selected.isNotEmpty;
+  }
+}
+
+// ── Tap-to-like button with optimistic UI ────────────────────────────────
+class _LikeButton extends StatefulWidget {
+  const _LikeButton({
+    required this.postId,
+    required this.initialLiked,
+    required this.initialCount,
+    required this.svc,
+    required this.isAdminPost,
+  });
+  final int postId;
+  final bool initialLiked;
+  final int initialCount;
+  final CommunityService svc;
+  final bool isAdminPost;
+
+  @override
+  State<_LikeButton> createState() => _LikeButtonState();
+}
+
+class _LikeButtonState extends State<_LikeButton> {
+  late bool _liked;
+  late int _count;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _liked = widget.initialLiked;
+    _count = widget.initialCount;
+  }
+
+  Future<void> _toggle() async {
+    if (_busy || _liked) return; // backend only supports liking, not unliking
+    setState(() {
+      _liked = true;
+      _count += 1;
+      _busy = true;
+    });
+    final res = widget.isAdminPost
+        ? await widget.svc.likeAdminPost(widget.postId)
+        : await widget.svc.likePost(widget.postId);
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (res == null || res['status'] != true) {
+      // Revert on failure
+      setState(() {
+        _liked = false;
+        _count -= 1;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _toggle,
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          child: Icon(
+            _liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+            key: ValueKey(_liked),
+            size: 18,
+            color: _liked ? C.red : C.txl,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(_count > 0 ? '$_count' : 'Like',
+            style: poppins(12, w: FontWeight.w600, c: _liked ? C.red : C.txl)),
+      ]),
+    );
   }
 }
