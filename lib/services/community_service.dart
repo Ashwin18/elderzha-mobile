@@ -31,6 +31,15 @@ class CommunityService {
     return res ?? {'status': false, 'message': 'Network error'};
   }
 
+  // ── GET /user/activity/calendar ───────────────────────────
+  // Dedicated 30-day locked calendar for the redesigned Activities
+  // tab — separate from the generic feed, returns per-day lock
+  // status (locked/today/completed/missed) with content only
+  // included for unlocked days.
+  Future<Map<String, dynamic>?> getActivityCalendar() async {
+    return _api.safeGet('/user/activity/calendar');
+  }
+
   // ── GET /user/feed/{type} ─────────────────────────────────
   // Backend combinedFeed accepts: 'all', 'post' (feeds+activities), 'pools' (polls)
   // Tab mapping: 'all'→'all', 'feed'→'post', 'polls'→'pools', 'activities'→'post'
