@@ -310,6 +310,23 @@ class _TodayCardState extends State<_TodayCard> {
     super.dispose();
   }
 
+  // The 'time' field comes straight from the DB via the backend
+  // (already confirmed running in Asia/Kolkata / IST), formatted as
+  // HH:MM:SS or HH:MM — this displays it as the admin actually set
+  // it, no further timezone conversion needed or wanted here.
+  String? _scheduledTimeLabel() {
+    final raw = widget.day['time']?.toString();
+    if (raw == null || raw.isEmpty) return null;
+    final parts = raw.split(':');
+    if (parts.length < 2) return null;
+    final hour24 = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour24 == null || minute == null) return null;
+    final hour12 = hour24 % 12 == 0 ? 12 : hour24 % 12;
+    final ampm = hour24 >= 12 ? 'PM' : 'AM';
+    return '$hour12:${minute.toString().padLeft(2, '0')} $ampm';
+  }
+
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
@@ -394,6 +411,18 @@ class _TodayCardState extends State<_TodayCard> {
               style: poppins(11, w: FontWeight.w700, c: C.yellowDeep),
             ),
           ),
+          if (_scheduledTimeLabel() != null) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(color: C.bg2, borderRadius: BorderRadius.circular(999)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.schedule_rounded, size: 11, color: C.txm),
+                const SizedBox(width: 4),
+                Text(_scheduledTimeLabel()!, style: poppins(11, w: FontWeight.w700, c: C.txm)),
+              ]),
+            ),
+          ],
         ]),
         const SizedBox(height: 14),
         Text(title, style: poppins(21, w: FontWeight.w800, c: C.ink, h: 1.2)),

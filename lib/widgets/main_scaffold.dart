@@ -23,10 +23,13 @@ class MainScaffold extends StatefulWidget {
   State<MainScaffold> createState() => _MainScaffoldState();
 }
 
-class _MainScaffoldState extends State<MainScaffold> {
+class _MainScaffoldState extends State<MainScaffold>
+    with SingleTickerProviderStateMixin {
   late int _i;
   int _communityVersion = 0;
   late int _communityInitialTab;
+  late AnimationController _spikePulseController;
+  late Animation<double> _spikePulseAnim;
   final _labels = ['Home', 'Reminder', 'Spike', 'Offers', 'Profile'];
   final _icons = [
     Icons.home_rounded,
@@ -48,7 +51,23 @@ class _MainScaffoldState extends State<MainScaffold> {
     super.initState();
     _i = widget.initialIndex.clamp(0, 4);
     _communityInitialTab = widget.communityInitialTab.clamp(0, 3);
+    // Gentle, always-on pulse for the Spike icon — draws the eye
+    // toward community activity, runs continuously regardless of
+    // whether the tab is currently selected.
+    _spikePulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat(reverse: true);
+    _spikePulseAnim = Tween<double>(begin: 1.0, end: 1.1).animate(
+      CurvedAnimation(parent: _spikePulseController, curve: Curves.easeInOut),
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) => _guardSubscription());
+  }
+
+  @override
+  void dispose() {
+    _spikePulseController.dispose();
+    super.dispose();
   }
 
   Future<void> _guardSubscription() async {
@@ -120,41 +139,16 @@ class _MainScaffoldState extends State<MainScaffold> {
                   }),
                   behavior: HitTestBehavior.opaque,
                   child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    AnimatedScale(
-                      scale: isSpike && sel ? 1.08 : 1,
-                      duration: const Duration(milliseconds: 220),
-                      curve: Curves.easeOutBack,
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        width: isSpike ? 48 : 38,
-                        height: isSpike ? 48 : 34,
-                        margin: EdgeInsets.only(top: isSpike ? 0 : 6),
-                        decoration: BoxDecoration(
-                          color: isSpike
-                              ? C.yellow
-                              : (sel ? C.yellowMid : Colors.transparent),
-                          borderRadius:
-                              BorderRadius.circular(isSpike ? 18 : 14),
-                          border: isSpike
-                              ? Border.all(color: C.yellowDark, width: 1.2)
-                              : null,
-                          boxShadow: isSpike
-                              ? [
-                                  BoxShadow(
-                                    color: C.yellowDark.withOpacity(.23),
-                                    blurRadius: 16,
-                                    offset: const Offset(0, 8),
-                                  )
-                                ]
-                              : null,
-                        ),
-                        child: Icon(
-                          sel ? _icons[i] : _iconsOff[i],
-                          size: isSpike ? 28 : 22,
-                          color: isSpike ? C.ink : (sel ? C.ink : C.txl),
-                        ),
-                      ),
-                    ),
+                    isSpike
+                        ? AnimatedBuilder(
+                            animation: _spikePulseAnim,
+                            builder: (context, child) => Transform.scale(
+                              scale: _spikePulseAnim.value,
+                              child: child,
+                            ),
+                            child: _buildNavIcon(i, sel, isSpike),
+                          )
+                        : _buildNavIcon(i, sel, isSpike),
                     SizedBox(height: isSpike ? 3 : 2),
                     Text(_labels[i],
                         style: poppins(9,
@@ -164,6 +158,43 @@ class _MainScaffoldState extends State<MainScaffold> {
               })),
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavIcon(int i, bool sel, bool isSpike) {
+    return AnimatedScale(
+      scale: isSpike && sel ? 1.08 : 1,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutBack,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        width: isSpike ? 48 : 38,
+        height: isSpike ? 48 : 34,
+        margin: EdgeInsets.only(top: isSpike ? 0 : 6),
+        decoration: BoxDecoration(
+          color: isSpike
+              ? C.yellow
+              : (sel ? C.yellowMid : Colors.transparent),
+          borderRadius: BorderRadius.circular(isSpike ? 18 : 14),
+          border: isSpike
+              ? Border.all(color: C.yellowDark, width: 1.2)
+              : null,
+          boxShadow: isSpike
+              ? [
+                  BoxShadow(
+                    color: C.yellowDark.withOpacity(.23),
+                    blurRadius: 16,
+                    offset: const Offset(0, 8),
+                  )
+                ]
+              : null,
+        ),
+        child: Icon(
+          sel ? _icons[i] : _iconsOff[i],
+          size: isSpike ? 28 : 22,
+          color: isSpike ? C.ink : (sel ? C.ink : C.txl),
         ),
       ),
     );
