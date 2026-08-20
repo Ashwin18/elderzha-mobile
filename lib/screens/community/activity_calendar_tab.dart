@@ -1,16 +1,17 @@
 // lib/screens/community/activity_calendar_tab.dart
 //
-// The redesigned "Activities" sub-tab inside Spike. Replaces the old
-// generic feed-based rendering entirely with a dedicated 30-day
-// locked-calendar experience:
-//   - Today's activity: large, prominent card, front and center
-//   - Future days: completely locked, zero content shown, just a
-//     countdown ("Unlocks in 6 hours")
-//   - Past days: history list, showing what was replied (or missed)
+// The redesigned "Activities" sub-tab inside Spike — three clear
+// sections:
+//   - TODAY: large, prominent card, front and center, full reply flow
+//   - COMING UP: future days shown BLURRED (image + title obscured),
+//     locked icon + countdown, not tappable/submittable until unlock
+//   - HISTORY: past days — user's own reply, plus other approved
+//     users' replies on the same activity (social proof)
 //
 // Backed by GET /user/activity/calendar (see CommunityService).
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -119,7 +120,7 @@ class _ActivityCalendarTabState extends State<ActivityCalendarTab> {
 
           if (_history.isNotEmpty) ...[
             const SizedBox(height: 26),
-            Text('YOUR HISTORY', style: poppins(11, w: FontWeight.w700, c: C.txl)),
+            Text('HISTORY', style: poppins(11, w: FontWeight.w700, c: C.txl)),
             const SizedBox(height: 10),
             ..._history.map((d) => _HistoryRow(day: d)),
           ],
@@ -435,59 +436,180 @@ class _LockedDayCard extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.only(bottom: 8),
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: C.bg2,
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: C.bd),
-    ),
-    child: Row(children: [
-      Container(
-        width: 40, height: 40,
-        decoration: BoxDecoration(color: C.ink.withOpacity(.06), borderRadius: BorderRadius.circular(12)),
-        child: const Icon(Icons.lock_rounded, color: C.txl, size: 18),
+  Widget build(BuildContext context) {
+    final activity = day['activity'] as Map? ?? {};
+    final title = activity['title']?.toString() ?? '';
+    final postType = activity['post_type']?.toString();
+    final mediaUrl = activity['media_url']?.toString();
+    final youtubeThumb = activity['youtube_thumbnail']?.toString();
+    final previewImage = mediaUrl ?? youtubeThumb;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      height: 92,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: C.bd),
       ),
-      const SizedBox(width: 12),
-      Expanded(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(_dateLabel(), style: poppins(13, w: FontWeight.w700, c: C.txm)),
-          Text(_countdown(), style: poppins(11.5, c: C.txl)),
-        ]),
-      ),
-    ]),
-  );
+      child: Stack(fit: StackFit.expand, children: [
+        // Blurred background — either the activity's own image/
+        // thumbnail (blurred hard) or a neutral fallback if it's
+        // a text-only activity.
+        if (previewImage != null)
+          ImageFiltered(
+            imageFilter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+            child: Image.network(previewImage, fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(color: C.bg2)),
+          )
+        else
+          Container(color: C.bg2),
+
+        // Dark scrim so the lock icon/text stay readable regardless
+        // of what's underneath.
+        Container(color: Colors.black.withOpacity(.38)),
+
+        // Blurred title text — gives a sense that content exists
+        // without revealing what it actually is.
+        if (title.isNotEmpty)
+          Positioned(
+            left: 16, right: 16, top: 14,
+            child: ImageFiltered(
+              imageFilter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+              child: Text(title,
+                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: poppins(15, w: FontWeight.w700, c: C.white)),
+            ),
+          ),
+
+        // Lock + date + countdown — the only genuinely legible content.
+        Positioned(
+          left: 16, right: 16, bottom: 14,
+          child: Row(children: [
+            Container(
+              width: 30, height: 30,
+              decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(.18),
+                  borderRadius: BorderRadius.circular(10)),
+              child: const Icon(Icons.lock_rounded, color: C.white, size: 15),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(_dateLabel(), style: poppins(12.5, w: FontWeight.w700, c: C.white)),
+                Text(_countdown(), style: poppins(11, c: Colors.white.withOpacity(.85))),
+              ]),
+            ),
+            if (postType == 'video' || postType == 'youtube')
+              Icon(
+                postType == 'youtube' ? Icons.play_circle_outline_rounded : Icons.videocam_rounded,
+                color: Colors.white.withOpacity(.7), size: 18,
+              ),
+          ]),
+        ),
+      ]),
+    );
+  }
 }
 
 // ── Past day — completed or missed ───────────────────────────────────────
-class _HistoryRow extends StatelessWidget {
+class _HistoryRow extends StatefulWidget {
   const _HistoryRow({required this.day});
   final Map<String, dynamic> day;
 
   @override
+  State<_HistoryRow> createState() => _HistoryRowState();
+}
+
+class _HistoryRowState extends State<_HistoryRow> {
+  bool _expanded = false;
+
+  @override
   Widget build(BuildContext context) {
-    final activity = day['activity'] as Map? ?? {};
-    final completed = day['status'] == 'completed';
+    final activity = widget.day['activity'] as Map? ?? {};
+    final completed = widget.day['status'] == 'completed';
     final title = activity['title']?.toString() ?? '';
-    final date = DateTime.tryParse(day['date']?.toString() ?? '');
+    final date = DateTime.tryParse(widget.day['date']?.toString() ?? '');
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    final dateLabel = date != null ? '${date.day} ${months[date.month - 1]}' : (day['date']?.toString() ?? '');
+    final dateLabel = date != null ? '${date.day} ${months[date.month - 1]}' : (widget.day['date']?.toString() ?? '');
+    final otherReplies = (activity['other_replies'] as List? ?? []).cast<Map>();
+    final otherCount = activity['other_replies_count'] ?? otherReplies.length;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(color: C.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: C.bd)),
-      child: Row(children: [
-        Text(completed ? '✅' : '⚪', style: const TextStyle(fontSize: 16)),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title.isNotEmpty ? title : 'Activity', style: poppins(12.5, w: FontWeight.w700, c: C.ink)),
-            Text(completed ? 'Replied · $dateLabel' : 'Missed · $dateLabel',
-                style: poppins(11, c: completed ? C.green : C.txl)),
-          ]),
+      child: Column(children: [
+        InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: otherReplies.isEmpty ? null : () => setState(() => _expanded = !_expanded),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(children: [
+              Text(completed ? '✅' : '⚪', style: const TextStyle(fontSize: 16)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(title.isNotEmpty ? title : 'Activity', style: poppins(12.5, w: FontWeight.w700, c: C.ink)),
+                  Text(completed ? 'Replied · $dateLabel' : 'Missed · $dateLabel',
+                      style: poppins(11, c: completed ? C.green : C.txl)),
+                ]),
+              ),
+              if (otherCount > 0) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                  decoration: BoxDecoration(color: C.yellowLight, borderRadius: BorderRadius.circular(999)),
+                  child: Text('+$otherCount others', style: poppins(10.5, w: FontWeight.w700, c: C.yellowDeep)),
+                ),
+                const SizedBox(width: 6),
+                Icon(_expanded ? Icons.expand_less_rounded : Icons.expand_more_rounded, color: C.txl, size: 20),
+              ],
+            ]),
+          ),
         ),
+
+        if (_expanded && otherReplies.isNotEmpty) ...[
+          const Divider(height: 1),
+          ...otherReplies.map((r) => Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              CircleAvatar(
+                radius: 14,
+                backgroundColor: C.yellowLight,
+                backgroundImage: r['user_image'] != null ? NetworkImage(r['user_image']) : null,
+                child: r['user_image'] == null
+                    ? Text((r['user_name']?.toString() ?? 'U').substring(0, 1).toUpperCase(),
+                        style: poppins(11, w: FontWeight.w700, c: C.yellowDeep))
+                    : null,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Text(r['user_name']?.toString() ?? 'A member',
+                        style: poppins(11.5, w: FontWeight.w700, c: C.ink)),
+                    const SizedBox(width: 6),
+                    if (r['created_at'] != null)
+                      Text(r['created_at'].toString(), style: poppins(10, c: C.txl)),
+                  ]),
+                  if ((r['notes']?.toString() ?? '').isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(r['notes'].toString(), style: poppins(11.5, c: C.txm, h: 1.3)),
+                    ),
+                  if (r['image'] != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.network(r['image'], height: 80, width: 80, fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const SizedBox.shrink()),
+                      ),
+                    ),
+                ]),
+              ),
+            ]),
+          )),
+        ],
       ]),
     );
   }
