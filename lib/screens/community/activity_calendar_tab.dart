@@ -18,6 +18,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:confetti/confetti.dart';
 import '../../theme/app_theme.dart';
 import '../../services/services.dart';
+import '../../widgets/community_media.dart';
 
 class ActivityCalendarTab extends StatefulWidget {
   const ActivityCalendarTab({super.key});
@@ -333,15 +334,19 @@ class _TodayCardState extends State<_TodayCard> {
     return Stack(clipBehavior: Clip.none, children: [
       Container(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft, end: Alignment.bottomRight,
-          colors: [C.yellow, C.yellowDark],
-        ),
+        color: C.white,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: C.yellow.withOpacity(.35), blurRadius: 20, offset: const Offset(0, 8))],
+        border: Border.all(color: C.bd),
+        boxShadow: [BoxShadow(color: C.ink.withOpacity(.06), blurRadius: 16, offset: const Offset(0, 6))],
       ),
-      padding: const EdgeInsets.all(20),
+      clipBehavior: Clip.antiAlias,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Yellow accent strip — keeps the "today" energy without
+        // saturating the whole card
+        Container(height: 6, width: double.infinity, color: C.yellow),
+        Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -351,94 +356,48 @@ class _TodayCardState extends State<_TodayCard> {
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(color: Colors.white.withOpacity(.35), borderRadius: BorderRadius.circular(999)),
+            decoration: BoxDecoration(color: C.yellowLight, borderRadius: BorderRadius.circular(999)),
             child: Text(
               postType == 'image' ? '📷 Photo'
                   : postType == 'video' ? '🎥 Video'
                   : postType == 'youtube' ? '🎬 YouTube'
                   : '✍️ Prompt',
-              style: poppins(11, w: FontWeight.w700, c: C.ink),
+              style: poppins(11, w: FontWeight.w700, c: C.yellowDeep),
             ),
           ),
         ]),
         const SizedBox(height: 14),
         Text(title, style: poppins(21, w: FontWeight.w800, c: C.ink, h: 1.2)),
 
-        if (postType == 'text' && textContent != null && textContent.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Text(textContent, style: poppins(13, c: C.ink.withOpacity(.75), h: 1.4)),
-        ],
-
-        if (mediaUrl != null) ...[
+        if (postType == 'text') ...[
           const SizedBox(height: 14),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: postType == 'video'
-                ? _VideoThumb(url: mediaUrl)
-                : Image.network(
-                    mediaUrl,
-                    height: 180,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    loadingBuilder: (context, child, progress) {
-                      if (progress == null) return child;
-                      return Container(
-                        height: 180,
-                        color: C.white.withOpacity(.5),
-                        child: const Center(
-                            child: CircularProgressIndicator(
-                                color: C.yellowDark, strokeWidth: 2)),
-                      );
-                    },
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      height: 180,
-                      color: C.white.withOpacity(.5),
-                      child: Center(
-                        child: Column(mainAxisSize: MainAxisSize.min, children: [
-                          const Icon(Icons.broken_image_outlined, color: C.txl, size: 32),
-                          if (kDebugMode) ...[
-                            const SizedBox(height: 6),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
-                              child: Text(mediaUrl,
-                                  style: poppins(9, c: C.red),
-                                  textAlign: TextAlign.center,
-                                  maxLines: 2, overflow: TextOverflow.ellipsis),
-                            ),
-                          ],
-                        ]),
-                      ),
-                    ),
-                  ),
+          // Text-only prompts get their own visual "shell" — a soft
+          // yellow-tinted panel with a large quote icon — so they feel
+          // just as complete and intentional as an image/video card,
+          // instead of just... less content.
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: C.yellowLight,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: C.yellowBorder),
+            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Icon(Icons.format_quote_rounded, color: C.yellowDark, size: 28),
+              if (textContent != null && textContent.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(textContent, style: poppins(13.5, c: C.ink.withOpacity(.8), h: 1.5)),
+              ],
+            ]),
           ),
         ],
 
-        if (postType == 'youtube' && youtubeLink != null && youtubeLink.isNotEmpty) ...[
+        if (mediaUrl != null || (postType == 'youtube' && youtubeLink != null && youtubeLink.isNotEmpty)) ...[
           const SizedBox(height: 14),
           ClipRRect(
             borderRadius: BorderRadius.circular(16),
-            child: Stack(alignment: Alignment.center, children: [
-              if (youtubeThumbnail != null)
-                Image.network(
-                  youtubeThumbnail,
-                  height: 180,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    height: 180, color: C.ink,
-                  ),
-                )
-              else
-                Container(height: 180, width: double.infinity, color: C.ink),
-              Container(
-                width: 56, height: 56,
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(.55),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.play_arrow_rounded, color: C.white, size: 32),
-              ),
-            ]),
+            child: CommunityMedia(item: activity, height: 200),
           ),
         ],
 
@@ -567,6 +526,8 @@ class _TodayCardState extends State<_TodayCard> {
             ),
           ),
         ],
+      ]),
+      ),
       ]),
       ),
       // Confetti burst — plays on successful reply submission
