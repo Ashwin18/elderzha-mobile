@@ -87,6 +87,20 @@ class _ActivityCalendarTabState extends State<ActivityCalendarTab> {
     return items;
   }
 
+  // Activities scheduled for TODAY's date but whose exact unlock time
+  // hasn't arrived yet (e.g. set for 3pm, it's currently 1pm). These
+  // don't belong in _todayActivities (not unlocked) or _upcoming
+  // (that only covers tomorrow onward) — without this they'd be
+  // invisible until their time passed.
+  List<Map<String, dynamic>> get _laterToday {
+    final items = _days
+        .where((d) => d['status'] == 'locked' && d['unlocks_today'] == true)
+        .toList();
+    items.sort((a, b) => (a['unlock_at'] as String? ?? '')
+        .compareTo(b['unlock_at'] as String? ?? ''));
+    return items;
+  }
+
   // Always shows the next 7 calendar days from today, regardless of
   // whether admin has actually created/assigned an activity for each
   // one yet — days without content show a "not planned yet" placeholder
@@ -157,6 +171,21 @@ class _ActivityCalendarTabState extends State<ActivityCalendarTab> {
             )
           else
             _NoActivityTodayCard(),
+
+          if (_laterToday.isNotEmpty) ...[
+            const SizedBox(height: 26),
+            Row(children: [
+              Text('LATER TODAY', style: poppins(11, w: FontWeight.w700, c: C.txl)),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(color: C.yellowLight, borderRadius: BorderRadius.circular(999)),
+                child: Text('${_laterToday.length}', style: poppins(10, w: FontWeight.w800, c: C.yellowDeep)),
+              ),
+            ]),
+            const SizedBox(height: 10),
+            ..._laterToday.map((d) => _LockedDayCard(day: d)),
+          ],
 
           const SizedBox(height: 26),
           Text('COMING UP', style: poppins(11, w: FontWeight.w700, c: C.txl)),
@@ -582,7 +611,19 @@ class _LockedDayCard extends StatelessWidget {
     if (unlockAtStr == null) return '';
     final unlockAt = DateTime.tryParse(unlockAtStr);
     if (unlockAt == null) return '';
+    final unlocksToday = day['unlocks_today'] == true;
     final diff = unlockAt.difference(DateTime.now());
+
+    if (unlocksToday) {
+      // Same calendar day, just waiting on the clock — show the exact
+      // time rather than a vague countdown ("Opens at 3:00 PM").
+      final hour12 = unlockAt.hour % 12 == 0 ? 12 : unlockAt.hour % 12;
+      final minute = unlockAt.minute.toString().padLeft(2, '0');
+      final ampm = unlockAt.hour >= 12 ? 'PM' : 'AM';
+      if (diff.isNegative) return 'Opening now';
+      return 'Opens at $hour12:$minute $ampm';
+    }
+
     if (diff.isNegative) return 'Unlocking soon';
     if (diff.inDays >= 1) return 'Unlocks in ${diff.inDays} day${diff.inDays > 1 ? 's' : ''}';
     if (diff.inHours >= 1) return 'Unlocks in ${diff.inHours} hour${diff.inHours > 1 ? 's' : ''}';
