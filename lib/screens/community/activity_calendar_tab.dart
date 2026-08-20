@@ -89,25 +89,35 @@ class _ActivityCalendarTabState extends State<ActivityCalendarTab> {
   // Always shows the next 7 calendar days from today, regardless of
   // whether admin has actually created/assigned an activity for each
   // one yet — days without content show a "not planned yet" placeholder
-  // instead of just not appearing at all.
+  // instead of just not appearing at all. If admin assigned MORE than
+  // one activity to a date, all of them are grouped together (not
+  // silently dropped) and a count is attached for the UI badge.
   List<Map<String, dynamic>> get _upcoming {
-    final byDate = <String, Map<String, dynamic>>{
-      for (final d in _days.where((d) => d['status'] == 'locked'))
-        d['date'].toString(): d,
-    };
+    final byDate = <String, List<Map<String, dynamic>>>{};
+    for (final d in _days.where((d) => d['status'] == 'locked')) {
+      byDate.putIfAbsent(d['date'].toString(), () => []).add(d);
+    }
     final now = DateTime.now();
     return List.generate(7, (i) {
       final date = DateTime(now.year, now.month, now.day + i + 1);
       final dateStr =
           '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-      return byDate[dateStr] ??
-          {
-            'date': dateStr,
-            'status': 'locked',
-            'unlock_at': date.toIso8601String(),
-            'unlock_in_seconds': date.difference(now).inSeconds,
-            'not_planned': true,
-          };
+      final dayGroup = byDate[dateStr];
+      if (dayGroup == null || dayGroup.isEmpty) {
+        return {
+          'date': dateStr,
+          'status': 'locked',
+          'unlock_at': date.toIso8601String(),
+          'unlock_in_seconds': date.difference(now).inSeconds,
+          'not_planned': true,
+        };
+      }
+      // Show the first activity as the preview, with a count attached
+      // so the card can show "+N more" when admin assigned several.
+      return {
+        ...dayGroup.first,
+        'activities_count': dayGroup.length,
+      };
     });
   }
 
@@ -139,14 +149,11 @@ class _ActivityCalendarTabState extends State<ActivityCalendarTab> {
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
           if (_todayActivities.isNotEmpty)
-            for (int i = 0; i < _todayActivities.length; i++) ...[
-              if (i > 0) const SizedBox(height: 14),
-              _TodayCard(
-                day: _todayActivities[i],
-                onReplied: _load,
-                svc: _activitySvc,
-              ),
-            ]
+            _TodayCarousel(
+              activities: _todayActivities,
+              onReplied: _load,
+              svc: _activitySvc,
+            )
           else
             _NoActivityTodayCard(),
 
@@ -168,6 +175,81 @@ class _ActivityCalendarTabState extends State<ActivityCalendarTab> {
 }
 
 // ── Today's card — the centerpiece ──────────────────────────────────────
+// ── Swipeable carousel for multiple today-activities ─────────────────────
+// When admin assigns more than one activity to the same day, this shows
+// them as a horizontal swipe carousel (like a stories UI) instead of a
+// plain vertical stack — with dot indicators and a "1 of 2" badge so
+// it's obvious there's more to see.
+class _TodayCarousel extends StatefulWidget {
+  const _TodayCarousel({required this.activities, required this.onReplied, required this.svc});
+  final List<Map<String, dynamic>> activities;
+  final VoidCallback onReplied;
+  final ActivityService svc;
+
+  @override
+  State<_TodayCarousel> createState() => _TodayCarouselState();
+}
+
+class _TodayCarouselState extends State<_TodayCarousel> {
+  late final PageController _pageController;
+  int _page = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(viewportFraction: 0.94);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final count = widget.activities.length;
+
+    if (count == 1) {
+      // Single activity — no need for carousel chrome at all.
+      return _TodayCard(day: widget.activities[0], onReplied: widget.onReplied, svc: widget.svc);
+    }
+
+    return Column(children: [
+      SizedBox(
+        height: 420,
+        child: PageView.builder(
+          controller: _pageController,
+          itemCount: count,
+          onPageChanged: (i) => setState(() => _page = i),
+          itemBuilder: (context, i) => Padding(
+            padding: EdgeInsets.only(right: i == count - 1 ? 0 : 10),
+            child: SingleChildScrollView(
+              child: _TodayCard(day: widget.activities[i], onReplied: widget.onReplied, svc: widget.svc),
+            ),
+          ),
+        ),
+      ),
+      const SizedBox(height: 12),
+      Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        for (int i = 0; i < count; i++)
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            margin: const EdgeInsets.symmetric(horizontal: 3),
+            width: _page == i ? 20 : 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: _page == i ? C.yellowDark : C.bd,
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+        const SizedBox(width: 8),
+        Text('${_page + 1} of $count', style: poppins(11, w: FontWeight.w600, c: C.txl)),
+      ]),
+    ]);
+  }
+}
+
 class _TodayCard extends StatefulWidget {
   const _TodayCard({required this.day, required this.onReplied, required this.svc});
   final Map<String, dynamic> day;
@@ -266,6 +348,18 @@ class _TodayCardState extends State<_TodayCard> {
             decoration: BoxDecoration(color: C.ink, borderRadius: BorderRadius.circular(999)),
             child: Text('📅 TODAY', style: poppins(11, w: FontWeight.w800, c: C.yellow)),
           ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(color: Colors.white.withOpacity(.35), borderRadius: BorderRadius.circular(999)),
+            child: Text(
+              postType == 'image' ? '📷 Photo'
+                  : postType == 'video' ? '🎥 Video'
+                  : postType == 'youtube' ? '🎬 YouTube'
+                  : '✍️ Prompt',
+              style: poppins(11, w: FontWeight.w700, c: C.ink),
+            ),
+          ),
         ]),
         const SizedBox(height: 14),
         Text(title, style: poppins(21, w: FontWeight.w800, c: C.ink, h: 1.2)),
@@ -351,36 +445,60 @@ class _TodayCardState extends State<_TodayCard> {
         const SizedBox(height: 18),
 
         if (replySubmitted) ...[
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: C.white, borderRadius: BorderRadius.circular(14)),
-            child: Row(children: [
-              Icon(
-                approvalStatus == 'approved' ? Icons.check_circle_rounded
-                    : approvalStatus == 'rejected' ? Icons.info_rounded
-                    : Icons.hourglass_top_rounded,
-                color: approvalStatus == 'approved' ? C.green
-                    : approvalStatus == 'rejected' ? C.red : C.yellowDark,
-                size: 20,
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: C.white,
+                borderRadius: BorderRadius.circular(999),
+                boxShadow: [BoxShadow(color: C.ink.withOpacity(.06), blurRadius: 6, offset: const Offset(0, 2))],
               ),
-              const SizedBox(width: 10),
-              Expanded(child: Text(
-                approvalStatus == 'approved' ? 'You replied! Now live in the community feed.'
-                    : approvalStatus == 'rejected' ? 'Your reply needs a small change — check with admin.'
-                    : 'You replied! Waiting for approval.',
-                style: poppins(12.5, w: FontWeight.w700, c: C.ink),
-              )),
-            ]),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(
+                  approvalStatus == 'approved' ? Icons.check_circle_rounded
+                      : approvalStatus == 'rejected' ? Icons.info_rounded
+                      : Icons.hourglass_top_rounded,
+                  color: approvalStatus == 'approved' ? C.green
+                      : approvalStatus == 'rejected' ? C.red : C.yellowDark,
+                  size: 15,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  approvalStatus == 'approved' ? 'Live in community feed'
+                      : approvalStatus == 'rejected' ? 'Needs a small change'
+                      : 'Waiting for approval',
+                  style: poppins(11.5, w: FontWeight.w700, c: C.ink),
+                ),
+              ]),
+            ),
           ),
         ] else if (_showReplyBox) ...[
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(color: C.white, borderRadius: BorderRadius.circular(14)),
             child: Column(children: [
+              Row(children: [
+                Text('Your reply', style: poppins(12, w: FontWeight.w700, c: C.txm)),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () => setState(() {
+                    _showReplyBox = false;
+                    _replyCtrl.clear();
+                    _attachment = null;
+                  }),
+                  child: Container(
+                    width: 26, height: 26,
+                    decoration: BoxDecoration(color: C.bg2, borderRadius: BorderRadius.circular(8)),
+                    child: const Icon(Icons.close_rounded, size: 15, color: C.txm),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 6),
               TextField(
                 controller: _replyCtrl,
                 maxLines: 3,
+                autofocus: true,
                 decoration: InputDecoration(
                   hintText: 'Write your reply...',
                   hintStyle: poppins(13, c: C.txl),
@@ -390,10 +508,23 @@ class _TodayCardState extends State<_TodayCard> {
               ),
               if (_attachment != null) ...[
                 const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Image.file(_attachment!, height: 100, fit: BoxFit.cover),
-                ),
+                Stack(children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.file(_attachment!, height: 100, width: double.infinity, fit: BoxFit.cover),
+                  ),
+                  Positioned(
+                    top: 6, right: 6,
+                    child: GestureDetector(
+                      onTap: () => setState(() => _attachment = null),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(color: Colors.black.withOpacity(.5), shape: BoxShape.circle),
+                        child: const Icon(Icons.close_rounded, size: 13, color: C.white),
+                      ),
+                    ),
+                  ),
+                ]),
               ],
               const SizedBox(height: 10),
               Row(children: [
@@ -402,6 +533,15 @@ class _TodayCardState extends State<_TodayCard> {
                   icon: const Icon(Icons.add_photo_alternate_rounded, color: C.yellowDark),
                 ),
                 const Spacer(),
+                TextButton(
+                  onPressed: _submitting ? null : () => setState(() {
+                    _showReplyBox = false;
+                    _replyCtrl.clear();
+                    _attachment = null;
+                  }),
+                  child: Text('Cancel', style: poppins(13, w: FontWeight.w600, c: C.txl)),
+                ),
+                const SizedBox(width: 4),
                 FilledButton(
                   onPressed: _submitting ? null : _submit,
                   style: FilledButton.styleFrom(backgroundColor: C.ink),
@@ -504,6 +644,7 @@ class _LockedDayCard extends StatelessWidget {
     final mediaUrl = activity['media_url']?.toString();
     final youtubeThumb = activity['youtube_thumbnail']?.toString();
     final previewImage = mediaUrl ?? youtubeThumb;
+    final activitiesCount = day['activities_count'] as int? ?? 1;
 
     if (notPlanned) {
       return Container(
@@ -567,6 +708,25 @@ class _LockedDayCard extends StatelessWidget {
               child: Text(title,
                   maxLines: 1, overflow: TextOverflow.ellipsis,
                   style: poppins(15, w: FontWeight.w700, c: C.white)),
+            ),
+          ),
+
+        // Multi-activity badge — lets users know more than one thing
+        // is waiting for them that day, without revealing what.
+        if (activitiesCount > 1)
+          Positioned(
+            top: 12, right: 12,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+              decoration: BoxDecoration(
+                color: C.yellow,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.layers_rounded, size: 11, color: C.ink),
+                const SizedBox(width: 3),
+                Text('+${activitiesCount - 1} more', style: poppins(10, w: FontWeight.w800, c: C.ink)),
+              ]),
             ),
           ),
 
