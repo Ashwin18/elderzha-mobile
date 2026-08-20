@@ -19,6 +19,14 @@ class CommunityService {
   Future<Map<String, dynamic>?> getPollsList({int page = 1}) =>
       _api.safeGet('/user/get/pools-list?page=$page');
 
+  // ── GET /user/poll/calendar ────────────────────────────────
+  // Dedicated Today/Coming Up/History calendar for the redesigned
+  // Polls tab — mirrors getActivityCalendar(). 30-day rolling
+  // window since polls are broadcast-only.
+  Future<Map<String, dynamic>?> getPollCalendar() async {
+    return _api.safeGet('/user/poll/calendar');
+  }
+
   // ── POST /user/poll/submit ────────────────────────────────
   Future<Map<String, dynamic>> submitPoll({
     required int pollId,

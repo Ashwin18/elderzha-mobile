@@ -3,6 +3,7 @@ import '../../theme/app_theme.dart';
 import '../../services/services.dart';
 import '../../widgets/community_media.dart';
 import 'activity_calendar_tab.dart';
+import 'poll_calendar_tab.dart';
 import 'activity_detail_screen.dart';
 
 class CommunityScreen extends StatefulWidget {
@@ -364,12 +365,14 @@ class _CommunityScreenState extends State<CommunityScreen> {
                 borderRadius: BorderRadius.only(
                     topLeft: Radius.circular(28),
                     topRight: Radius.circular(28))),
-            // Activities tab (index 3) gets the redesigned dedicated
-            // 30-day locked calendar experience — completely separate
-            // from the generic feed rendering the other 3 tabs use.
+            // Activities (index 3) and Polls (index 2) get their own
+            // dedicated time-gated calendar experiences — completely
+            // separate from the generic feed the other 2 tabs use.
             child: _tab == 3
                 ? const ActivityCalendarTab()
-                : (_loading
+                : _tab == 2
+                    ? const PollCalendarTab()
+                    : (_loading
                     ? const Center(
                         child:
                             CircularProgressIndicator(color: C.yellowDark))
