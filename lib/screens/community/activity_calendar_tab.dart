@@ -15,6 +15,7 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:confetti/confetti.dart';
 import '../../theme/app_theme.dart';
 import '../../services/services.dart';
 
@@ -74,9 +75,30 @@ class _ActivityCalendarTabState extends State<ActivityCalendarTab> {
       _days.cast<Map<String, dynamic>?>().firstWhere(
           (d) => d?['status'] == 'today', orElse: () => null);
 
-  List<Map<String, dynamic>> get _upcoming =>
-      _days.where((d) => d['status'] == 'locked').toList()
-        ..sort((a, b) => (a['date'] as String).compareTo(b['date'] as String));
+  // Always shows the next 7 calendar days from today, regardless of
+  // whether admin has actually created/assigned an activity for each
+  // one yet — days without content show a "not planned yet" placeholder
+  // instead of just not appearing at all.
+  List<Map<String, dynamic>> get _upcoming {
+    final byDate = <String, Map<String, dynamic>>{
+      for (final d in _days.where((d) => d['status'] == 'locked'))
+        d['date'].toString(): d,
+    };
+    final now = DateTime.now();
+    return List.generate(7, (i) {
+      final date = DateTime(now.year, now.month, now.day + i + 1);
+      final dateStr =
+          '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+      return byDate[dateStr] ??
+          {
+            'date': dateStr,
+            'status': 'locked',
+            'unlock_at': date.toIso8601String(),
+            'unlock_in_seconds': date.difference(now).inSeconds,
+            'not_planned': true,
+          };
+    });
+  }
 
   List<Map<String, dynamic>> get _history =>
       _days.where((d) => d['status'] == 'completed' || d['status'] == 'missed')
@@ -111,12 +133,10 @@ class _ActivityCalendarTabState extends State<ActivityCalendarTab> {
             svc: _activitySvc,
           ) else _NoActivityTodayCard(),
 
-          if (_upcoming.isNotEmpty) ...[
-            const SizedBox(height: 26),
-            Text('COMING UP', style: poppins(11, w: FontWeight.w700, c: C.txl)),
-            const SizedBox(height: 10),
-            ..._upcoming.map((d) => _LockedDayCard(day: d)),
-          ],
+          const SizedBox(height: 26),
+          Text('COMING UP', style: poppins(11, w: FontWeight.w700, c: C.txl)),
+          const SizedBox(height: 10),
+          ..._upcoming.map((d) => _LockedDayCard(day: d)),
 
           if (_history.isNotEmpty) ...[
             const SizedBox(height: 26),
@@ -143,13 +163,21 @@ class _TodayCard extends StatefulWidget {
 
 class _TodayCardState extends State<_TodayCard> {
   final _replyCtrl = TextEditingController();
+  late ConfettiController _confettiController;
   File? _attachment;
   bool _submitting = false;
   bool _showReplyBox = false;
 
   @override
+  void initState() {
+    super.initState();
+    _confettiController = ConfettiController(duration: const Duration(seconds: 2));
+  }
+
+  @override
   void dispose() {
     _replyCtrl.dispose();
+    _confettiController.dispose();
     super.dispose();
   }
 
@@ -177,6 +205,7 @@ class _TodayCardState extends State<_TodayCard> {
     if (!mounted) return;
     setState(() => _submitting = false);
     if (res['status'] == true) {
+      _confettiController.play();
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Reply submitted! Waiting for approval.', style: poppins(12, c: C.white)),
         backgroundColor: C.green,
@@ -202,7 +231,8 @@ class _TodayCardState extends State<_TodayCard> {
     final replySubmitted = activity['reply_submitted'] == true;
     final approvalStatus = activity['approval_status']?.toString();
 
-    return Container(
+    return Stack(clipBehavior: Clip.none, children: [
+      Container(
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft, end: Alignment.bottomRight,
@@ -381,7 +411,20 @@ class _TodayCardState extends State<_TodayCard> {
           ),
         ],
       ]),
-    );
+      ),
+      // Confetti burst — plays on successful reply submission
+      Align(
+        alignment: Alignment.topCenter,
+        child: ConfettiWidget(
+          confettiController: _confettiController,
+          blastDirectionality: BlastDirectionality.explosive,
+          shouldLoop: false,
+          numberOfParticles: 30,
+          gravity: 0.3,
+          colors: const [C.yellow, C.green, C.ink, Colors.pinkAccent, Colors.blueAccent],
+        ),
+      ),
+    ]);
   }
 }
 
@@ -437,12 +480,40 @@ class _LockedDayCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final notPlanned = day['not_planned'] == true;
     final activity = day['activity'] as Map? ?? {};
     final title = activity['title']?.toString() ?? '';
     final postType = activity['post_type']?.toString();
     final mediaUrl = activity['media_url']?.toString();
     final youtubeThumb = activity['youtube_thumbnail']?.toString();
     final previewImage = mediaUrl ?? youtubeThumb;
+
+    if (notPlanned) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        height: 72,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: C.bg2,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: C.bd, style: BorderStyle.solid),
+        ),
+        child: Row(children: [
+          Container(
+            width: 30, height: 30,
+            decoration: BoxDecoration(color: C.ink.withOpacity(.05), borderRadius: BorderRadius.circular(10)),
+            child: const Icon(Icons.event_outlined, color: C.txl, size: 15),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(_dateLabel(), style: poppins(12.5, w: FontWeight.w700, c: C.txm)),
+              Text('Not planned yet', style: poppins(11, c: C.txl)),
+            ]),
+          ),
+        ]),
+      );
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -529,11 +600,31 @@ class _HistoryRowState extends State<_HistoryRow> {
     final activity = widget.day['activity'] as Map? ?? {};
     final completed = widget.day['status'] == 'completed';
     final title = activity['title']?.toString() ?? '';
+    final approvalStatus = activity['approval_status']?.toString();
+    final mediaUrl = activity['media_url']?.toString();
+    final youtubeThumb = activity['youtube_thumbnail']?.toString();
+    final thumb = mediaUrl ?? youtubeThumb;
     final date = DateTime.tryParse(widget.day['date']?.toString() ?? '');
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     final dateLabel = date != null ? '${date.day} ${months[date.month - 1]}' : (widget.day['date']?.toString() ?? '');
     final otherReplies = (activity['other_replies'] as List? ?? []).cast<Map>();
     final otherCount = activity['other_replies_count'] ?? otherReplies.length;
+
+    String statusLine;
+    Color statusColor;
+    if (!completed) {
+      statusLine = 'Missed · $dateLabel';
+      statusColor = C.txl;
+    } else if (approvalStatus == 'approved') {
+      statusLine = 'Approved · $dateLabel';
+      statusColor = C.green;
+    } else if (approvalStatus == 'rejected') {
+      statusLine = 'Not approved · $dateLabel';
+      statusColor = C.red;
+    } else {
+      statusLine = 'Pending review · $dateLabel';
+      statusColor = C.yellowDeep;
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -545,13 +636,29 @@ class _HistoryRowState extends State<_HistoryRow> {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(children: [
-              Text(completed ? '✅' : '⚪', style: const TextStyle(fontSize: 16)),
-              const SizedBox(width: 10),
+              if (thumb != null) ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.network(thumb, width: 44, height: 44, fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                          width: 44, height: 44, color: C.bg2,
+                          child: Icon(completed ? Icons.check_circle_rounded : Icons.circle_outlined,
+                              color: statusColor, size: 18))),
+                ),
+                const SizedBox(width: 10),
+              ] else ...[
+                Container(
+                  width: 44, height: 44,
+                  decoration: BoxDecoration(color: C.bg2, borderRadius: BorderRadius.circular(10)),
+                  child: Icon(completed ? Icons.check_circle_rounded : Icons.circle_outlined,
+                      color: statusColor, size: 18),
+                ),
+                const SizedBox(width: 10),
+              ],
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(title.isNotEmpty ? title : 'Activity', style: poppins(12.5, w: FontWeight.w700, c: C.ink)),
-                  Text(completed ? 'Replied · $dateLabel' : 'Missed · $dateLabel',
-                      style: poppins(11, c: completed ? C.green : C.txl)),
+                  Text(statusLine, style: poppins(11, c: statusColor, w: FontWeight.w600)),
                 ]),
               ),
               if (otherCount > 0) ...[
