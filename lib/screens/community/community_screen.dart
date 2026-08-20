@@ -158,7 +158,16 @@ class _CommunityScreenState extends State<CommunityScreen> {
       final feed = data['feed'];
       if (feed is List) merged.addAll(feed.map(_normalizeItem));
       final activities = data['activities'];
-      if (activities is List) merged.addAll(activities.map(_normalizeItem));
+      if (activities is List) {
+        // Only approved (replied-to-and-accepted) activities belong in
+        // the All feed — a raw assignment that hasn't been replied to
+        // yet, or is still pending/rejected, should not show here.
+        final approvedOnly = activities.where((a) {
+          if (a is! Map) return false;
+          return a['approval_status']?.toString() == 'approved';
+        });
+        merged.addAll(approvedOnly.map(_normalizeItem));
+      }
       if (merged.isNotEmpty) return merged;
       // fallback: rootData is a flat list
       if (rootData is List) return List.from(rootData);

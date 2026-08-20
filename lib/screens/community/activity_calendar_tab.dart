@@ -71,9 +71,20 @@ class _ActivityCalendarTabState extends State<ActivityCalendarTab> {
     }
   }
 
-  Map<String, dynamic>? get _today =>
-      _days.cast<Map<String, dynamic>?>().firstWhere(
-          (d) => d?['status'] == 'today', orElse: () => null);
+  // Multiple activities can exist for today (admin created more than
+  // one, whether intentionally or by testing) — show ALL of them, not
+  // just the first match, so new ones never get silently hidden behind
+  // an already-replied older one. Unreplied ones surface first.
+  List<Map<String, dynamic>> get _todayActivities {
+    final items = _days.where((d) => d['status'] == 'today').toList();
+    items.sort((a, b) {
+      final aReplied = (a['activity'] as Map?)?['reply_submitted'] == true;
+      final bReplied = (b['activity'] as Map?)?['reply_submitted'] == true;
+      if (aReplied == bReplied) return 0;
+      return aReplied ? 1 : -1; // unreplied first
+    });
+    return items;
+  }
 
   // Always shows the next 7 calendar days from today, regardless of
   // whether admin has actually created/assigned an activity for each
@@ -127,11 +138,17 @@ class _ActivityCalendarTabState extends State<ActivityCalendarTab> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
-          if (_today != null) _TodayCard(
-            day: _today!,
-            onReplied: _load,
-            svc: _activitySvc,
-          ) else _NoActivityTodayCard(),
+          if (_todayActivities.isNotEmpty)
+            for (int i = 0; i < _todayActivities.length; i++) ...[
+              if (i > 0) const SizedBox(height: 14),
+              _TodayCard(
+                day: _todayActivities[i],
+                onReplied: _load,
+                svc: _activitySvc,
+              ),
+            ]
+          else
+            _NoActivityTodayCard(),
 
           const SizedBox(height: 26),
           Text('COMING UP', style: poppins(11, w: FontWeight.w700, c: C.txl)),
