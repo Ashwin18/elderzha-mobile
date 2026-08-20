@@ -11,6 +11,7 @@
 // Backed by GET /user/activity/calendar (see CommunityService).
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../theme/app_theme.dart';
@@ -196,6 +197,7 @@ class _TodayCardState extends State<_TodayCard> {
     final textContent = activity['text_content']?.toString();
     final mediaUrl = activity['media_url']?.toString();
     final youtubeLink = activity['youtube_link']?.toString();
+    final youtubeThumbnail = activity['youtube_thumbnail']?.toString();
     final replySubmitted = activity['reply_submitted'] == true;
     final approvalStatus = activity['approval_status']?.toString();
 
@@ -231,16 +233,70 @@ class _TodayCardState extends State<_TodayCard> {
             borderRadius: BorderRadius.circular(16),
             child: postType == 'video'
                 ? _VideoThumb(url: mediaUrl)
-                : Image.network(mediaUrl, height: 180, width: double.infinity, fit: BoxFit.cover),
+                : Image.network(
+                    mediaUrl,
+                    height: 180,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, progress) {
+                      if (progress == null) return child;
+                      return Container(
+                        height: 180,
+                        color: C.white.withOpacity(.5),
+                        child: const Center(
+                            child: CircularProgressIndicator(
+                                color: C.yellowDark, strokeWidth: 2)),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      height: 180,
+                      color: C.white.withOpacity(.5),
+                      child: Center(
+                        child: Column(mainAxisSize: MainAxisSize.min, children: [
+                          const Icon(Icons.broken_image_outlined, color: C.txl, size: 32),
+                          if (kDebugMode) ...[
+                            const SizedBox(height: 6),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              child: Text(mediaUrl,
+                                  style: poppins(9, c: C.red),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2, overflow: TextOverflow.ellipsis),
+                            ),
+                          ],
+                        ]),
+                      ),
+                    ),
+                  ),
           ),
         ],
 
-        if (youtubeLink != null && youtubeLink.isNotEmpty) ...[
+        if (postType == 'youtube' && youtubeLink != null && youtubeLink.isNotEmpty) ...[
           const SizedBox(height: 14),
-          Container(
-            height: 180, width: double.infinity,
-            decoration: BoxDecoration(color: C.ink, borderRadius: BorderRadius.circular(16)),
-            child: const Center(child: Icon(Icons.play_circle_fill_rounded, size: 56, color: C.yellow)),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Stack(alignment: Alignment.center, children: [
+              if (youtubeThumbnail != null)
+                Image.network(
+                  youtubeThumbnail,
+                  height: 180,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    height: 180, color: C.ink,
+                  ),
+                )
+              else
+                Container(height: 180, width: double.infinity, color: C.ink),
+              Container(
+                width: 56, height: 56,
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(.55),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.play_arrow_rounded, color: C.white, size: 32),
+              ),
+            ]),
           ),
         ],
 
