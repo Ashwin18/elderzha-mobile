@@ -246,37 +246,45 @@ class _TodayPollCardState extends State<_TodayPollCard> {
 
               return Padding(
                 padding: const EdgeInsets.only(bottom: 10),
-                child: Stack(children: [
-                  Container(
-                    width: double.infinity,
-                    height: 46,
-                    decoration: BoxDecoration(color: C.bg2, borderRadius: BorderRadius.circular(14)),
-                  ),
-                  FractionallySizedBox(
-                    widthFactor: (pct / 100).clamp(0, 1).toDouble(),
-                    child: Container(
-                      height: 46,
-                      decoration: BoxDecoration(
-                        color: isMine ? C.yellow : C.yellowLight,
-                        borderRadius: BorderRadius.circular(14),
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: (pct / 100).clamp(0, 1).toDouble()),
+                  duration: const Duration(milliseconds: 700),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, animatedFraction, child) {
+                    final animatedPct = (animatedFraction * 100).round();
+                    return Stack(children: [
+                      Container(
+                        width: double.infinity,
+                        height: 46,
+                        decoration: BoxDecoration(color: C.bg2, borderRadius: BorderRadius.circular(14)),
                       ),
-                    ),
-                  ),
-                  Positioned.fill(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Row(children: [
-                        if (isMine) const Icon(Icons.check_circle_rounded, size: 16, color: C.ink),
-                        if (isMine) const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(opt['option_text']?.toString() ?? '',
-                              style: poppins(13.5, w: FontWeight.w700, c: C.ink)),
+                      FractionallySizedBox(
+                        widthFactor: animatedFraction,
+                        child: Container(
+                          height: 46,
+                          decoration: BoxDecoration(
+                            color: isMine ? C.yellow : C.yellowLight,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
                         ),
-                        Text('$pct%', style: poppins(13, w: FontWeight.w800, c: C.ink)),
-                      ]),
-                    ),
-                  ),
-                ]),
+                      ),
+                      Positioned.fill(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Row(children: [
+                            if (isMine) const Icon(Icons.check_circle_rounded, size: 16, color: C.ink),
+                            if (isMine) const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(opt['option_text']?.toString() ?? '',
+                                  style: poppins(13.5, w: FontWeight.w700, c: C.ink)),
+                            ),
+                            Text('$animatedPct%', style: poppins(13, w: FontWeight.w800, c: C.ink)),
+                          ]),
+                        ),
+                      ),
+                    ]);
+                  },
+                ),
               );
             }),
 

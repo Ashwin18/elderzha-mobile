@@ -21,12 +21,51 @@ class _CommunityScreenState extends State<CommunityScreen> {
   List _items = [];
   bool _loading = true;
   String? _error;
+  bool _hasNewPoll = false;
+  bool _hasNewActivity = false;
 
   @override
   void initState() {
     super.initState();
     _tab = widget.initialTab.clamp(0, _tabs.length - 1);
     _load();
+    _checkForNewItems();
+  }
+
+  // Lightweight check so the "Polls"/"Activities" tab labels can show
+  // a small dot when something's actionable right now (today's poll
+  // not yet voted, today's activity not yet replied to) — visible
+  // even while sitting on a different tab.
+  Future<void> _checkForNewItems() async {
+    final results = await Future.wait([_svc.getPollCalendar(), _svc.getActivityCalendar()]);
+    if (!mounted) return;
+
+    bool pollFlag = false;
+    final pollData = results[0]?['data'];
+    if (pollData is List) {
+      for (final d in pollData) {
+        if (d is Map && d['status'] == 'today') {
+          final poll = d['poll'];
+          if (poll is Map && poll['has_voted'] != true) { pollFlag = true; break; }
+        }
+      }
+    }
+
+    bool activityFlag = false;
+    final activityData = results[1]?['data'];
+    if (activityData is List) {
+      for (final d in activityData) {
+        if (d is Map && d['status'] == 'today') {
+          final activity = d['activity'];
+          if (activity is Map && activity['reply_submitted'] != true) { activityFlag = true; break; }
+        }
+      }
+    }
+
+    setState(() {
+      _hasNewPoll = pollFlag;
+      _hasNewActivity = activityFlag;
+    });
   }
 
   // ── GET /user/feed/{type} ─────────────────────────────────
@@ -338,6 +377,12 @@ class _CommunityScreenState extends State<CommunityScreen> {
                       onTap: () {
                         setState(() => _tab = i);
                         _load();
+                        if (i == 2 || i == 3) {
+                          // Re-check after a short delay so the user
+                          // has had a moment to see/act on it before
+                          // the dot potentially clears.
+                          Future.delayed(const Duration(seconds: 2), _checkForNewItems);
+                        }
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 10),
@@ -347,10 +392,23 @@ class _CommunityScreenState extends State<CommunityScreen> {
                                     color: sel ? C.ink : Colors.transparent,
                                     width: 2))),
                         child: Center(
-                            child: Text(_tabs[i],
-                                style: poppins(12,
-                                    w: FontWeight.w700,
-                                    c: sel ? C.ink : C.txl))),
+                            child: Stack(clipBehavior: Clip.none, children: [
+                              Text(_tabs[i],
+                                  style: poppins(12,
+                                      w: FontWeight.w700,
+                                      c: sel ? C.ink : C.txl)),
+                              if ((i == 2 && _hasNewPoll) || (i == 3 && _hasNewActivity))
+                                Positioned(
+                                  right: -9,
+                                  top: -2,
+                                  child: Container(
+                                    width: 7,
+                                    height: 7,
+                                    decoration: const BoxDecoration(
+                                        color: C.red, shape: BoxShape.circle),
+                                  ),
+                                ),
+                            ])),
                       ),
                     ));
                   })),
