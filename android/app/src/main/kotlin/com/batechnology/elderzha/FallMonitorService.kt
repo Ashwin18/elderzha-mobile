@@ -43,23 +43,27 @@ class FallMonitorService : Service(), SensorEventListener {
     private var sosPlayer: MediaPlayer? = null
     private var previousAlarmVolume: Int? = null
 
-    // ── Two-tier detection thresholds ───────────────────────────────────────
-    // Tier 1: freefall THEN impact — the reliable combo. A genuine fall
-    //   makes the phone briefly weightless before hitting something; an
-    //   ordinary hand shake essentially never does. Because this combo is
-    //   already a strong signal on its own, the impact bar for this tier
-    //   can stay moderate.
-    // Tier 2: impact with NO preceding freefall — covers falls where the
-    //   phone was slowed by pocket/clothing friction and never went fully
-    //   weightless. Without the freefall precondition to rule out shakes,
-    //   this tier needs a much higher, harder-to-fake impact spike.
+    // ── Detection thresholds ─────────────────────────────────────────────
+    // Freefall-required-always. Real-world logged data (fall_alerts table)
+    // showed a very high false-alarm rate with tight clustering — multiple
+    // triggers 8-30 seconds apart — consistent with vigorous shaking, not
+    // accidental falls. The previous "Tier 2" path (impact alone, no
+    // freefall precondition) let a hard shake's momentary spike clear the
+    // impact bar, and since a phone naturally goes still right after
+    // someone stops shaking it, the stillness check then passed too.
+    //
+    // Freefall is now a HARD precondition for any trigger — a genuine
+    // fall makes the phone briefly weightless before impact; shaking,
+    // however vigorous, essentially cannot produce sustained near-
+    // weightlessness. Trade-off: a fall where the phone is in a snug
+    // pocket (friction slows it, never reaches true freefall) may not
+    // trigger — accepted for now given how disruptive repeated false
+    // alarms are to user trust in the feature.
     private val freefallThreshold = 4.5       // g < this = near-weightless
     private val freefallMinDurationMs = 100L  // must SUSTAIN freefall briefly,
                                                // filters single-sample noise
-    private val impactThresholdWithFreefall = 18.0   // Tier 1 (~1.8G)
-    private val impactThresholdNoFreefall   = 27.0   // Tier 2 (~2.75G) —
-                                               // well above what a firm
-                                               // hand shake typically produces
+    private val impactThreshold = 18.0        // required impact after a
+                                               // confirmed freefall (~1.8G)
     private val stillnessWindowMs = 1600L     // slightly longer — real
                                                // falls onto a bed/soft
                                                // surface can bounce/settle
@@ -186,10 +190,11 @@ class FallMonitorService : Service(), SensorEventListener {
         val freefallWasConfirmed = freefallConfirmedTime != 0L &&
             (now - freefallConfirmedTime) <= 2000
 
-        val requiredImpact = if (freefallWasConfirmed)
-            impactThresholdWithFreefall else impactThresholdNoFreefall
-
-        if (g > requiredImpact) {
+        // Freefall is now a hard precondition — no impact check at all
+        // happens without it, closing the exact path that let vigorous
+        // shaking (a momentary spike with no preceding weightlessness)
+        // pass as a fall.
+        if (freefallWasConfirmed && g > impactThreshold) {
             impactDetected = true
             impactTime = now
             postImpactReadings.clear()
