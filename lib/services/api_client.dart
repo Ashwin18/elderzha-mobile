@@ -114,6 +114,9 @@ class ApiClient {
   Future<Response> post(String path, {dynamic data}) =>
       _dio.post(path, data: data);
 
+  Future<Response> delete(String path, {dynamic data}) =>
+      _dio.delete(path, data: data);
+
   Future<Response> multipartPost(String path, {required FormData data}) =>
       _dio.post(
         path,
@@ -140,6 +143,16 @@ class ApiClient {
       return res.data as Map<String, dynamic>?;
     } on DioException catch (e) {
       debugPrint('safePost [$path] error: ${e.message}');
+      return _errorBody(e);
+    }
+  }
+
+  Future<Map<String, dynamic>?> safeDelete(String path, {dynamic data}) async {
+    try {
+      final res = await delete(path, data: data);
+      return res.data as Map<String, dynamic>?;
+    } on DioException catch (e) {
+      debugPrint('safeDelete [$path] error: ${e.message}');
       return _errorBody(e);
     }
   }

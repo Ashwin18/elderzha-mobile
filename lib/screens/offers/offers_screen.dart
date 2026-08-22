@@ -148,132 +148,60 @@ class _OffersScreenState extends State<OffersScreen> {
     final id = _offerId(o);
     final title = _text(o, ['title', 'offer_title', 'name', 'coupon_code']);
     final subtitle = _text(o, ['subtitle', 'sub_title', 'short_description']);
-    final desc = _text(o, ['description', 'content', 'desc']);
     final code = _text(o, ['coupon_code', 'code']);
     final qty = _text(o, ['available_quantity', 'quantity', 'stock']);
-    final start = _text(o, ['start_date', 'valid_from']);
-    final end = _text(o, ['end_date', 'valid_till', 'expiry', 'expires']);
-    final location = _text(o, ['store_location', 'location', 'address']);
-    final link = _text(o, ['store_link', 'link', 'url', 'website']);
-    final banner = _assetUrl(_text(o, [
-      'banner_image',
-      'banner_url',
-      'image',
-      'image_url',
-    ]));
     final icon = _assetUrl(_text(o, ['icon_image', 'icon_url', 'icon']));
     final lowStock = int.tryParse(qty) != null && int.parse(qty) <= 5;
 
     return GestureDetector(
       onTap: id == 0 ? null : () => _openOfferDetails(id),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 14),
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: C.white,
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(color: C.bd),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x0E000000),
-              blurRadius: 16,
-              offset: Offset(0, 8),
-            ),
-          ],
         ),
-        clipBehavior: Clip.hardEdge,
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Stack(children: [
-            _imageBox(banner, height: 150, fallbackIcon: Icons.local_offer),
-            Positioned(
-              left: 12,
-              bottom: 12,
-              child: Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: C.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: C.yellowBorder),
-                ),
-                clipBehavior: Clip.hardEdge,
-                child: icon.isNotEmpty
-                    ? Image.network(icon, fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) {
-                        return const Icon(Icons.card_giftcard_rounded,
-                            color: C.yellowDark);
-                      })
-                    : const Icon(Icons.card_giftcard_rounded,
-                        color: C.yellowDark),
-              ),
+        child: Row(children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: C.yellowLight,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: C.yellowBorder),
             ),
-            if (lowStock)
-              Positioned(
-                right: 12,
-                top: 12,
-                child: _pill('Low stock', C.red.withOpacity(.12), C.red),
-              ),
-          ]),
-          Padding(
-            padding: const EdgeInsets.all(14),
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Expanded(
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(title.isEmpty ? 'Offer' : title,
-                            style: poppins(16,
-                                w: FontWeight.w800, c: C.ink, h: 1.25)),
-                        if (subtitle.isNotEmpty) ...[
-                          const SizedBox(height: 3),
-                          Text(subtitle,
-                              style: poppins(12, c: C.yellowDeep, h: 1.35)),
-                        ],
-                      ]),
-                ),
-                if (code.isNotEmpty)
-                  GestureDetector(
-                    onTap: () => _copy(code),
-                    child: _pill(code, C.yellowMid, C.yellowDeep),
-                  ),
-              ]),
-              if (desc.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                _detailLine(Icons.notes_rounded, 'Details', desc),
+            clipBehavior: Clip.hardEdge,
+            child: icon.isNotEmpty
+                ? Image.network(icon, fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const Icon(
+                        Icons.card_giftcard_rounded,
+                        color: C.yellowDark, size: 20))
+                : const Icon(Icons.card_giftcard_rounded,
+                    color: C.yellowDark, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title.isEmpty ? 'Offer' : title,
+                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: poppins(13.5, w: FontWeight.w700, c: C.ink)),
+              if (subtitle.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(subtitle,
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: poppins(11.5, c: C.txl)),
               ],
-              const SizedBox(height: 12),
-              Wrap(spacing: 8, runSpacing: 8, children: [
-                if (qty.isNotEmpty)
-                  _miniInfo(Icons.inventory_2_outlined, '$qty available'),
-                if (start.isNotEmpty || end.isNotEmpty)
-                  _miniInfo(Icons.event_available_rounded,
-                      'Valid ${start.isNotEmpty ? start : 'now'} to ${end.isNotEmpty ? end : 'open'}'),
-                if (location.isNotEmpty)
-                  _miniInfo(Icons.location_on_outlined, location),
-              ]),
-              const SizedBox(height: 12),
-              Row(children: [
-                if (link.isNotEmpty)
-                  Expanded(
-                    child: _actionButton(
-                      'Open store',
-                      Icons.open_in_new_rounded,
-                      () => _openLink(link),
-                      outlined: true,
-                    ),
-                  ),
-                if (link.isNotEmpty) const SizedBox(width: 10),
-                Expanded(
-                  child: _actionButton(
-                    'View offer',
-                    Icons.arrow_forward_rounded,
-                    id == 0 ? null : () => _openOfferDetails(id),
-                  ),
-                ),
-              ]),
             ]),
           ),
+          const SizedBox(width: 8),
+          if (lowStock)
+            _pill('Low stock', C.red.withOpacity(.12), C.red)
+          else if (code.isNotEmpty)
+            _pill(code, C.yellowMid, C.yellowDeep),
+          const SizedBox(width: 4),
+          const Icon(Icons.chevron_right_rounded, color: C.txl, size: 20),
         ]),
       ),
     );
