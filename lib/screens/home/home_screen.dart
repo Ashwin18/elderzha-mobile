@@ -34,6 +34,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, dynamic>? _medicalRecord;
   Map<String, dynamic>? _todayActivity;
   int _notificationCount = 0;
+  int _todayPollCount = 0;
+  int _todayActivityCount = 0;
 
   @override
   void initState() {
@@ -77,6 +79,30 @@ class _HomeScreenState extends State<HomeScreen> {
     });
     } catch (_) {
       if (mounted) setState(() => _loadError = true);
+    }
+
+    // Phase 3 — Today at a Glance counts. Deliberately outside the
+    // try/catch above so a failure here never marks the whole Home
+    // load as failed — this is a nice-to-have strip, not critical.
+    try {
+      final commSvc = CommunityService();
+      final glance = await Future.wait([
+        commSvc.getPollCalendar(),
+        commSvc.getActivityCalendar(),
+      ]).timeout(const Duration(seconds: 8), onTimeout: () => [null, null]);
+      if (!mounted) return;
+      final pollDays = _extractList(glance[0]);
+      final activityDays = _extractList(glance[1]);
+      setState(() {
+        _todayPollCount = pollDays
+            .where((d) => d is Map && d['status'] == 'today')
+            .length;
+        _todayActivityCount = activityDays
+            .where((d) => d is Map && d['status'] == 'today')
+            .length;
+      });
+    } catch (_) {
+      // Silently leave counts at 0 — strip just won't show.
     }
   }
 
@@ -377,6 +403,10 @@ class _HomeScreenState extends State<HomeScreen> {
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
                   _todayWellbeingCard(auth.userName),
+                  if (_todayPollCount > 0 || _todayActivityCount > 0) ...[
+                    const SizedBox(height: 12),
+                    _todayAtGlanceStrip(),
+                  ],
                   const SizedBox(height: 14),
                   _secLabel(
                     Icons.calendar_today_rounded,
@@ -585,6 +615,72 @@ class _HomeScreenState extends State<HomeScreen> {
           ]),
         ),
       );
+
+  // ── Today at a Glance — quick shortcut into today's Poll/Activity,
+  // shown only when there's actually something today (see the
+  // (_todayPollCount > 0 || _todayActivityCount > 0) check at the
+  // call site) so it never sits there empty.
+  Widget _todayAtGlanceStrip() => Row(children: [
+        if (_todayActivityCount > 0)
+          Expanded(
+            child: _glancePill(
+              '📅',
+              _todayActivityCount == 1
+                  ? '1 Activity today'
+                  : '$_todayActivityCount Activities today',
+              C.yellowLight,
+              C.yellowDeep,
+              () => _openSpikeTab(3), // Activities sub-tab
+            ),
+          ),
+        if (_todayActivityCount > 0 && _todayPollCount > 0)
+          const SizedBox(width: 10),
+        if (_todayPollCount > 0)
+          Expanded(
+            child: _glancePill(
+              '🗳️',
+              _todayPollCount == 1 ? '1 Poll today' : '$_todayPollCount Polls today',
+              const Color(0xFFE8F0FE),
+              const Color(0xFF1D4ED8),
+              () => _openSpikeTab(2), // Polls sub-tab
+            ),
+          ),
+      ]);
+
+  Widget _glancePill(String emoji, String label, Color bg, Color fg,
+          VoidCallback onTap) =>
+      GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(children: [
+            Text(emoji, style: const TextStyle(fontSize: 18)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(label,
+                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: poppins(12, w: FontWeight.w700, c: fg)),
+            ),
+            Icon(Icons.chevron_right_rounded, size: 16, color: fg),
+          ]),
+        ),
+      );
+
+  // Deep-links into Spike's Polls (2) or Activities (3) sub-tab,
+  // matching the same navigation pattern already used for
+  // notification-tap routing elsewhere in the app.
+  void _openSpikeTab(int communityTab) {
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      AppRoutes.home,
+      (route) => false,
+      arguments: {'tab': 2, 'communityTab': communityTab},
+    );
+  }
 
   Widget _secLabel(IconData icon, String label) => Padding(
         padding: const EdgeInsets.only(top: 2, bottom: 8),
