@@ -189,6 +189,49 @@ class _CheckInScreenState extends State<CheckInScreen> {
     debugPrint('Check-in result: ${res['status']} — ${res['message']}');
   }
 
+  // ── Builds a warm, natural 1-2 sentence summary of the day from
+  // whatever fields the user actually filled in — gracefully
+  // skips anything left empty rather than leaving an awkward gap.
+  String _buildDaySummary() {
+    final parts = <String>[];
+
+    if (_mood.isNotEmpty) parts.add('felt $_mood');
+    if (_people.isNotEmpty) {
+      parts.add('met ${_joinNatural(_people)}');
+    }
+    if (_places.isNotEmpty) {
+      parts.add('visited ${_joinNatural(_places)}');
+    }
+    if (_acts.isNotEmpty) {
+      parts.add('did ${_joinNatural(_acts)}');
+    }
+
+    String firstSentence = '';
+    if (parts.isNotEmpty) {
+      firstSentence = 'Today you ${_joinNatural(parts)}.';
+    }
+
+    final secondParts = <String>[];
+    if (_weather.isNotEmpty) secondParts.add('it was $_weather');
+    if (_sleep.isNotEmpty) secondParts.add('you slept $_sleep');
+    String secondSentence = '';
+    if (secondParts.isNotEmpty) {
+      final joined = _joinNatural(secondParts);
+      secondSentence = '${joined[0].toUpperCase()}${joined.substring(1)}.';
+    }
+
+    if (firstSentence.isEmpty && secondSentence.isEmpty) return '';
+    return [firstSentence, secondSentence].where((s) => s.isNotEmpty).join(' ');
+  }
+
+  // "a, b and c" — natural comma+and joining for any list length.
+  String _joinNatural(List<String> items) {
+    if (items.isEmpty) return '';
+    if (items.length == 1) return items.first;
+    if (items.length == 2) return '${items[0]} and ${items[1]}';
+    return '${items.sublist(0, items.length - 1).join(', ')} and ${items.last}';
+  }
+
   // ── Icon grid builder ─────────────────────────────────────
   Widget _iconGrid(
     List opts,
@@ -598,6 +641,25 @@ class _CheckInScreenState extends State<CheckInScreen> {
                         style: poppins(13, c: C.txm, h: 1.6),
                         textAlign: TextAlign.center,
                       ),
+                      if (_buildDaySummary().isNotEmpty) ...[
+                        const SizedBox(height: 14),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 28),
+                          child: Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: C.yellowLight,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: C.yellowBorder),
+                            ),
+                            child: Text(
+                              _buildDaySummary(),
+                              style: poppins(12.5, c: C.ink, h: 1.5, w: FontWeight.w500),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 16),
                       Wrap(
                         spacing: 6,

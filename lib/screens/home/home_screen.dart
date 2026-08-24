@@ -36,6 +36,8 @@ class _HomeScreenState extends State<HomeScreen> {
   int _notificationCount = 0;
   int _todayPollCount = 0;
   int _todayActivityCount = 0;
+  List _pollDays = [];
+  List _activityDays = [];
 
   @override
   void initState() {
@@ -105,6 +107,8 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _todayPollCount = pollDays.where(isToday).length;
         _todayActivityCount = activityDays.where(isToday).length;
+        _pollDays = pollDays;
+        _activityDays = activityDays;
       });
     } catch (_) {
       // Silently leave counts at 0 — strip just won't show.
@@ -463,60 +467,60 @@ class _HomeScreenState extends State<HomeScreen> {
         : 'A quick wellbeing check for $userName';
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
         color: C.ink,
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
             color: C.ink.withOpacity(.15),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Container(
-            width: 58,
-            height: 58,
+            width: 46,
+            height: 46,
             decoration: BoxDecoration(
               color: C.yellow,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(16),
             ),
             child: Center(
               child: heroEmoji == '✓'
-                  ? const Icon(Icons.check_rounded, color: C.ink, size: 31)
-                  : Text(heroEmoji, style: const TextStyle(fontSize: 29)),
+                  ? const Icon(Icons.check_rounded, color: C.ink, size: 25)
+                  : Text(heroEmoji, style: const TextStyle(fontSize: 23)),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('Today’s wellbeing',
-                  style: poppins(11, w: FontWeight.w800, c: Colors.white54)),
-              const SizedBox(height: 3),
+                  style: poppins(10, w: FontWeight.w800, c: Colors.white54)),
+              const SizedBox(height: 2),
               Text(title,
-                  style: poppins(18,
-                      w: FontWeight.w900, c: Colors.white, h: 1.22)),
-              const SizedBox(height: 3),
-              Text(subtitle, style: poppins(11, c: Colors.white60, h: 1.35)),
+                  style: poppins(15,
+                      w: FontWeight.w900, c: Colors.white, h: 1.2)),
+              const SizedBox(height: 2),
+              Text(subtitle, style: poppins(10.5, c: Colors.white60, h: 1.3)),
             ]),
           ),
         ]),
-        const SizedBox(height: 13),
+        const SizedBox(height: 11),
         Row(children: [
           _todayMetric(
             nextReminder == null
                 ? '--'
                 : (nextReminder['time'] ?? '--').toString(),
-            'Next reminder',
+            'Next alarm',
           ),
-          const SizedBox(width: 8),
-          _todayMetric('$todayCount', 'Today'),
-          const SizedBox(width: 8),
-          _todayMetric('$activeDays', 'Active days'),
+          const SizedBox(width: 7),
+          _todayMetric('$todayCount', 'Alarms today'),
+          const SizedBox(width: 7),
+          _todayMetric('$activeDays', 'Alarm days'),
         ]),
         // Show all submitted check-in data as chips
         if (_checkInDone && _todayActivity != null) ...[
@@ -524,21 +528,21 @@ class _HomeScreenState extends State<HomeScreen> {
           Wrap(spacing: 6, runSpacing: 6, children: [
             ..._buildCheckInChips(_todayActivity!),
           ]),
-          const SizedBox(height: 10),
+          const SizedBox(height: 9),
         ],
         if (!_checkInDone) ...[
-          const SizedBox(height: 13),
+          const SizedBox(height: 11),
           GestureDetector(
             onTap: _openCheckIn,
             child: Container(
-              height: 46,
+              height: 40,
               decoration: BoxDecoration(
                 color: C.yellow,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(14),
               ),
               child: Center(
                 child: Text('Start daily check-in →',
-                  style: poppins(13, w: FontWeight.w900, c: C.ink)),
+                  style: poppins(12.5, w: FontWeight.w900, c: C.ink)),
               ),
             ),
           ),
@@ -549,11 +553,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _todayMetric(String value, String label) => Expanded(
         child: Container(
-          constraints: const BoxConstraints(minHeight: 66),
-          padding: const EdgeInsets.all(9),
+          constraints: const BoxConstraints(minHeight: 52),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(.09),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: Colors.white.withOpacity(.1)),
           ),
           child:
@@ -561,12 +565,12 @@ class _HomeScreenState extends State<HomeScreen> {
             Text(value,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: poppins(15, w: FontWeight.w900, c: Colors.white)),
-            const SizedBox(height: 3),
+                style: poppins(13, w: FontWeight.w900, c: Colors.white)),
+            const SizedBox(height: 2),
             Text(label,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: poppins(9, w: FontWeight.w700, c: Colors.white54)),
+                style: poppins(8, w: FontWeight.w700, c: Colors.white54)),
           ]),
         ),
       );
@@ -657,20 +661,25 @@ class _HomeScreenState extends State<HomeScreen> {
       GestureDetector(
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
           decoration: BoxDecoration(
             color: bg,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: fg.withOpacity(.18)),
           ),
           child: Row(children: [
-            Icon(icon, size: 19, color: fg),
-            const SizedBox(width: 8),
+            Container(
+              width: 34, height: 34,
+              decoration: BoxDecoration(color: fg.withOpacity(.12), shape: BoxShape.circle),
+              child: Icon(icon, size: 18, color: fg),
+            ),
+            const SizedBox(width: 10),
             Expanded(
               child: Text(label,
-                  maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: poppins(12, w: FontWeight.w700, c: fg)),
+                  maxLines: 2, overflow: TextOverflow.ellipsis,
+                  style: poppins(13, w: FontWeight.w800, c: fg, h: 1.2)),
             ),
-            Icon(Icons.chevron_right_rounded, size: 16, color: fg),
+            Icon(Icons.chevron_right_rounded, size: 18, color: fg),
           ]),
         ),
       );
@@ -989,7 +998,7 @@ class _HomeScreenState extends State<HomeScreen> {
         final activity =
             _field(checkIn, ['activity', 'activities', 'activity_name']);
         final notes = _field(checkIn, ['notes', 'note', 'description']);
-        final summary = _checkInSummary(checkIn);
+        final summary = _buildFullDaySummary(checkIn);
         final rows = _checkInRows(checkIn);
         return Container(
           padding: const EdgeInsets.all(14),
@@ -1035,7 +1044,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(height: 3),
                         Text(
                           summary.isNotEmpty
-                              ? 'Your day felt like $summary'
+                              ? summary
                               : 'Your check-in has been recorded',
                           style: poppins(12, c: C.txm, h: 1.35),
                         ),
@@ -1044,6 +1053,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ],
               ),
+              _activityPollStatusSection(_selectedDay),
               if (rows.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Wrap(
@@ -1189,6 +1199,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: poppins(12, c: C.txl),
                 textAlign: TextAlign.center,
               ),
+              _activityPollStatusSection(_selectedDay),
             ],
           ),
         );
@@ -1504,6 +1515,112 @@ class _HomeScreenState extends State<HomeScreen> {
         return clean.split(',').first.trim().split(' ').first;
     }
     return '';
+  }
+
+  String _fmtDateKey(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  List<Map> _activitiesOnDay(DateTime day) {
+    final key = _fmtDateKey(day);
+    return _activityDays
+        .where((d) => d is Map && d['date']?.toString() == key)
+        .cast<Map>()
+        .toList();
+  }
+
+  List<Map> _pollsOnDay(DateTime day) {
+    final key = _fmtDateKey(day);
+    return _pollDays
+        .where((d) => d is Map && d['date']?.toString() == key)
+        .cast<Map>()
+        .toList();
+  }
+
+  // "a, b and c" — natural comma+and joining for any list length.
+  String _joinNatural(List<String> items) {
+    if (items.isEmpty) return '';
+    if (items.length == 1) return items.first;
+    if (items.length == 2) return '${items[0]} and ${items[1]}';
+    return '${items.sublist(0, items.length - 1).join(', ')} and ${items.last}';
+  }
+
+  // Richer multi-field summary (mood + people + places + activities
+  // + weather + sleep), mirroring the composer built for the
+  // check-in submission success screen — reused here so a past
+  // day's detail reads the same way.
+  String _buildFullDaySummary(Map<String, dynamic>? checkIn) {
+    if (checkIn == null) return '';
+    final mood = _field(checkIn, ['mood', 'mood_name', 'feeling']);
+    final peopleRaw = checkIn['people_met'] ?? checkIn['people'];
+    final placesRaw = checkIn['places_visited'] ?? checkIn['places'];
+    final actsRaw = checkIn['activities_done'] ?? checkIn['activities'];
+    final weather = _field(checkIn, ['weather', 'weather_name']);
+    final sleep = _field(checkIn, ['sleep_time', 'sleep']);
+
+    List<String> asList(dynamic raw) {
+      if (raw is List) return raw.map((e) => e.toString()).where((e) => e.trim().isNotEmpty).toList();
+      return [];
+    }
+    final people = asList(peopleRaw);
+    final places = asList(placesRaw);
+    final acts = asList(actsRaw);
+
+    final parts = <String>[];
+    if (mood.isNotEmpty) parts.add('felt $mood');
+    if (people.isNotEmpty) parts.add('met ${_joinNatural(people)}');
+    if (places.isNotEmpty) parts.add('visited ${_joinNatural(places)}');
+    if (acts.isNotEmpty) parts.add('did ${_joinNatural(acts)}');
+    String firstSentence = parts.isNotEmpty ? 'That day you ${_joinNatural(parts)}.' : '';
+
+    final secondParts = <String>[];
+    if (weather.isNotEmpty) secondParts.add('it was $weather');
+    if (sleep.isNotEmpty) secondParts.add('you slept $sleep');
+    String secondSentence = '';
+    if (secondParts.isNotEmpty) {
+      final joined = _joinNatural(secondParts);
+      secondSentence = '${joined[0].toUpperCase()}${joined.substring(1)}.';
+    }
+
+    return [firstSentence, secondSentence].where((s) => s.isNotEmpty).join(' ');
+  }
+
+  // Compact section showing Activities responded/missed and Polls
+  // answered/missed for a specific past day — independent of
+  // whether a daily check-in was submitted that day, since these
+  // are separate systems.
+  Widget _activityPollStatusSection(DateTime day) {
+    final activities = _activitiesOnDay(day);
+    final polls = _pollsOnDay(day);
+    if (activities.isEmpty && polls.isEmpty) return const SizedBox.shrink();
+
+    final activitiesResponded = activities.where((a) => a['status'] == 'completed').length;
+    final activitiesMissed = activities.where((a) => a['status'] == 'missed').length;
+    final pollsAnswered = polls.where((p) {
+      final poll = p['poll'];
+      return p['status'] == 'past' && poll is Map && poll['has_voted'] == true;
+    }).length;
+    final pollsMissed = polls.where((p) {
+      final poll = p['poll'];
+      return p['status'] == 'past' && (poll is! Map || poll['has_voted'] != true);
+    }).length;
+
+    if (activitiesResponded == 0 && activitiesMissed == 0 && pollsAnswered == 0 && pollsMissed == 0) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Wrap(spacing: 6, runSpacing: 6, children: [
+        if (activitiesResponded > 0)
+          _p('✅ $activitiesResponded activity replied', C.greenLight, const Color(0xFF145C30)),
+        if (activitiesMissed > 0)
+          _p('⚪ $activitiesMissed activity missed', C.bg2, C.txm),
+        if (pollsAnswered > 0)
+          _p('✅ $pollsAnswered poll answered', C.greenLight, const Color(0xFF145C30)),
+        if (pollsMissed > 0)
+          _p('⚪ $pollsMissed poll missed', C.bg2, C.txm),
+      ]),
+    );
   }
 
   String _field(Map<String, dynamic>? item, List<String> keys) {
