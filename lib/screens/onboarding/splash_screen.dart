@@ -118,34 +118,19 @@ class _SplashScreenState extends State<SplashScreen>
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           ScaleTransition(
             scale: _logoScale,
-            child: Container(
-              width: 96,
-              height: 96,
-              decoration: BoxDecoration(
-                  color: C.ink, borderRadius: BorderRadius.circular(28)),
-              child: Center(
-                  child: Text('EZ',
-                      style: GoogleFonts.poppins(
-                          fontSize: 34,
-                          fontWeight: FontWeight.w800,
-                          color: C.yellow,
-                          letterSpacing: -1))),
+            child: Image.asset(
+              'assets/images/logo.png',
+              width: 220,
+              fit: BoxFit.contain,
             ),
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 18),
           FadeTransition(
             opacity: _textFade,
             child: SlideTransition(
               position: _textSlide
                   .drive(Tween(begin: const Offset(0, 1), end: Offset.zero)),
               child: Column(children: [
-                Text('ElderZha',
-                    style: GoogleFonts.poppins(
-                        fontSize: 30,
-                        fontWeight: FontWeight.w800,
-                        color: C.ink,
-                        letterSpacing: -0.5)),
-                const SizedBox(height: 4),
                 Text('Your daily wellness companion',
                     style: GoogleFonts.poppins(
                         fontSize: 13,

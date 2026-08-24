@@ -73,6 +73,18 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.1
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/app_icon.png"
+  min_sdk_android: 21
+  # Adaptive icon (Android 8+) — a white background matches the
+  # icon's own background so it looks correct however the OS masks
+  # it (circle, squircle, rounded-square, etc. per device/launcher).
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/images/app_icon.png"
 
 dependency_overrides:
   web: ^1.0.0
