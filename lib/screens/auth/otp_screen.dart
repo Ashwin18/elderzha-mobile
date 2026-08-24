@@ -11,6 +11,7 @@ import '../../alaram/family_event_scheduler.dart';
 import '../../alaram/alarm_permission_service.dart';
 import '../../api/models/fetch_profile_model.dart';
 import '../../services/services.dart';
+import 'benefits_showcase_screen.dart';
 import '../../providers/auth_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_routes.dart';
@@ -254,8 +255,16 @@ class _OtpScreenState extends State<OtpScreen> with CodeAutoFill {
       return;
     }
 
-    // Step 3 — Payment (new user who set profile + alarm but hasn't paid)
-    Navigator.pushReplacementNamed(context, AppRoutes.payment);
+    // Step 3 — Show what they get, right before asking them to pay
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BenefitsShowcaseScreen(
+          userName: auth.user?['name']?.toString() ??
+              auth.user?['first_name']?.toString(),
+        ),
+      ),
+    );
   }
 
   Map<String, dynamic>? _extractUser(Map<String, dynamic>? res) {

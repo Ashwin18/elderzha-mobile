@@ -29,6 +29,7 @@ import 'screens/auth/register_screen.dart';
 import 'screens/auth/otp_screen.dart';
 import 'screens/auth/setup_profile_screen.dart';
 import 'screens/auth/payment_screen.dart';
+import 'screens/auth/benefits_showcase_screen.dart';
 import 'screens/auth/payment_success_screen.dart';
 import 'screens/alarms/alarm_setup_screen.dart';
 import 'screens/alarms/alarms_screen.dart';
@@ -675,6 +676,7 @@ class _ElderZhaAppState extends State<ElderZhaApp> {
         AppRoutes.otp: (_) => const OtpScreen(),
         AppRoutes.setupProfile: (_) => const SetupProfileScreen(),
         AppRoutes.alarmSetup: (_) => const AlarmSetupScreen(),
+        AppRoutes.benefitsShowcase: (_) => const BenefitsShowcaseScreen(),
         AppRoutes.payment: (_) => const PaymentScreen(),
         AppRoutes.paymentSuccess: (_) => const PaymentSuccessScreen(),
         AppRoutes.reminder: (_) => const ReminderScreen(),

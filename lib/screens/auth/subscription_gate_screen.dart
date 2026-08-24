@@ -8,6 +8,7 @@ import 'package:razorpay_flutter/razorpay_flutter.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_routes.dart';
 import '../../services/services.dart';
+import 'benefits_showcase_screen.dart';
 
 class SubscriptionGateScreen extends StatefulWidget {
   const SubscriptionGateScreen({super.key});
@@ -211,6 +212,11 @@ class _SubscriptionGateScreenState extends State<SubscriptionGateScreen> {
                       padding: const EdgeInsets.all(18),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          Text('What you get',
+                              style: poppins(12, w: FontWeight.w700, c: C.txl)),
+                          const SizedBox(height: 8),
+                          const BenefitsList(),
+                          const SizedBox(height: 16),
                           // Plan cards
                           ..._plans.map<Widget>((plan) {
                             final sel = _selPlanId == plan['id'];
