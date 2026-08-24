@@ -993,10 +993,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
     switch (t) {
       case 'checkin':
-        final mood = _field(checkIn, ['mood', 'mood_name', 'feeling']);
-        final weather = _field(checkIn, ['weather', 'weather_name']);
-        final activity =
-            _field(checkIn, ['activity', 'activities', 'activity_name']);
         final notes = _field(checkIn, ['notes', 'note', 'description']);
         final summary = _buildFullDaySummary(checkIn);
         final rows = _checkInRows(checkIn);
@@ -1066,21 +1062,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       .toList(),
                 ),
               ],
-              if (mood.isNotEmpty || weather.isNotEmpty || activity.isNotEmpty)
-                const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  if (mood.isNotEmpty)
-                    _p('Mood: $mood', C.yellowMid, C.yellowDeep),
-                  if (weather.isNotEmpty)
-                    _p('Weather: $weather', C.greenLight, C.green),
-                  if (activity.isNotEmpty)
-                    _p('Activity: $activity', C.blueLight,
-                        const Color(0xFF0D47A1)),
-                ],
-              ),
               if (notes.isNotEmpty) ...[
                 const SizedBox(height: 10),
                 Container(
@@ -1096,10 +1077,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ],
-              if (mood.isEmpty &&
-                  weather.isEmpty &&
-                  activity.isEmpty &&
-                  notes.isEmpty)
+              if (rows.isEmpty && notes.isEmpty)
                 Text('Check-in submitted for this date',
                     style: poppins(12, c: C.txl)),
             ],
@@ -1464,8 +1442,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
     add('Mood', ['mood', 'mood_name', 'feeling']);
     add('People', ['people', 'persons', 'met_people', 'people_met']);
-    add('Places', ['places', 'place', 'locations']);
-    add('Activity', ['activity', 'activities', 'activity_name']);
+    add('Places', ['places', 'place', 'locations', 'places_visited']);
+    add('Activity', ['activity', 'activities', 'activity_name', 'activities_done']);
     add('Weather', ['weather', 'weather_name']);
     add('Sleep', ['sleep', 'sleep_time', 'sleeping']);
     add('Notes', ['notes', 'note', 'description']);
