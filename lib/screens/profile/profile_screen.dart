@@ -549,7 +549,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               physics: const NeverScrollableScrollPhysics(),
                               mainAxisSpacing: 10,
                               crossAxisSpacing: 10,
-                              childAspectRatio: 1.55,
+                              childAspectRatio: 1.3,
                               children: [
                                 _boxItem(
                                   context,
@@ -860,31 +860,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(18),
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: AppColors.bgCard,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: AppColors.border),
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 Container(
-                  width: 38,
-                  height: 38,
+                  width: 36,
+                  height: 36,
                   decoration: BoxDecoration(
                     color: color.withOpacity(.12),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(icon, size: 18, color: color),
+                  child: Icon(icon, size: 17, color: color),
                 ),
                 const Spacer(),
                 Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.inkLight),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Text(
               label,
               maxLines: 1,

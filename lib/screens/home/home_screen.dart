@@ -424,7 +424,23 @@ class _HomeScreenState extends State<HomeScreen> {
                   _calCard(),
                   const SizedBox(height: 12),
                   _secLabel(Icons.timeline_rounded, _detailLabel()),
-                  _detailCard(),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 280),
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0, 0.06),
+                          end: Offset.zero,
+                        ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
+                        child: child,
+                      ),
+                    ),
+                    child: Container(
+                      key: ValueKey(_fmtDateKey(_selectedDay)),
+                      child: _detailCard(),
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   _quickActions(),
                   if (_homeActivities.isNotEmpty) ...[
