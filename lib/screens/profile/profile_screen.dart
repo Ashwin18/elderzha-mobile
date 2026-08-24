@@ -540,7 +540,87 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 16),
+                            // ── Feature grid — bigger touch targets for
+                            // the items people actively use day to day.
+                            GridView.count(
+                              crossAxisCount: 2,
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              mainAxisSpacing: 10,
+                              crossAxisSpacing: 10,
+                              childAspectRatio: 1.05,
+                              children: [
+                                _boxItem(
+                                  context,
+                                  Icons.medication_rounded,
+                                  AppColors.yellowDark,
+                                  'Medical alarm',
+                                  medicalConfigured ? 'Configured' : 'Not set',
+                                  () => Navigator.pushNamed(
+                                    context,
+                                    AppRoutes.alarms,
+                                    arguments: 'medical',
+                                  ).then((_) => _load()),
+                                ),
+                                _boxItem(
+                                  context,
+                                  Icons.restaurant_rounded,
+                                  AppColors.green,
+                                  'Food alarm',
+                                  foodConfigured ? 'Configured' : 'Not set',
+                                  () => Navigator.pushNamed(
+                                    context,
+                                    AppRoutes.alarms,
+                                    arguments: 'food',
+                                  ).then((_) => _load()),
+                                ),
+                                _boxItem(
+                                  context,
+                                  Icons.people_rounded,
+                                  AppColors.blue,
+                                  'Family members',
+                                  '$_familyCount added',
+                                  () => Navigator.pushNamed(
+                                    context,
+                                    AppRoutes.familyMembers,
+                                  ).then((_) => _load()),
+                                ),
+                                _boxItem(
+                                  context,
+                                  Icons.sensors_rounded,
+                                  AppColors.red,
+                                  'Fall Detection',
+                                  'Auto SOS',
+                                  () => Navigator.push(context,
+                                      MaterialPageRoute(builder: (_) =>
+                                          const FallSettingsScreen())),
+                                ),
+                                _boxItem(
+                                  context,
+                                  Icons.notifications_rounded,
+                                  AppColors.purple,
+                                  'Notifications',
+                                  '$_notificationCount new',
+                                  () => Navigator.pushNamed(
+                                    context,
+                                    AppRoutes.notifications,
+                                  ).then((_) => _load()),
+                                ),
+                                _boxItem(
+                                  context,
+                                  Icons.credit_card_rounded,
+                                  AppColors.yellowDark,
+                                  'Subscription',
+                                  '& payment',
+                                  () => Navigator.pushNamed(
+                                    context,
+                                    AppRoutes.subscription,
+                                  ).then((_) => _load()),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
                             Container(
                               decoration: BoxDecoration(
                                 color: AppColors.bgCard,
@@ -578,62 +658,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   ),
                                   _menuRow(
                                     context,
-                                    Icons.medication_rounded,
-                                    AppColors.yellowDark,
-                                    'Medical alarm',
-                                    medicalConfigured
-                                        ? 'Configured'
-                                        : 'Not set',
-                                    () => Navigator.pushNamed(
-                                      context,
-                                      AppRoutes.alarms,
-                                      arguments: 'medical',
-                                    ).then((_) => _load()),
-                                    valueColor: medicalConfigured
-                                        ? AppColors.yellowDark
-                                        : AppColors.inkLight,
-                                  ),
-                                  _menuRow(
-                                    context,
-                                    Icons.restaurant_rounded,
-                                    AppColors.green,
-                                    'Food alarm',
-                                    foodConfigured ? 'Configured' : 'Not set',
-                                    () => Navigator.pushNamed(
-                                      context,
-                                      AppRoutes.alarms,
-                                      arguments: 'food',
-                                    ).then((_) => _load()),
-                                    valueColor: foodConfigured
-                                        ? AppColors.green
-                                        : AppColors.inkLight,
-                                  ),
-                                  _menuRow(
-                                    context,
-                                    Icons.people_rounded,
-                                    AppColors.blue,
-                                    'Family members',
-                                    '$_familyCount added',
-                                    () => Navigator.pushNamed(
-                                      context,
-                                      AppRoutes.familyMembers,
-                                    ).then((_) => _load()),
-                                    valuePill: true,
-                                    valueColor: AppColors.blue,
-                                  ),
-                                  _menuRow(
-                                    context,
-                                    Icons.credit_card_rounded,
-                                    AppColors.yellowDark,
-                                    'Subscription & payment',
-                                    null,
-                                    () => Navigator.pushNamed(
-                                      context,
-                                      AppRoutes.subscription,
-                                    ).then((_) => _load()),
-                                  ),
-                                  _menuRow(
-                                    context,
                                     Icons.autorenew_rounded,
                                     AppColors.green,
                                     'AutoPay settings',
@@ -643,29 +667,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       AppRoutes.autopaySettings,
                                     ).then((_) => _load()),
                                     valueColor: AppColors.green,
-                                  ),
-                                  _menuRow(
-                                    context,
-                                    Icons.notifications_rounded,
-                                    AppColors.red,
-                                    'Notifications',
-                                    '$_notificationCount new',
-                                    () => Navigator.pushNamed(
-                                      context,
-                                      AppRoutes.notifications,
-                                    ).then((_) => _load()),
-                                    valuePill: true,
-                                    valueColor: AppColors.red,
-                                  ),
-                                  _menuRow(
-                                    context,
-                                    Icons.sensors_rounded,
-                                    AppColors.inkMuted,
-                                    'Fall Detection',
-                                    'Auto SOS',
-                                    () => Navigator.push(context,
-                                        MaterialPageRoute(builder: (_) =>
-                                            const FallSettingsScreen())),
                                   ),
                                   _menuRow(
                                     context,
@@ -844,6 +845,64 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         if (!isLast) const Divider(height: 1, indent: 14, endIndent: 14),
       ],
+    );
+  }
+
+  Widget _boxItem(
+    BuildContext context,
+    IconData icon,
+    Color color,
+    String label,
+    String description,
+    VoidCallback onTap,
+  ) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.bgCard,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: color.withOpacity(.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 19, color: color),
+            ),
+            const Spacer(),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: AppColors.ink,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              description,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.poppins(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: AppColors.inkMuted,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

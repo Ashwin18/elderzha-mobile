@@ -334,11 +334,25 @@ class _LockedPollCard extends StatelessWidget {
     final diff = unlockAt.difference(DateTime.now());
 
     if (unlocksToday) {
-      final hour12 = unlockAt.hour % 12 == 0 ? 12 : unlockAt.hour % 12;
-      final minute = unlockAt.minute.toString().padLeft(2, '0');
-      final ampm = unlockAt.hour >= 12 ? 'PM' : 'AM';
+      // See activity_calendar_tab.dart's _countdown() for why this
+      // reads the raw 'time' string rather than unlockAt.hour.
+      final rawTime = day['time']?.toString();
+      String label;
+      if (rawTime != null && rawTime.contains(':')) {
+        final parts = rawTime.split(':');
+        final hour24 = int.tryParse(parts[0]) ?? unlockAt.hour;
+        final minute = int.tryParse(parts[1]) ?? unlockAt.minute;
+        final hour12 = hour24 % 12 == 0 ? 12 : hour24 % 12;
+        final ampm = hour24 >= 12 ? 'PM' : 'AM';
+        label = '$hour12:${minute.toString().padLeft(2, '0')} $ampm';
+      } else {
+        final hour12 = unlockAt.hour % 12 == 0 ? 12 : unlockAt.hour % 12;
+        final minute = unlockAt.minute.toString().padLeft(2, '0');
+        final ampm = unlockAt.hour >= 12 ? 'PM' : 'AM';
+        label = '$hour12:$minute $ampm';
+      }
       if (diff.isNegative) return 'Opening now';
-      return 'Opens at $hour12:$minute $ampm';
+      return 'Opens at $label';
     }
     if (diff.isNegative) return 'Unlocking soon';
     if (diff.inDays >= 1) return 'Unlocks in ${diff.inDays} day${diff.inDays > 1 ? 's' : ''}';

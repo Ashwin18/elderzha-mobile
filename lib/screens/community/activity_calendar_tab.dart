@@ -646,11 +646,32 @@ class _LockedDayCard extends StatelessWidget {
     if (unlocksToday) {
       // Same calendar day, just waiting on the clock — show the exact
       // time rather than a vague countdown ("Opens at 3:00 PM").
-      final hour12 = unlockAt.hour % 12 == 0 ? 12 : unlockAt.hour % 12;
-      final minute = unlockAt.minute.toString().padLeft(2, '0');
-      final ampm = unlockAt.hour >= 12 ? 'PM' : 'AM';
+      //
+      // Reads the display hour/minute directly from the raw 'time'
+      // field (e.g. "18:30:00") rather than unlockAt.hour — a parsed
+      // DateTime's .hour reflects the DEVICE's local timezone, so if
+      // a device's system clock is misconfigured (e.g. set to UTC
+      // instead of IST, common on emulators), the displayed time
+      // would silently shift by that offset even though the
+      // underlying data is correct. Reading the raw string sidesteps
+      // that entirely for what's shown to the user.
+      final rawTime = day['time']?.toString();
+      String label;
+      if (rawTime != null && rawTime.contains(':')) {
+        final parts = rawTime.split(':');
+        final hour24 = int.tryParse(parts[0]) ?? unlockAt.hour;
+        final minute = int.tryParse(parts[1]) ?? unlockAt.minute;
+        final hour12 = hour24 % 12 == 0 ? 12 : hour24 % 12;
+        final ampm = hour24 >= 12 ? 'PM' : 'AM';
+        label = '$hour12:${minute.toString().padLeft(2, '0')} $ampm';
+      } else {
+        final hour12 = unlockAt.hour % 12 == 0 ? 12 : unlockAt.hour % 12;
+        final minute = unlockAt.minute.toString().padLeft(2, '0');
+        final ampm = unlockAt.hour >= 12 ? 'PM' : 'AM';
+        label = '$hour12:$minute $ampm';
+      }
       if (diff.isNegative) return 'Opening now';
-      return 'Opens at $hour12:$minute $ampm';
+      return 'Opens at $label';
     }
 
     if (diff.isNegative) return 'Unlocking soon';
