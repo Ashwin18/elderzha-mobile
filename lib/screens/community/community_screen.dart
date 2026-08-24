@@ -378,10 +378,17 @@ class _CommunityScreenState extends State<CommunityScreen> {
                         setState(() => _tab = i);
                         _load();
                         if (i == 2 || i == 3) {
-                          // Re-check after a short delay so the user
-                          // has had a moment to see/act on it before
-                          // the dot potentially clears.
-                          Future.delayed(const Duration(seconds: 2), _checkForNewItems);
+                          // Clear the dot locally after a short delay so
+                          // the user has had a moment to see it — no
+                          // need to re-fetch from the network just to
+                          // confirm what we already know.
+                          Future.delayed(const Duration(seconds: 2), () {
+                            if (!mounted) return;
+                            setState(() {
+                              if (i == 2) _hasNewPoll = false;
+                              if (i == 3) _hasNewActivity = false;
+                            });
+                          });
                         }
                       },
                       child: Container(

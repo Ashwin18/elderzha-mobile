@@ -15,6 +15,19 @@ import 'api_client.dart';
 class CommunityService {
   final _api = ApiClient();
 
+  // ── Short-lived cache for the calendar endpoints ────────────
+  // Home's "Today at a Glance" strip and Spike's new-item dot
+  // check both call these same two endpoints independently. If a
+  // user bounces between Home and Spike a few times in quick
+  // succession, that adds up to real redundant network calls —
+  // this cache means only the FIRST call in any 20-second window
+  // actually hits the network; the rest reuse that result.
+  static Map<String, dynamic>? _pollCalendarCache;
+  static DateTime? _pollCalendarCacheAt;
+  static Map<String, dynamic>? _activityCalendarCache;
+  static DateTime? _activityCalendarCacheAt;
+  static const _cacheTtl = Duration(seconds: 20);
+
   // ── GET /user/get/pools-list ──────────────────────────────
   Future<Map<String, dynamic>?> getPollsList({int page = 1}) =>
       _api.safeGet('/user/get/pools-list?page=$page');
@@ -23,8 +36,17 @@ class CommunityService {
   // Dedicated Today/Coming Up/History calendar for the redesigned
   // Polls tab — mirrors getActivityCalendar(). 30-day rolling
   // window since polls are broadcast-only.
-  Future<Map<String, dynamic>?> getPollCalendar() async {
-    return _api.safeGet('/user/poll/calendar');
+  Future<Map<String, dynamic>?> getPollCalendar({bool forceRefresh = false}) async {
+    final cachedAt = _pollCalendarCacheAt;
+    if (!forceRefresh &&
+        cachedAt != null &&
+        DateTime.now().difference(cachedAt) < _cacheTtl) {
+      return _pollCalendarCache;
+    }
+    final res = await _api.safeGet('/user/poll/calendar');
+    _pollCalendarCache = res;
+    _pollCalendarCacheAt = DateTime.now();
+    return res;
   }
 
   // ── POST /user/poll/submit ────────────────────────────────
@@ -44,8 +66,17 @@ class CommunityService {
   // tab — separate from the generic feed, returns per-day lock
   // status (locked/today/completed/missed) with content only
   // included for unlocked days.
-  Future<Map<String, dynamic>?> getActivityCalendar() async {
-    return _api.safeGet('/user/activity/calendar');
+  Future<Map<String, dynamic>?> getActivityCalendar({bool forceRefresh = false}) async {
+    final cachedAt = _activityCalendarCacheAt;
+    if (!forceRefresh &&
+        cachedAt != null &&
+        DateTime.now().difference(cachedAt) < _cacheTtl) {
+      return _activityCalendarCache;
+    }
+    final res = await _api.safeGet('/user/activity/calendar');
+    _activityCalendarCache = res;
+    _activityCalendarCacheAt = DateTime.now();
+    return res;
   }
 
   // ── GET /user/feed/{type} ─────────────────────────────────

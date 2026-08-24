@@ -44,7 +44,7 @@ class _PollCalendarTabState extends State<PollCalendarTab> {
 
   Future<void> _load() async {
     setState(() { _loading = true; _error = null; });
-    final res = await _svc.getPollCalendar();
+    final res = await _svc.getPollCalendar(forceRefresh: true);
     if (!mounted) return;
     if (res != null && res['status'] == true) {
       final data = res['data'];

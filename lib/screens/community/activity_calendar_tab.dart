@@ -54,7 +54,7 @@ class _ActivityCalendarTabState extends State<ActivityCalendarTab> {
 
   Future<void> _load() async {
     setState(() { _loading = true; _error = null; });
-    final res = await _communitySvc.getActivityCalendar();
+    final res = await _communitySvc.getActivityCalendar(forceRefresh: true);
     if (!mounted) return;
     if (res != null && res['status'] == true) {
       final data = res['data'];

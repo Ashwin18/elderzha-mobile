@@ -93,13 +93,18 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       final pollDays = _extractList(glance[0]);
       final activityDays = _extractList(glance[1]);
+      // Counts everything scheduled for today, including items still
+      // locked-but-later-today (unlocks_today: true) — the "Later
+      // Today" section in the actual tabs. Only counting the
+      // currently-unlocked "today" status would undercount whenever
+      // admin schedules more than one activity/poll for the same day.
+      bool isToday(dynamic d) =>
+          d is Map &&
+          (d['status'] == 'today' ||
+              (d['status'] == 'locked' && d['unlocks_today'] == true));
       setState(() {
-        _todayPollCount = pollDays
-            .where((d) => d is Map && d['status'] == 'today')
-            .length;
-        _todayActivityCount = activityDays
-            .where((d) => d is Map && d['status'] == 'today')
-            .length;
+        _todayPollCount = pollDays.where(isToday).length;
+        _todayActivityCount = activityDays.where(isToday).length;
       });
     } catch (_) {
       // Silently leave counts at 0 — strip just won't show.
@@ -624,7 +629,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if (_todayActivityCount > 0)
           Expanded(
             child: _glancePill(
-              '📅',
+              Icons.event_available_rounded,
               _todayActivityCount == 1
                   ? '1 Activity today'
                   : '$_todayActivityCount Activities today',
@@ -638,7 +643,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if (_todayPollCount > 0)
           Expanded(
             child: _glancePill(
-              '🗳️',
+              Icons.how_to_vote_rounded,
               _todayPollCount == 1 ? '1 Poll today' : '$_todayPollCount Polls today',
               const Color(0xFFE8F0FE),
               const Color(0xFF1D4ED8),
@@ -647,7 +652,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
       ]);
 
-  Widget _glancePill(String emoji, String label, Color bg, Color fg,
+  Widget _glancePill(IconData icon, String label, Color bg, Color fg,
           VoidCallback onTap) =>
       GestureDetector(
         onTap: onTap,
@@ -658,7 +663,7 @@ class _HomeScreenState extends State<HomeScreen> {
             borderRadius: BorderRadius.circular(16),
           ),
           child: Row(children: [
-            Text(emoji, style: const TextStyle(fontSize: 18)),
+            Icon(icon, size: 19, color: fg),
             const SizedBox(width: 8),
             Expanded(
               child: Text(label,
