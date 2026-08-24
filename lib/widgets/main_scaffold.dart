@@ -173,29 +173,26 @@ class _MainScaffoldState extends State<MainScaffold>
         width: isSpike ? 48 : 38,
         height: isSpike ? 48 : 34,
         margin: EdgeInsets.only(top: isSpike ? 0 : 6),
-        decoration: BoxDecoration(
-          color: isSpike
-              ? C.yellow
-              : (sel ? C.yellowMid : Colors.transparent),
-          borderRadius: BorderRadius.circular(isSpike ? 18 : 14),
-          border: isSpike
-              ? Border.all(color: C.yellowDark, width: 1.2)
-              : null,
-          boxShadow: isSpike
-              ? [
-                  BoxShadow(
-                    color: C.yellowDark.withOpacity(.23),
-                    blurRadius: 16,
-                    offset: const Offset(0, 8),
-                  )
-                ]
-              : null,
-        ),
-        child: Icon(
-          sel ? _icons[i] : _iconsOff[i],
-          size: isSpike ? 28 : 22,
-          color: isSpike ? C.ink : (sel ? C.ink : C.txl),
-        ),
+        decoration: isSpike
+            ? null // custom Spike asset already contains its own ring —
+                   // avoids a doubled yellow-circle-behind-yellow-ring look
+            : BoxDecoration(
+                color: sel ? C.yellowMid : Colors.transparent,
+                borderRadius: BorderRadius.circular(14),
+              ),
+        child: isSpike
+            ? Image.asset(
+                sel
+                    ? 'assets/images/spike_icon_selected.png'
+                    : 'assets/images/spike_icon_unselected.png',
+                width: 48,
+                height: 48,
+              )
+            : Icon(
+                sel ? _icons[i] : _iconsOff[i],
+                size: 22,
+                color: sel ? C.ink : C.txl,
+              ),
       ),
     );
   }

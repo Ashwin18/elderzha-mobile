@@ -62,8 +62,34 @@ class FallMonitorService : Service(), SensorEventListener {
     private val freefallThreshold = 4.5       // g < this = near-weightless
     private val freefallMinDurationMs = 100L  // must SUSTAIN freefall briefly,
                                                // filters single-sample noise
-    private val impactThreshold = 18.0        // required impact after a
-                                               // confirmed freefall (~1.8G)
+    private val impactThreshold: Double
+        get() = when (getSensitivityPref()) {
+            "low" -> 22.0   // needs a harder hit — fewer false alarms,
+                             // may miss a softer fall
+            "high" -> 14.0  // triggers on a softer impact — catches
+                             // gentler falls, edges back toward more
+                             // false positives
+            else -> 18.0    // "medium" and any unrecognized value —
+                             // matches the original fixed threshold,
+                             // so existing users see no behavior
+                             // change unless they explicitly pick
+                             // Low or High
+        }                                          // (~1.4-2.2G range)
+
+    // Reads the sensitivity choice set from the Flutter settings screen
+    // (SharedPreferences key "fall_sensitivity") — re-read on every
+    // access via the property getter above, so a change takes effect
+    // immediately without needing to restart monitoring.
+    private fun getSensitivityPref(): String {
+        return try {
+            val prefs = getSharedPreferences(
+                "${packageName}_preferences", Context.MODE_PRIVATE
+            )
+            prefs.getString("flutter.fall_sensitivity", "medium") ?: "medium"
+        } catch (e: Exception) {
+            "medium"
+        }
+    }
     private val stillnessWindowMs = 1600L     // slightly longer — real
                                                // falls onto a bed/soft
                                                // surface can bounce/settle

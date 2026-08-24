@@ -217,12 +217,44 @@ class _FallAlertScreenState extends State<FallAlertScreen>
   );
 }
 
-class FallSOSSentScreen extends StatelessWidget {
+class FallSOSSentScreen extends StatefulWidget {
   final String? locationUrl;
   const FallSOSSentScreen({super.key, this.locationUrl});
 
   @override
+  State<FallSOSSentScreen> createState() => _FallSOSSentScreenState();
+}
+
+class _FallSOSSentScreenState extends State<FallSOSSentScreen> {
+  Timer? _autoHomeTimer;
+  int _secondsLeft = 8;
+
+  @override
+  void initState() {
+    super.initState();
+    // Auto-navigate home after a short delay — in a real emergency,
+    // requiring the user to tap again after already dealing with a
+    // fall is unnecessary friction. The manual button below still
+    // works immediately for anyone who wants to leave sooner.
+    _autoHomeTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) return;
+      setState(() => _secondsLeft--);
+      if (_secondsLeft <= 0) {
+        t.cancel();
+        Navigator.of(context).popUntil((r) => r.isFirst);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _autoHomeTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final locationUrl = widget.locationUrl;
     return Scaffold(
       backgroundColor: const Color(0xFF1B5E20),
       body: SafeArea(
@@ -274,7 +306,7 @@ class FallSOSSentScreen extends StatelessWidget {
                   decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(14)),
-                  child: Center(child: Text('Back to Home',
+                  child: Center(child: Text('Back to Home ($_secondsLeft)',
                       style: GoogleFonts.poppins(fontSize: 16,
                           fontWeight: FontWeight.w700,
                           color: const Color(0xFF1B5E20)))),

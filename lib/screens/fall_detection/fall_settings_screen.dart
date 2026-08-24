@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/app_theme.dart';
 import '../../services/api_client.dart';
 
@@ -39,6 +40,37 @@ class _FallSettingsScreenState extends State<FallSettingsScreen>
     WidgetsBinding.instance.addObserver(this);
     _refresh();
     _loadSosContact();
+    _loadSensitivity();
+  }
+
+  // Fall detection sensitivity — low/medium/high. Stored via
+  // SharedPreferences using the exact key format the native
+  // Kotlin side already reads elsewhere in this app (see
+  // FallMonitorService.isMonitoringEnabled for the established
+  // pattern: "flutter." prefix, same preferences file the
+  // shared_preferences plugin itself writes to).
+  String _sensitivity = 'medium';
+  bool _sensitivityLoaded = false;
+
+  Future<void> _loadSensitivity() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _sensitivity = prefs.getString('fall_sensitivity') ?? 'medium';
+      _sensitivityLoaded = true;
+    });
+  }
+
+  Future<void> _setSensitivity(String value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('fall_sensitivity', value);
+    if (!mounted) return;
+    setState(() => _sensitivity = value);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('Sensitivity set to ${value[0].toUpperCase()}${value.substring(1)}',
+          style: GoogleFonts.poppins(fontSize: 12, color: Colors.white)),
+      backgroundColor: const Color(0xFF2E7D32),
+    ));
   }
 
   @override
@@ -263,6 +295,71 @@ class _FallSettingsScreenState extends State<FallSettingsScreen>
                         onChanged: _toggle,
                       ),
                     ]),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  // ── Fall Detection Sensitivity ──
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: C.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: C.bd, width: 1.5),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(children: [
+                          const Icon(Icons.tune_rounded, size: 20, color: C.ink),
+                          const SizedBox(width: 8),
+                          Text('Fall Sensitivity',
+                              style: poppins(15, w: FontWeight.w700, c: C.ink)),
+                        ]),
+                        const SizedBox(height: 4),
+                        Text(
+                          'High catches gentler falls but may trigger more '
+                          'false alarms. Low reduces false alarms but may miss '
+                          'a softer fall. Medium is recommended for most people.',
+                          style: poppins(12, c: C.txm, h: 1.4),
+                        ),
+                        const SizedBox(height: 12),
+                        if (!_sensitivityLoaded)
+                          const Center(child: Padding(
+                            padding: EdgeInsets.all(8),
+                            child: CircularProgressIndicator(color: C.yellowDark, strokeWidth: 2),
+                          ))
+                        else
+                          Row(children: [
+                            for (final level in ['low', 'medium', 'high'])
+                              Expanded(
+                                child: Padding(
+                                  padding: EdgeInsets.only(right: level != 'high' ? 8 : 0),
+                                  child: GestureDetector(
+                                    onTap: () => _setSensitivity(level),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                      decoration: BoxDecoration(
+                                        color: _sensitivity == level ? C.yellow : C.bg2,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: _sensitivity == level ? C.yellowDark : C.bd,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        level[0].toUpperCase() + level.substring(1),
+                                        textAlign: TextAlign.center,
+                                        style: poppins(12.5,
+                                            w: FontWeight.w800,
+                                            c: _sensitivity == level ? C.ink : C.txm),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ]),
+                      ],
+                    ),
                   ),
 
                   const SizedBox(height: 14),
