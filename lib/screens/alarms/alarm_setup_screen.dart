@@ -13,6 +13,7 @@ import '../../alaram/alarm_config_store.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_routes.dart';
 import '../../services/services.dart';
+import '../auth/benefits_showcase_screen.dart';
 
 const MethodChannel _alarmSetupChannel = MethodChannel('alarm_service');
 
@@ -1263,7 +1264,10 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
       );
       if (!mounted) return;
     }
-    Navigator.pushReplacementNamed(context, AppRoutes.payment);
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const BenefitsShowcaseScreen()),
+    );
   }
 
   Future<void> _saveSetupFamilyFallback() async {

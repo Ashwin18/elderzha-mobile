@@ -15,8 +15,8 @@ class CommunityScreen extends StatefulWidget {
 
 class _CommunityScreenState extends State<CommunityScreen> {
   final _svc = CommunityService();
-  int _tab = 0;
-  final _tabs = ['All', 'Feed', 'Polls', 'Activities'];
+  int _tab = 1;
+  final _tabs = ['Feed', 'Polls', 'Activities'];
   final _types = ['all', 'feed', 'polls', 'activities'];
   List _items = [];
   bool _loading = true;
@@ -27,7 +27,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
   @override
   void initState() {
     super.initState();
-    _tab = widget.initialTab.clamp(0, _tabs.length - 1);
+    _tab = widget.initialTab <= 0 ? 1 : widget.initialTab.clamp(1, 3);
     _load();
     _checkForNewItems();
   }
@@ -370,7 +370,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
                           bottom: BorderSide(
                               color: Colors.black.withOpacity(0.1), width: 2))),
                   child: Row(
-                      children: List.generate(4, (i) {
+                      children: List.generate(3, (visualIdx) {
+                    final i = visualIdx + 1; // real scheme: 1=Feed, 2=Polls, 3=Activities
                     final sel = _tab == i;
                     return Expanded(
                         child: GestureDetector(
@@ -400,7 +401,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                                     width: 2))),
                         child: Center(
                             child: Stack(clipBehavior: Clip.none, children: [
-                              Text(_tabs[i],
+                              Text(_tabs[i - 1],
                                   style: poppins(12,
                                       w: FontWeight.w700,
                                       c: sel ? C.ink : C.txl)),
