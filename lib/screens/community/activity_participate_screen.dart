@@ -128,11 +128,23 @@ class _ActivityParticipateScreenState extends State<ActivityParticipateScreen> {
     final activity = _activity;
     final title = activity['title']?.toString() ?? 'Activity';
     final postType = activity['post_type']?.toString() ?? 'text';
-    final textContent = activity['text_content']?.toString();
+    final description = activity['text_content']?.toString();
+    final bannerUrl = activity['banner_image']?.toString();
     final mediaUrl = activity['media_url']?.toString();
     final youtubeLink = activity['youtube_link']?.toString();
     final replySubmitted = _repliedLocally || activity['reply_submitted'] == true;
     final ownReplyNotes = activity['notes']?.toString() ?? activity['reply_notes']?.toString();
+
+    final hasExtraMedia = postType != 'text' &&
+        ((mediaUrl != null && mediaUrl.isNotEmpty) ||
+            (postType == 'youtube' && youtubeLink != null && youtubeLink.isNotEmpty));
+
+    final (badgeIcon, badgeLabel, badgeBg, badgeFg) = switch (postType) {
+      'image' => (Icons.camera_alt_rounded, 'Image', C.blueLight, const Color(0xFF0C447C)),
+      'video' => (Icons.videocam_rounded, 'Video', C.blueLight, const Color(0xFF0C447C)),
+      'youtube' => (Icons.smart_display_rounded, 'YouTube', C.red.withOpacity(.12), C.red),
+      _ => (Icons.edit_note_rounded, 'Text', C.bg2, C.txm),
+    };
 
     return Scaffold(
       backgroundColor: C.bg,
@@ -152,13 +164,27 @@ class _ActivityParticipateScreenState extends State<ActivityParticipateScreen> {
                 ),
               ),
               const SizedBox(height: 10),
+              // Banner — always shown, uses banner_image (independent
+              // of post type), same source and placeholder-fallback as
+              // the list card. The activity's own content (photo/video/
+              // YouTube) shows as a separate block further down.
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(18),
-                  child: (mediaUrl != null && mediaUrl.isNotEmpty) ||
-                          (postType == 'youtube' && youtubeLink != null && youtubeLink.isNotEmpty)
-                      ? CommunityMedia(item: activity, height: 190)
+                  child: (bannerUrl != null && bannerUrl.isNotEmpty)
+                      ? Image.network(
+                          bannerUrl,
+                          height: 190,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            height: 190,
+                            width: double.infinity,
+                            color: C.yellowLight,
+                            child: const Icon(Icons.image_rounded, size: 40, color: C.yellowDark),
+                          ),
+                        )
                       : Container(
                           height: 190,
                           width: double.infinity,
@@ -170,22 +196,44 @@ class _ActivityParticipateScreenState extends State<ActivityParticipateScreen> {
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  if (_scheduledTimeLabel() != null) ...[
+                  Row(children: [
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(color: C.bg2, borderRadius: BorderRadius.circular(999)),
+                      decoration: BoxDecoration(color: badgeBg, borderRadius: BorderRadius.circular(999)),
                       child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        const Icon(Icons.schedule_rounded, size: 11, color: C.txm),
+                        Icon(badgeIcon, size: 12, color: badgeFg),
                         const SizedBox(width: 4),
-                        Text(_scheduledTimeLabel()!, style: poppins(11, w: FontWeight.w700, c: C.txm)),
+                        Text(badgeLabel, style: poppins(11, w: FontWeight.w700, c: badgeFg)),
                       ]),
                     ),
-                    const SizedBox(height: 10),
-                  ],
+                    if (_scheduledTimeLabel() != null) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(color: C.bg2, borderRadius: BorderRadius.circular(999)),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          const Icon(Icons.schedule_rounded, size: 11, color: C.txm),
+                          const SizedBox(width: 4),
+                          Text(_scheduledTimeLabel()!, style: poppins(11, w: FontWeight.w700, c: C.txm)),
+                        ]),
+                      ),
+                    ],
+                  ]),
+                  const SizedBox(height: 10),
                   Text(title, style: poppins(20, w: FontWeight.w800, c: C.ink, h: 1.25)),
-                  if (textContent != null && textContent.isNotEmpty) ...[
+                  if (description != null && description.isNotEmpty) ...[
                     const SizedBox(height: 10),
-                    Text(textContent, style: poppins(14, c: C.txm, h: 1.5)),
+                    Text(description, style: poppins(14, c: C.txm, h: 1.5)),
+                  ],
+                  // Actual content — photo/video/YouTube — shown as its
+                  // own block below the description, for every type
+                  // except Text (which has nothing further to show).
+                  if (hasExtraMedia) ...[
+                    const SizedBox(height: 14),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: CommunityMedia(item: activity, height: 190),
+                    ),
                   ],
                   const SizedBox(height: 20),
 
