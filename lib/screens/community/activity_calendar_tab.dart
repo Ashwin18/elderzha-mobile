@@ -234,7 +234,7 @@ class _ActivityBannerCard extends StatelessWidget {
     final activity = day['activity'] as Map? ?? {};
     final title = activity['title']?.toString() ?? 'Activity';
     final content = activity['text_content']?.toString() ?? '';
-    final mediaUrl = activity['media_url']?.toString();
+    final bannerUrl = activity['banner_image']?.toString();
     final status = day['status']?.toString() ?? '';
     final replySubmitted = activity['reply_submitted'] == true;
     final isLocked = status == 'locked';
@@ -273,12 +273,24 @@ class _ActivityBannerCard extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Stack(children: [
-            (mediaUrl != null && mediaUrl.isNotEmpty)
+            (bannerUrl != null && bannerUrl.isNotEmpty)
                 ? ColorFiltered(
                     colorFilter: isLocked
                         ? ColorFilter.mode(Colors.white.withOpacity(.55), BlendMode.srcOver)
                         : const ColorFilter.mode(Colors.transparent, BlendMode.multiply),
-                    child: CommunityMedia(item: activity, height: 130),
+                    child: Image.network(
+                      bannerUrl,
+                      height: 130,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        height: 130,
+                        width: double.infinity,
+                        color: C.yellowLight,
+                        child: Icon(Icons.image_rounded, size: 32,
+                            color: C.yellowDark.withOpacity(isLocked ? .4 : 1)),
+                      ),
+                    ),
                   )
                 : Container(
                     height: 130,
