@@ -19,6 +19,7 @@ import 'package:confetti/confetti.dart';
 import '../../theme/app_theme.dart';
 import '../../services/services.dart';
 import '../../widgets/community_media.dart';
+import 'activity_participate_screen.dart';
 
 class ActivityCalendarTab extends StatefulWidget {
   const ActivityCalendarTab({super.key});
@@ -164,11 +165,11 @@ class _ActivityCalendarTabState extends State<ActivityCalendarTab> {
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
           if (_todayActivities.isNotEmpty)
-            _TodayCarousel(
-              activities: _todayActivities,
-              onReplied: _load,
-              svc: _activitySvc,
-            )
+            ..._todayActivities.map((d) => _ActivityBannerCard(
+                  day: d,
+                  svc: _activitySvc,
+                  onReturn: _load,
+                ))
           else
             _NoActivityTodayCard(),
 
@@ -184,19 +185,19 @@ class _ActivityCalendarTabState extends State<ActivityCalendarTab> {
               ),
             ]),
             const SizedBox(height: 10),
-            ..._laterToday.map((d) => _LockedDayCard(day: d)),
+            ..._laterToday.map((d) => _ActivityBannerCard(day: d, svc: _activitySvc, onReturn: _load)),
           ],
 
           const SizedBox(height: 26),
           Text('COMING UP', style: poppins(11, w: FontWeight.w700, c: C.txl)),
           const SizedBox(height: 10),
-          ..._upcoming.map((d) => _LockedDayCard(day: d)),
+          ..._upcoming.map((d) => _ActivityBannerCard(day: d, svc: _activitySvc, onReturn: _load)),
 
           if (_history.isNotEmpty) ...[
             const SizedBox(height: 26),
             Text('HISTORY', style: poppins(11, w: FontWeight.w700, c: C.txl)),
             const SizedBox(height: 10),
-            ..._history.map((d) => _HistoryRow(day: d)),
+            ..._history.map((d) => _ActivityBannerCard(day: d, svc: _activitySvc, onReturn: _load)),
           ],
         ],
       ),
@@ -204,7 +205,141 @@ class _ActivityCalendarTabState extends State<ActivityCalendarTab> {
   }
 }
 
-// ── Today's card — the centerpiece ──────────────────────────────────────
+// ── Unified banner card — used for Today, Later Today, Coming Up,
+// and History alike, so every activity reads the same way in the
+// list regardless of status. Tapping "Participate now" (or its
+// status-appropriate label) opens ActivityParticipateScreen for
+// the full content, reply form, and other responses.
+class _ActivityBannerCard extends StatelessWidget {
+  const _ActivityBannerCard({required this.day, required this.svc, required this.onReturn});
+  final Map<String, dynamic> day;
+  final ActivityService svc;
+  final VoidCallback onReturn;
+
+  String? _scheduledTimeLabel() {
+    final raw = day['time']?.toString();
+    if (raw == null || raw.isEmpty) return null;
+    final parts = raw.split(':');
+    if (parts.length < 2) return null;
+    final hour24 = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour24 == null || minute == null) return null;
+    final hour12 = hour24 % 12 == 0 ? 12 : hour24 % 12;
+    final ampm = hour24 >= 12 ? 'PM' : 'AM';
+    return '$hour12:${minute.toString().padLeft(2, '0')} $ampm';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final activity = day['activity'] as Map? ?? {};
+    final title = activity['title']?.toString() ?? 'Activity';
+    final content = activity['text_content']?.toString() ?? '';
+    final mediaUrl = activity['media_url']?.toString();
+    final status = day['status']?.toString() ?? '';
+    final replySubmitted = activity['reply_submitted'] == true;
+    final isLocked = status == 'locked';
+
+    String buttonLabel;
+    if (isLocked) {
+      final t = _scheduledTimeLabel();
+      buttonLabel = t != null ? 'Opens at $t' : 'Coming up';
+    } else if (status == 'completed' || status == 'missed') {
+      buttonLabel = 'View responses';
+    } else if (replySubmitted) {
+      buttonLabel = 'View your reply';
+    } else {
+      buttonLabel = 'Participate now';
+    }
+
+    return GestureDetector(
+      onTap: isLocked
+          ? null
+          : () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ActivityParticipateScreen(day: day, svc: svc),
+                ),
+              );
+              onReturn();
+            },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: C.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: C.bd),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Stack(children: [
+            (mediaUrl != null && mediaUrl.isNotEmpty)
+                ? ColorFiltered(
+                    colorFilter: isLocked
+                        ? ColorFilter.mode(Colors.white.withOpacity(.55), BlendMode.srcOver)
+                        : const ColorFilter.mode(Colors.transparent, BlendMode.multiply),
+                    child: CommunityMedia(item: activity, height: 130),
+                  )
+                : Container(
+                    height: 130,
+                    width: double.infinity,
+                    color: C.yellowLight,
+                    child: Icon(Icons.image_rounded, size: 32,
+                        color: C.yellowDark.withOpacity(isLocked ? .4 : 1)),
+                  ),
+            if (isLocked)
+              const Positioned(
+                top: 10, right: 10,
+                child: Icon(Icons.lock_rounded, size: 16, color: C.txm),
+              ),
+          ]),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title,
+                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: poppins(14.5, w: FontWeight.w700, c: isLocked ? C.txl : C.ink)),
+              if (content.isNotEmpty) ...[
+                const SizedBox(height: 3),
+                Text(content,
+                    maxLines: 2, overflow: TextOverflow.ellipsis,
+                    style: poppins(12, c: C.txm, h: 1.4)),
+              ],
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                height: 40,
+                child: ElevatedButton(
+                  onPressed: isLocked
+                      ? null
+                      : () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ActivityParticipateScreen(day: day, svc: svc),
+                            ),
+                          );
+                          onReturn();
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isLocked ? C.bg2 : C.ink,
+                    disabledBackgroundColor: C.bg2,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
+                    elevation: 0,
+                  ),
+                  child: Text(buttonLabel,
+                      style: poppins(12.5, w: FontWeight.w700, c: isLocked ? C.txl : C.yellow)),
+                ),
+              ),
+            ]),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+
 // ── Swipeable carousel for multiple today-activities ─────────────────────
 // When admin assigns more than one activity to the same day, this shows
 // them as a horizontal swipe carousel (like a stories UI) instead of a

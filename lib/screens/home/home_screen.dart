@@ -26,6 +26,12 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _loadError = false;
   DateTime _selectedDay = DateTime.now();
   DateTime _focusedMonth = DateTime(DateTime.now().year, DateTime.now().month);
+  // Independent from _focusedMonth (which still drives reminder-count
+  // stats and monthly data fetches) — this only drives the weekly
+  // strip's own navigation. Always the Sunday starting the visible week.
+  DateTime _focusedWeekStart = DateTime.now().subtract(
+    Duration(days: DateTime.now().weekday % 7),
+  );
 
   // API data
   List _monthData = []; // from /daily/activity/month
@@ -252,15 +258,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // Determine day type from API data, fallback to June 2026 static map
-  String _dayType(int day) {
-    final cellDate = DateTime(_focusedMonth.year, _focusedMonth.month, day);
+  String _dayType(DateTime cellDate) {
     for (final d in _monthData) {
       try {
         final date = _parseDate(
             d['date'] ?? d['activity_date'] ?? d['created_at'] ?? '');
         if (date.year == cellDate.year &&
             date.month == cellDate.month &&
-            date.day == day) {
+            date.day == cellDate.day) {
           if (_truthy(d['has_checkin']) ||
               _truthy(d['is_completed']) ||
               _truthy(d['submitted']) ||
@@ -277,7 +282,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_dateOnly(cellDate).isAfter(_dateOnly(now))) return 'future';
     if (cellDate.year == now.year &&
         cellDate.month == now.month &&
-        day == now.day) {
+        cellDate.day == now.day) {
       return _checkInDone ? 'checkin' : 'today';
     }
     return 'miss';
@@ -417,11 +422,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     _todayAtGlanceStrip(),
                   ],
                   const SizedBox(height: 14),
-                  _secLabel(
-                    Icons.calendar_today_rounded,
-                    _monthTitle(_focusedMonth),
-                  ),
-                  _calCard(),
+                  _weekStrip(),
                   const SizedBox(height: 12),
                   _secLabel(Icons.timeline_rounded, _detailLabel()),
                   AnimatedSwitcher(
@@ -469,8 +470,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final summary = _checkInSummary(_todayActivity);
     final mood = _field(_todayActivity, ['mood', 'mood_name', 'feeling']);
     final heroEmoji = _checkInDone
-        ? (_moodEmojiForDay(DateTime.now().day).isNotEmpty
-            ? _moodEmojiForDay(DateTime.now().day)
+        ? (_moodEmojiForDay(DateTime.now()).isNotEmpty
+            ? _moodEmojiForDay(DateTime.now())
             : '✓')
         : '😊';
     final title = _checkInDone
@@ -755,15 +756,15 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ── Calendar ──────────────────────────────────────────────
-  Widget _calCard() {
+  Widget _weekStrip() {
     const weekdays = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-    final startOffset =
-        DateTime(_focusedMonth.year, _focusedMonth.month, 1).weekday % 7;
-    final daysInMonth = DateTime(
-      _focusedMonth.year,
-      _focusedMonth.month + 1,
-      0,
-    ).day;
+    final weekStart = _focusedWeekStart;
+    final weekEnd = weekStart.add(const Duration(days: 6));
+    final now = DateTime.now();
+    final rangeLabel = weekStart.month == weekEnd.month
+        ? '${_monthShort(weekStart)} ${weekStart.day} - ${weekEnd.day}'
+        : '${_monthShort(weekStart)} ${weekStart.day} - ${_monthShort(weekEnd)} ${weekEnd.day}';
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -777,59 +778,25 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               GestureDetector(
-                onTap: () => _changeMonth(-1),
-                child: const Icon(
-                  Icons.chevron_left_rounded,
-                  size: 18,
-                  color: C.txl,
-                ),
+                onTap: () => setState(() =>
+                    _focusedWeekStart = weekStart.subtract(const Duration(days: 7))),
+                child: const Icon(Icons.chevron_left_rounded, size: 18, color: C.txl),
               ),
-              Text(
-                _monthTitle(_focusedMonth),
-                style: poppins(13, w: FontWeight.w700, c: C.ink),
-              ),
+              Text(rangeLabel, style: poppins(13, w: FontWeight.w700, c: C.ink)),
               GestureDetector(
-                onTap: () => _changeMonth(1),
-                child: const Icon(
-                  Icons.chevron_right_rounded,
-                  size: 18,
-                  color: C.txl,
-                ),
+                onTap: () => setState(() =>
+                    _focusedWeekStart = weekStart.add(const Duration(days: 7))),
+                child: const Icon(Icons.chevron_right_rounded, size: 18, color: C.txl),
               ),
             ],
           ),
           const SizedBox(height: 10),
           Row(
-            children: weekdays
-                .map(
-                  (d) => Expanded(
-                    child: Center(
-                      child: Text(
-                        d,
-                        style: poppins(9, w: FontWeight.w700, c: C.txl),
-                      ),
-                    ),
-                  ),
-                )
-                .toList(),
-          ),
-          const SizedBox(height: 4),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 7,
-              childAspectRatio: 1,
-              mainAxisSpacing: 3,
-              crossAxisSpacing: 3,
-            ),
-            itemCount: startOffset + daysInMonth,
-            itemBuilder: (_, i) {
-              if (i < startOffset) return const SizedBox();
-              final day = i - startOffset + 1;
-              final type = _dayType(day);
-              final isSel = _selectedDay.day == day;
-              final moodEmoji = type == 'checkin' ? _moodEmojiForDay(day) : '';
+            children: List.generate(7, (i) {
+              final cellDate = weekStart.add(Duration(days: i));
+              final type = _dayType(cellDate);
+              final isSel = _dateOnly(_selectedDay) == _dateOnly(cellDate);
+              final moodEmoji = type == 'checkin' ? _moodEmojiForDay(cellDate) : '';
               Color bg, fg;
               switch (type) {
                 case 'checkin':
@@ -853,74 +820,50 @@ class _HomeScreenState extends State<HomeScreen> {
                   fg = const Color(0xFFCCCCCC);
                   break;
               }
-              return GestureDetector(
-                onTap: type != 'future'
-                    ? () => setState(
-                          () => _selectedDay = DateTime(
-                            _focusedMonth.year,
-                            _focusedMonth.month,
-                            day,
-                          ),
-                        )
-                    : null,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: isSel && type != 'today' ? C.yellow : bg,
-                    borderRadius: BorderRadius.circular(10),
-                    border: isSel && type != 'today'
-                        ? Border.all(color: C.yellowDark, width: 2)
+              return Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(right: i != 6 ? 4 : 0),
+                  child: GestureDetector(
+                    onTap: type != 'future'
+                        ? () => setState(() => _selectedDay = cellDate)
                         : null,
-                  ),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Column(
-                        mainAxisSize: MainAxisSize.min,
+                    child: Container(
+                      height: 62,
+                      decoration: BoxDecoration(
+                        color: isSel && type != 'today' ? C.yellow : bg,
+                        borderRadius: BorderRadius.circular(12),
+                        border: isSel && type != 'today'
+                            ? Border.all(color: C.yellowDark, width: 2)
+                            : null,
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(
-                            '$day',
-                            style: poppins(
-                              11,
-                              w: FontWeight.w700,
-                              c: isSel && type != 'today' ? C.ink : fg,
-                            ),
-                          ),
-                          if (moodEmoji.isNotEmpty)
-                            Text(
-                              moodEmoji,
-                              style: const TextStyle(fontSize: 11, height: 1),
-                            ),
+                          Text(weekdays[i],
+                              style: poppins(9, w: FontWeight.w700,
+                                  c: isSel && type != 'today' ? C.ink : fg.withOpacity(.7))),
+                          const SizedBox(height: 2),
+                          Text('${cellDate.day}',
+                              style: poppins(13, w: FontWeight.w800,
+                                  c: isSel && type != 'today' ? C.ink : fg)),
+                          const SizedBox(height: 2),
+                          moodEmoji.isNotEmpty
+                              ? Text(moodEmoji, style: const TextStyle(fontSize: 12, height: 1))
+                              : SizedBox(
+                                  width: 5, height: 5,
+                                  child: type == 'event'
+                                      ? const DecoratedBox(
+                                          decoration: BoxDecoration(
+                                              color: C.orange, shape: BoxShape.circle))
+                                      : null,
+                                ),
                         ],
                       ),
-                      if (type == 'checkin')
-                        Positioned(
-                          bottom: 2,
-                          child: Container(
-                            width: 4,
-                            height: 4,
-                            decoration: const BoxDecoration(
-                              color: C.green,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ),
-                      if (type == 'event')
-                        Positioned(
-                          bottom: 2,
-                          child: Container(
-                            width: 4,
-                            height: 4,
-                            decoration: const BoxDecoration(
-                              color: C.orange,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ),
-                    ],
+                    ),
                   ),
                 ),
               );
-            },
+            }),
           ),
           const SizedBox(height: 8),
           Row(
@@ -937,6 +880,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+
   Widget _leg(Color c, String t) => Row(
         children: [
           Container(
@@ -952,8 +896,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       );
 
-  String _moodEmojiForDay(int day) {
-    final target = DateTime(_focusedMonth.year, _focusedMonth.month, day);
+  String _moodEmojiForDay(DateTime target) {
     Map<String, dynamic>? match;
     for (final item in _monthData) {
       if (item is! Map) continue;
@@ -989,7 +932,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   String _detailLabel() {
-    final t = _dayType(_selectedDay.day);
+    final t = _dayType(_selectedDay);
     final d = _selectedDay.day;
     final m = _monthShort(_selectedDay);
     if (t == 'checkin') return '$m $d · Check-in entry';
@@ -1000,7 +943,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _detailCard() {
-    final t = _dayType(_selectedDay.day);
+    final t = _dayType(_selectedDay);
     final d = _selectedDay.day;
     final m = _monthShort(_selectedDay);
     void close() => setState(() => _selectedDay = DateTime.now());
