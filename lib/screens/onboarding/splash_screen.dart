@@ -101,7 +101,7 @@ class _SplashScreenState extends State<SplashScreen>
     // elsewhere in the auth flow.
     final nested = userRes?['data'];
     dynamic mergedFlags = {
-      ...(userRes is Map ? userRes : {}),
+      ...(userRes ?? {}),
       ...(nested is Map ? nested : {}),
       ...(nested is Map && nested['user'] is Map ? nested['user'] as Map : {}),
     };
