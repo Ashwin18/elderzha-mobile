@@ -347,8 +347,10 @@ class _CommunityScreenState extends State<CommunityScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: C.bg,
-      body: Column(children: [
+      backgroundColor: Colors.transparent,
+      body: Container(
+        decoration: const BoxDecoration(gradient: C.bgGradient),
+        child: Column(children: [
         // Yellow header with underline tabs
         Container(
           color: C.yellow,
@@ -456,6 +458,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
           ),
         ),
       ]),
+      ),
     );
   }
 

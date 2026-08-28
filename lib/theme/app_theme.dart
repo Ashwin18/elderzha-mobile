@@ -18,6 +18,17 @@ class C {
   static const bg3 = Color(0xFFEEECEA); // --bg3
   static const white = Color(0xFFFFFFFF); // --wh
   static const bd = Color(0xFFE8E5DA); // --bd
+
+  // Subtle whole-app background gradient — soft pale yellow at the
+  // top, fading quickly into the existing off-white background.
+  // Deliberately gentle so it doesn't compete with yellow being
+  // used as an accent color throughout (buttons, badges, icons).
+  static const bgGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    stops: [0.0, 0.35],
+    colors: [Color(0xFFFFF6D9), bg],
+  );
   static const bd2 = Color(0xFFD4D0C4); // --bd2
   static const green = Color(0xFF22A85A); // --g
   static const greenLight = Color(0xFFE6F7EE); // --glt

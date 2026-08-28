@@ -88,8 +88,10 @@ class _OffersScreenState extends State<OffersScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: C.bg,
-      body: Column(children: [
+      backgroundColor: Colors.transparent,
+      body: Container(
+        decoration: const BoxDecoration(gradient: C.bgGradient),
+        child: Column(children: [
         Container(
           width: double.infinity,
           color: C.yellow,
@@ -141,6 +143,7 @@ class _OffersScreenState extends State<OffersScreen> {
           ),
         ),
       ]),
+      ),
     );
   }
 

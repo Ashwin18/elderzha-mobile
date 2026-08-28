@@ -359,8 +359,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             .toString();
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
-      body: RefreshIndicator(
+      backgroundColor: Colors.transparent,
+      body: Container(
+        decoration: const BoxDecoration(gradient: C.bgGradient),
+        child: RefreshIndicator(
         onRefresh: _load,
         color: AppColors.yellowDark,
         child: Column(
@@ -728,6 +730,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

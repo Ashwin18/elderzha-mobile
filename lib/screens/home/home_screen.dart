@@ -292,8 +292,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     return Scaffold(
-      backgroundColor: C.bg,
-      body: RefreshIndicator(
+      backgroundColor: Colors.transparent,
+      body: Container(
+        decoration: const BoxDecoration(gradient: C.bgGradient),
+        child: RefreshIndicator(
         onRefresh: _loadAll,
         color: C.yellowDark,
         child: CustomScrollView(
@@ -459,6 +461,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

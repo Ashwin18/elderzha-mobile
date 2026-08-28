@@ -152,7 +152,7 @@ class _ReminderScreenState extends State<ReminderScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton(
         heroTag: 'add_reminder_fab',
         onPressed: () => _openSheet(),
@@ -160,7 +160,9 @@ class _ReminderScreenState extends State<ReminderScreen> {
         foregroundColor: AppColors.yellow,
         child: const Icon(Icons.add_rounded, size: 30),
       ),
-      body: Column(children: [
+      body: Container(
+        decoration: const BoxDecoration(gradient: C.bgGradient),
+        child: Column(children: [
         Container(
           width: double.infinity,
           color: AppColors.yellow,
@@ -228,6 +230,7 @@ class _ReminderScreenState extends State<ReminderScreen> {
                 ),
         ),
       ]),
+      ),
     );
   }
 
