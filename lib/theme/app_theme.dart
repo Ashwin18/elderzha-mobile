@@ -19,14 +19,15 @@ class C {
   static const white = Color(0xFFFFFFFF); // --wh
   static const bd = Color(0xFFE8E5DA); // --bd
 
-  // Warm whole-app background gradient — a richer, more visible
-  // yellow at the top, fading gradually into the existing
-  // off-white background further down the screen.
-  static const bgGradient = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    stops: [0.0, 0.55],
-    colors: [Color(0xFFFFE28A), bg],
+  // Warm whole-app background gradient — a soft radial glow
+  // positioned above the top edge, fading gradually into the
+  // existing off-white background further down the screen. Reads
+  // as "lit from above" rather than a flat linear color fade.
+  static const bgGradient = RadialGradient(
+    center: Alignment(0.0, -1.3),
+    radius: 1.3,
+    stops: [0.0, 0.45, 0.75],
+    colors: [Color(0xFFFFD966), Color(0xFFFFF3D0), bg],
   );
   static const bd2 = Color(0xFFD4D0C4); // --bd2
   static const green = Color(0xFF22A85A); // --g

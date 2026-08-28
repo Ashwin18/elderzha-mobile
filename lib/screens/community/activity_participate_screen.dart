@@ -129,6 +129,7 @@ class _ActivityParticipateScreenState extends State<ActivityParticipateScreen> {
     final title = activity['title']?.toString() ?? 'Activity';
     final postType = activity['post_type']?.toString() ?? 'text';
     final description = activity['text_content']?.toString();
+    final textBody = activity['text_body']?.toString();
     final bannerUrl = activity['banner_image']?.toString();
     final mediaUrl = activity['media_url']?.toString();
     final youtubeLink = activity['youtube_link']?.toString();
@@ -224,6 +225,21 @@ class _ActivityParticipateScreenState extends State<ActivityParticipateScreen> {
                   if (description != null && description.isNotEmpty) ...[
                     const SizedBox(height: 10),
                     Text(description, style: poppins(14, c: C.txm, h: 1.5)),
+                  ],
+                  // Dedicated Text-type content, parallel to how
+                  // Image/Video/YouTube show their own content block
+                  // below the universal description.
+                  if (postType == 'text' && textBody != null && textBody.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: C.bg2,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Text(textBody, style: poppins(14, c: C.ink, h: 1.5)),
+                    ),
                   ],
                   // Actual content — photo/video/YouTube — shown as its
                   // own block below the description, for every type

@@ -112,18 +112,21 @@ class _MainScaffoldState extends State<MainScaffold>
         bottomNavigationBar: Container(
           decoration: BoxDecoration(
             color: C.white,
-            border: const Border(top: BorderSide(color: C.bg2)),
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(28),
+              topRight: Radius.circular(28),
+            ),
             boxShadow: [
               BoxShadow(
-                color: C.ink.withOpacity(.06),
-                blurRadius: 18,
-                offset: const Offset(0, -8),
+                color: C.ink.withOpacity(.10),
+                blurRadius: 24,
+                offset: const Offset(0, -6),
               ),
             ],
           ),
           child: SafeArea(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(4, 7, 4, 8),
+              padding: const EdgeInsets.fromLTRB(4, 10, 4, 8),
               child: Row(
                   children: List.generate(5, (i) {
                 final sel = _i == i;
@@ -170,15 +173,31 @@ class _MainScaffoldState extends State<MainScaffold>
       curve: Curves.easeOutBack,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        width: isSpike ? 48 : 38,
+        width: isSpike ? 48 : 42,
         height: isSpike ? 48 : 34,
         margin: EdgeInsets.only(top: isSpike ? 0 : 6),
         decoration: isSpike
             ? null // custom Spike asset already contains its own ring —
                    // avoids a doubled yellow-circle-behind-yellow-ring look
             : BoxDecoration(
-                color: sel ? C.yellowMid : Colors.transparent,
-                borderRadius: BorderRadius.circular(14),
+                gradient: sel
+                    ? const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0xFFFFDD66), C.yellow],
+                      )
+                    : null,
+                color: sel ? null : Colors.transparent,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: sel
+                    ? [
+                        BoxShadow(
+                          color: C.yellow.withOpacity(.35),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ]
+                    : null,
               ),
         child: isSpike
             ? Image.asset(
