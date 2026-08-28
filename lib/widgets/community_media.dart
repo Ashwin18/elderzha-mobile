@@ -198,76 +198,53 @@ class _VideoPreview extends StatefulWidget {
 }
 
 class _VideoPreviewState extends State<_VideoPreview> {
-  late final VideoPlayerController _controller;
-  bool _ready = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.url))
-      ..initialize().then((_) {
-        if (mounted) setState(() => _ready = true);
-      });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  bool _loading = false;
 
   @override
   Widget build(BuildContext context) {
+    // A designed placeholder rather than trying to show a real
+    // video frame before tap — the very first frame of many videos
+    // is genuinely black or not yet decoded, which is what was
+    // causing the black-thumbnail issue. The controller/player only
+    // loads once the user actually taps to watch.
     return GestureDetector(
-      onTap: _ready ? () => _openFullScreen(context) : null,
+      onTap: _loading ? null : () => _openFullScreen(context),
       child: Container(
         margin: const EdgeInsets.only(top: 10),
         height: widget.height,
         width: double.infinity,
         clipBehavior: Clip.hardEdge,
         decoration: BoxDecoration(
-          color: Colors.black,
+          color: C.ink,
           borderRadius: BorderRadius.circular(14),
         ),
-        child: !_ready
-            ? const Center(child: CircularProgressIndicator(color: C.yellow))
-            : Stack(
-                fit: StackFit.expand,
-                alignment: Alignment.center,
-                children: [
-                  FittedBox(
-                    fit: BoxFit.cover,
-                    child: SizedBox(
-                      width: _controller.value.size.width,
-                      height: _controller.value.size.height,
-                      child: VideoPlayer(_controller),
-                    ),
+        child: Center(
+          child: _loading
+              ? const CircularProgressIndicator(color: C.yellow)
+              : Container(
+                  width: 58,
+                  height: 58,
+                  decoration: const BoxDecoration(
+                    color: Colors.black45,
+                    shape: BoxShape.circle,
                   ),
-                  Container(color: Colors.black.withOpacity(.12)),
-                  Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(.58),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.fullscreen_rounded,
-                        color: Colors.white, size: 34),
-                  ),
-                ],
-              ),
+                  child: const Icon(Icons.play_arrow_rounded,
+                      color: Colors.white, size: 38),
+                ),
+        ),
       ),
     );
   }
 
   Future<void> _openFullScreen(BuildContext context) async {
-    _controller.pause();
+    setState(() => _loading = true);
     await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => _FullScreenVideo(url: widget.url),
       ),
     );
+    if (mounted) setState(() => _loading = false);
   }
 }
 
@@ -356,6 +333,7 @@ class _YoutubePreview extends StatefulWidget {
 
 class _YoutubePreviewState extends State<_YoutubePreview> {
   YoutubePlayerController? _controller;
+  bool _tapped = false;
 
   String? _youtubeId(String value) {
     final uri = Uri.tryParse(value);
@@ -374,30 +352,24 @@ class _YoutubePreviewState extends State<_YoutubePreview> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    final id = _youtubeId(widget.url);
-    if (id != null) {
-      _controller = YoutubePlayerController(
-        initialVideoId: id,
-        flags: const YoutubePlayerFlags(
-          autoPlay: false,
-          mute: false,
-        ),
-      );
-    }
-  }
-
-  @override
   void dispose() {
     _controller?.dispose();
     super.dispose();
   }
 
+  void _startPlayback(String id) {
+    _controller = YoutubePlayerController(
+      initialVideoId: id,
+      flags: const YoutubePlayerFlags(autoPlay: true, mute: false),
+    );
+    setState(() => _tapped = true);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final controller = _controller;
-    if (controller == null) {
+    final id = _youtubeId(widget.url);
+
+    if (id == null) {
       // Couldn't parse a video ID from this URL — fall back to
       // opening externally rather than showing a broken player.
       return GestureDetector(
@@ -418,24 +390,67 @@ class _YoutubePreviewState extends State<_YoutubePreview> {
       );
     }
 
-    // Plays inline, natively in the app — same experience as an
-    // uploaded video, no external app-switching required.
-    return Container(
-      margin: const EdgeInsets.only(top: 10),
-      height: widget.height,
-      width: double.infinity,
-      clipBehavior: Clip.hardEdge,
-      decoration: BoxDecoration(
-        color: Colors.black,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: YoutubePlayer(
-        controller: controller,
-        showVideoProgressIndicator: true,
-        progressIndicatorColor: C.yellow,
-        progressColors: const ProgressBarColors(
-          playedColor: C.yellow,
-          handleColor: C.yellowDark,
+    // Stage 2 — tapped: load and play the real inline player.
+    if (_tapped && _controller != null) {
+      return Container(
+        margin: const EdgeInsets.only(top: 10),
+        height: widget.height,
+        width: double.infinity,
+        clipBehavior: Clip.hardEdge,
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: YoutubePlayer(
+          controller: _controller!,
+          showVideoProgressIndicator: true,
+          progressIndicatorColor: C.yellow,
+          progressColors: const ProgressBarColors(
+            playedColor: C.yellow,
+            handleColor: C.yellowDark,
+          ),
+        ),
+      );
+    }
+
+    // Stage 1 (default) — a reliable static thumbnail with a play
+    // button overlay. Never black: this image is hosted by
+    // YouTube itself and loads immediately, unlike trying to show
+    // a live player before it's ready.
+    final thumb = 'https://img.youtube.com/vi/$id/hqdefault.jpg';
+    return GestureDetector(
+      onTap: () => _startPlayback(id),
+      child: Container(
+        margin: const EdgeInsets.only(top: 10),
+        height: widget.height,
+        width: double.infinity,
+        clipBehavior: Clip.hardEdge,
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.network(
+              thumb,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(color: Colors.black),
+            ),
+            Container(color: Colors.black.withOpacity(.18)),
+            Center(
+              child: Container(
+                width: 58,
+                height: 58,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE62117),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.play_arrow_rounded,
+                    color: Colors.white, size: 38),
+              ),
+            ),
+          ],
         ),
       ),
     );

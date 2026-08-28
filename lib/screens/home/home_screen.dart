@@ -489,9 +489,15 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
-        color: C.yellowLight,
+        color: C.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: C.yellowBorder),
+        boxShadow: [
+          BoxShadow(
+            color: C.ink.withOpacity(.08),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -499,8 +505,19 @@ class _HomeScreenState extends State<HomeScreen> {
             width: 46,
             height: 46,
             decoration: BoxDecoration(
-              color: C.yellow,
-              borderRadius: BorderRadius.circular(16),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFFFDD66), C.yellow],
+              ),
+              borderRadius: BorderRadius.circular(15),
+              boxShadow: [
+                BoxShadow(
+                  color: C.yellow.withOpacity(.35),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             child: Center(
               child: heroEmoji == '✓'
@@ -549,10 +566,21 @@ class _HomeScreenState extends State<HomeScreen> {
           GestureDetector(
             onTap: _openCheckIn,
             child: Container(
-              height: 40,
+              height: 44,
               decoration: BoxDecoration(
-                color: C.yellow,
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFFFFDD66), C.yellow],
+                ),
                 borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: C.yellow.withOpacity(.35),
+                    blurRadius: 12,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
               ),
               child: Center(
                 child: Text('Start daily check-in →',
@@ -570,9 +598,8 @@ class _HomeScreenState extends State<HomeScreen> {
           constraints: const BoxConstraints(minHeight: 52),
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
           decoration: BoxDecoration(
-            color: C.white,
+            color: const Color(0xFFFBFAF5),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: C.yellowBorder),
           ),
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -677,14 +704,30 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
           decoration: BoxDecoration(
-            color: bg,
+            color: C.white,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: fg.withOpacity(.18)),
+            boxShadow: [
+              BoxShadow(
+                color: C.ink.withOpacity(.06),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
           ),
           child: Row(children: [
             Container(
               width: 34, height: 34,
-              decoration: BoxDecoration(color: fg.withOpacity(.12), shape: BoxShape.circle),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color.lerp(fg, Colors.white, 0.75)!,
+                    Color.lerp(fg, Colors.white, 0.4)!,
+                  ],
+                ),
+                shape: BoxShape.circle,
+              ),
               child: Icon(icon, size: 18, color: fg),
             ),
             const SizedBox(width: 10),
@@ -767,7 +810,13 @@ class _HomeScreenState extends State<HomeScreen> {
       decoration: BoxDecoration(
         color: C.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: C.bd),
+        boxShadow: [
+          BoxShadow(
+            color: C.ink.withOpacity(.07),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -827,22 +876,53 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Container(
                       height: 62,
                       decoration: BoxDecoration(
-                        color: isSel && type != 'today' ? C.yellow : bg,
+                        gradient: type == 'today'
+                            ? const LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [Color(0xFF2A2438), C.ink],
+                              )
+                            : isSel
+                                ? const LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [Color(0xFFFFDD66), C.yellow],
+                                  )
+                                : null,
+                        color: (isSel || type == 'today') ? null : bg,
                         borderRadius: BorderRadius.circular(12),
-                        border: isSel && type != 'today'
-                            ? Border.all(color: C.yellowDark, width: 2)
-                            : null,
+                        boxShadow: type == 'today'
+                            ? [
+                                BoxShadow(
+                                  color: C.ink.withOpacity(.25),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ]
+                            : isSel
+                                ? [
+                                    BoxShadow(
+                                      color: C.yellow.withOpacity(.3),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ]
+                                : null,
                       ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(weekdays[i],
                               style: poppins(9, w: FontWeight.w700,
-                                  c: isSel && type != 'today' ? C.ink : fg.withOpacity(.7))),
+                                  c: type == 'today'
+                                      ? Colors.white70
+                                      : isSel ? C.ink.withOpacity(.7) : fg.withOpacity(.7))),
                           const SizedBox(height: 2),
                           Text('${cellDate.day}',
                               style: poppins(13, w: FontWeight.w800,
-                                  c: isSel && type != 'today' ? C.ink : fg)),
+                                  c: type == 'today'
+                                      ? Colors.white
+                                      : isSel ? C.ink : fg)),
                           const SizedBox(height: 2),
                           moodEmoji.isNotEmpty
                               ? Text(moodEmoji, style: const TextStyle(fontSize: 12, height: 1))
