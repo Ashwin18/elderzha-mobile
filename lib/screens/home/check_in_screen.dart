@@ -511,24 +511,14 @@ class _CheckInScreenState extends State<CheckInScreen> {
                                       // Q3: Activities (multi)
                                       if (_q == 3)
                                         _iconGrid(_actOpts, null, _acts, true),
-                                      // Q4: Weather + sleep + notes
-                                      if (_q == 4) ...[
+                                      // Q4: Weather
+                                      if (_q == 4)
                                         _iconGrid(
                                           _weatherOpts,
                                           _weather,
                                           null,
                                           false,
                                         ),
-                                        const SizedBox(height: 14),
-                                        _sleepPicker(),
-                                        const SizedBox(height: 8),
-                                        _inputRow(
-                                          Icons.notes_rounded,
-                                          'Notes about today...',
-                                          onChanged: (v) => _notes = v,
-                                          maxLines: 3,
-                                        ),
-                                      ],
                                     ],
                                   ),
                                 ),

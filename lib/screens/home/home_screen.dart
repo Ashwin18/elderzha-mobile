@@ -316,7 +316,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Good morning 👋',
+                                '${_timeBasedGreeting()} 👋',
                                 style: poppins(
                                   12,
                                   w: FontWeight.w600,
@@ -486,15 +486,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
-        color: C.ink,
+        color: C.yellowLight,
         borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: C.ink.withOpacity(.15),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        border: Border.all(color: C.yellowBorder),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -516,13 +510,13 @@ class _HomeScreenState extends State<HomeScreen> {
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('Today’s wellbeing',
-                  style: poppins(10, w: FontWeight.w800, c: Colors.white54)),
+                  style: poppins(10, w: FontWeight.w800, c: C.yellowDeep)),
               const SizedBox(height: 2),
               Text(title,
                   style: poppins(15,
-                      w: FontWeight.w900, c: Colors.white, h: 1.2)),
+                      w: FontWeight.w900, c: C.ink, h: 1.2)),
               const SizedBox(height: 2),
-              Text(subtitle, style: poppins(10.5, c: Colors.white60, h: 1.3)),
+              Text(subtitle, style: poppins(10.5, c: C.txm, h: 1.3)),
             ]),
           ),
         ]),
@@ -573,21 +567,21 @@ class _HomeScreenState extends State<HomeScreen> {
           constraints: const BoxConstraints(minHeight: 52),
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(.09),
+            color: C.white,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.white.withOpacity(.1)),
+            border: Border.all(color: C.yellowBorder),
           ),
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(value,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: poppins(13, w: FontWeight.w900, c: Colors.white)),
+                style: poppins(13, w: FontWeight.w900, c: C.ink)),
             const SizedBox(height: 2),
             Text(label,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: poppins(8, w: FontWeight.w700, c: Colors.white54)),
+                style: poppins(8, w: FontWeight.w700, c: C.txm)),
           ]),
         ),
       );
@@ -1291,6 +1285,13 @@ class _HomeScreenState extends State<HomeScreen> {
     return '${months[date.month - 1]} ${date.year}';
   }
 
+  String _timeBasedGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
   String _monthShort(DateTime date) {
     const months = [
       'Jan',
@@ -1433,12 +1434,12 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _checkInChip(String label) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
     decoration: BoxDecoration(
-      color: Colors.white.withOpacity(0.12),
+      color: C.white,
       borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: Colors.white.withOpacity(0.15)),
+      border: Border.all(color: C.yellowBorder),
     ),
     child: Text(label,
-        style: poppins(11, w: FontWeight.w600, c: Colors.white70)),
+        style: poppins(11, w: FontWeight.w600, c: C.txm)),
   );
 
   String _checkInSummary(Map<String, dynamic>? item) {

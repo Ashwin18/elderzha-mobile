@@ -282,20 +282,53 @@ class _ActivityParticipateScreenState extends State<ActivityParticipateScreen> {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    GestureDetector(
-                      onTap: _pickImage,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                        decoration: BoxDecoration(color: C.bg2, borderRadius: BorderRadius.circular(10)),
-                        child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(_attachment == null ? Icons.add_photo_alternate_outlined : Icons.check_circle_rounded,
-                              size: 16, color: _attachment == null ? C.txm : C.green),
-                          const SizedBox(width: 6),
-                          Text(_attachment == null ? 'Add photo' : 'Photo added',
-                              style: poppins(12, w: FontWeight.w600, c: _attachment == null ? C.txm : C.green)),
+                    if (_attachment == null)
+                      GestureDetector(
+                        onTap: _pickImage,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                          decoration: BoxDecoration(color: C.bg2, borderRadius: BorderRadius.circular(10)),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            const Icon(Icons.add_photo_alternate_outlined, size: 16, color: C.txm),
+                            const SizedBox(width: 6),
+                            Text('Add photo', style: poppins(12, w: FontWeight.w600, c: C.txm)),
+                          ]),
+                        ),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: C.bg2,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.file(_attachment!, width: 52, height: 52, fit: BoxFit.cover),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text('Photo attached',
+                                style: poppins(12.5, w: FontWeight.w600, c: C.ink)),
+                          ),
+                          GestureDetector(
+                            onTap: _pickImage,
+                            child: Padding(
+                              padding: const EdgeInsets.all(6),
+                              child: Text('Change', style: poppins(11.5, w: FontWeight.w700, c: C.yellowDeep)),
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () => setState(() => _attachment = null),
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(color: C.red.withOpacity(.12), shape: BoxShape.circle),
+                              child: const Icon(Icons.close_rounded, size: 14, color: C.red),
+                            ),
+                          ),
                         ]),
                       ),
-                    ),
                     const SizedBox(height: 14),
                     SizedBox(
                       width: double.infinity,

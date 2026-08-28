@@ -747,20 +747,42 @@ class _DetailSheetState extends State<_DetailSheet> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             clipBehavior: Clip.hardEdge,
-                            child: _attachmentType == 'video'
-                                ? Center(
-                                    child: Text(
-                                      '🎬 ${_attachment!.name}',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 12,
-                                        color: C.txm,
+                            child: Stack(children: [
+                              Positioned.fill(
+                                child: _attachmentType == 'video'
+                                    ? Center(
+                                        child: Text(
+                                          '🎬 ${_attachment!.name}',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 12,
+                                            color: C.txm,
+                                          ),
+                                        ),
+                                      )
+                                    : Image.file(
+                                        File(_attachment!.path),
+                                        fit: BoxFit.cover,
                                       ),
+                              ),
+                              Positioned(
+                                top: 6,
+                                right: 6,
+                                child: GestureDetector(
+                                  onTap: () => setState(() {
+                                    _attachment = null;
+                                    _attachmentType = null;
+                                  }),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(5),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(.55),
+                                      shape: BoxShape.circle,
                                     ),
-                                  )
-                                : Image.file(
-                                    File(_attachment!.path),
-                                    fit: BoxFit.cover,
+                                    child: const Icon(Icons.close_rounded, size: 14, color: Colors.white),
                                   ),
+                                ),
+                              ),
+                            ]),
                           ),
                         Row(
                           children: [
