@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 import '../services/api_client.dart';
 import '../theme/app_theme.dart';
@@ -343,54 +344,18 @@ class _FullScreenVideoState extends State<_FullScreenVideo> {
   }
 }
 
-class _YoutubePreview extends StatelessWidget {
+class _YoutubePreview extends StatefulWidget {
   final String url;
   final double height;
 
   const _YoutubePreview({required this.url, required this.height});
 
   @override
-  Widget build(BuildContext context) {
-    final id = _youtubeId(url);
-    final thumb =
-        id == null ? '' : 'https://img.youtube.com/vi/$id/hqdefault.jpg';
-    return GestureDetector(
-      onTap: () =>
-          launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
-      child: Container(
-        margin: const EdgeInsets.only(top: 10),
-        height: height,
-        width: double.infinity,
-        clipBehavior: Clip.hardEdge,
-        decoration: BoxDecoration(
-          color: Colors.black,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (thumb.isNotEmpty)
-              Image.network(thumb, fit: BoxFit.cover)
-            else
-              Container(color: Colors.black),
-            Container(color: Colors.black.withOpacity(.18)),
-            Center(
-              child: Container(
-                width: 58,
-                height: 58,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFE62117),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.play_arrow_rounded,
-                    color: Colors.white, size: 38),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  State<_YoutubePreview> createState() => _YoutubePreviewState();
+}
+
+class _YoutubePreviewState extends State<_YoutubePreview> {
+  YoutubePlayerController? _controller;
 
   String? _youtubeId(String value) {
     final uri = Uri.tryParse(value);
@@ -406,6 +371,74 @@ class _YoutubePreview extends StatelessWidget {
       return uri.pathSegments[embed + 1];
     }
     return null;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final id = _youtubeId(widget.url);
+    if (id != null) {
+      _controller = YoutubePlayerController(
+        initialVideoId: id,
+        flags: const YoutubePlayerFlags(
+          autoPlay: false,
+          mute: false,
+        ),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = _controller;
+    if (controller == null) {
+      // Couldn't parse a video ID from this URL — fall back to
+      // opening externally rather than showing a broken player.
+      return GestureDetector(
+        onTap: () =>
+            launchUrl(Uri.parse(widget.url), mode: LaunchMode.externalApplication),
+        child: Container(
+          margin: const EdgeInsets.only(top: 10),
+          height: widget.height,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.black,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: const Center(
+            child: Icon(Icons.open_in_new_rounded, color: Colors.white, size: 32),
+          ),
+        ),
+      );
+    }
+
+    // Plays inline, natively in the app — same experience as an
+    // uploaded video, no external app-switching required.
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      height: widget.height,
+      width: double.infinity,
+      clipBehavior: Clip.hardEdge,
+      decoration: BoxDecoration(
+        color: Colors.black,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: YoutubePlayer(
+        controller: controller,
+        showVideoProgressIndicator: true,
+        progressIndicatorColor: C.yellow,
+        progressColors: const ProgressBarColors(
+          playedColor: C.yellow,
+          handleColor: C.yellowDark,
+        ),
+      ),
+    );
   }
 }
 
