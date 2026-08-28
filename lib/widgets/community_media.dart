@@ -27,7 +27,8 @@ class CommunityMedia extends StatelessWidget {
       return _YoutubePreview(url: youtube, height: height);
     }
     if (media.isNotEmpty && type == 'video') {
-      return _VideoPreview(url: media, height: height);
+      final thumb = item['banner_image']?.toString();
+      return _VideoPreview(url: media, height: height, thumbnailUrl: thumb);
     }
     if (media.isNotEmpty && type == 'image') {
       return _ImagePreview(url: media, height: height);
@@ -190,8 +191,9 @@ class _ImagePreview extends StatelessWidget {
 class _VideoPreview extends StatefulWidget {
   final String url;
   final double height;
+  final String? thumbnailUrl;
 
-  const _VideoPreview({required this.url, required this.height});
+  const _VideoPreview({required this.url, required this.height, this.thumbnailUrl});
 
   @override
   State<_VideoPreview> createState() => _VideoPreviewState();
@@ -202,11 +204,13 @@ class _VideoPreviewState extends State<_VideoPreview> {
 
   @override
   Widget build(BuildContext context) {
-    // A designed placeholder rather than trying to show a real
-    // video frame before tap — the very first frame of many videos
-    // is genuinely black or not yet decoded, which is what was
-    // causing the black-thumbnail issue. The controller/player only
-    // loads once the user actually taps to watch.
+    final hasThumb = widget.thumbnailUrl != null && widget.thumbnailUrl!.isNotEmpty;
+    // A real admin-uploaded thumbnail when available; otherwise a
+    // designed placeholder rather than trying to show a real video
+    // frame — the very first frame of many videos is genuinely
+    // black or not yet decoded, which is what caused the original
+    // black-thumbnail issue. The controller/player only loads once
+    // the user actually taps to watch.
     return GestureDetector(
       onTap: _loading ? null : () => _openFullScreen(context),
       child: Container(
@@ -218,19 +222,30 @@ class _VideoPreviewState extends State<_VideoPreview> {
           color: C.ink,
           borderRadius: BorderRadius.circular(14),
         ),
-        child: Center(
-          child: _loading
-              ? const CircularProgressIndicator(color: C.yellow)
-              : Container(
-                  width: 58,
-                  height: 58,
-                  decoration: const BoxDecoration(
-                    color: Colors.black45,
-                    shape: BoxShape.circle,
+        child: Stack(
+          fit: StackFit.expand,
+          alignment: Alignment.center,
+          children: [
+            if (hasThumb)
+              Image.network(
+                widget.thumbnailUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(color: C.ink),
+              ),
+            if (hasThumb) Container(color: Colors.black.withOpacity(.18)),
+            _loading
+                ? const CircularProgressIndicator(color: C.yellow)
+                : Container(
+                    width: 58,
+                    height: 58,
+                    decoration: const BoxDecoration(
+                      color: Colors.black45,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.play_arrow_rounded,
+                        color: Colors.white, size: 38),
                   ),
-                  child: const Icon(Icons.play_arrow_rounded,
-                      color: Colors.white, size: 38),
-                ),
+          ],
         ),
       ),
     );
