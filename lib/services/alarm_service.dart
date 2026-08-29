@@ -126,10 +126,18 @@ class AlarmService {
       final res = await _api.safePost(path);
       if (res == null) continue;
       last = res;
-      if (res['status'] != false) return res;
+      // Require an explicit status:true — none of these 4 paths are
+      // confirmed to exist server-side, so a 404/error response
+      // missing a 'status' key entirely must NOT be treated as
+      // success (previously `!= false` let a null status through,
+      // since null != false is true in Dart — meaning the real
+      // fallback below was likely never even reached).
+      if (res['status'] == true) return res;
     }
 
     final disabled = await updateReminder(id: id, enabled: false);
-    return disabled['status'] == false && last != null ? last : disabled;
+    return disabled['status'] == true
+        ? disabled
+        : (last ?? disabled);
   }
 }

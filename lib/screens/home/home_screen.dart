@@ -315,7 +315,7 @@ class _HomeScreenState extends State<HomeScreen> {
             // White top bar
             SliverToBoxAdapter(
               child: Container(
-                color: C.white,
+                color: C.yellow,
                 child: SafeArea(
                   bottom: false,
                   child: Padding(
@@ -334,7 +334,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 style: poppins(
                                   12,
                                   w: FontWeight.w600,
-                                  c: C.txl,
+                                  c: C.yellowDeep,
                                 ),
                               ),
                               Text(
@@ -408,14 +408,13 @@ class _HomeScreenState extends State<HomeScreen> {
                             width: 36,
                             height: 36,
                             decoration: BoxDecoration(
-                              color: C.yellowMid,
+                              color: C.white,
                               shape: BoxShape.circle,
-                              border: Border.all(color: C.yellow, width: 2),
                             ),
                             child: const Icon(
                               Icons.person_rounded,
                               size: 18,
-                              color: C.yellowDark,
+                              color: C.ink,
                             ),
                           ),
                         ),
