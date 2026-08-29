@@ -123,10 +123,22 @@ class AlarmActivity : Activity() {
                 accentA = 0xFFFFCC01.toInt(), accentB = 0xFFE91E63.toInt(),
                 emoji = "💍", okLabel = "Got it, happy anniversary!",
             )
-            else -> Theme(
+            t.contains("medicine") || t.contains("medication") ||
+                t.contains("tablet") || t.contains("dose") ||
+                t.contains("pill") || t.contains("medical") -> Theme(
                 bgTop = 0xFF160A33.toInt(), bgBottom = 0xFF2D1B69.toInt(),
                 accentA = 0xFFFFCC01.toInt(), accentB = 0xFFFF9500.toInt(),
                 emoji = "💊", okLabel = "I've taken my medicine",
+            )
+            // Genuine fallback for custom/general reminders — previously
+            // this silently defaulted to the medical theme and wording
+            // for ANY reminder that didn't match a food/birthday/
+            // anniversary keyword, even ones with nothing to do with
+            // medicine (e.g. "Water the plants", "Call the doctor").
+            else -> Theme(
+                bgTop = 0xFF1A1726.toInt(), bgBottom = 0xFF2A2438.toInt(),
+                accentA = 0xFFFFCC01.toInt(), accentB = 0xFF9491A8.toInt(),
+                emoji = "⏰", okLabel = "Got it, thanks!",
             )
         }
     }
