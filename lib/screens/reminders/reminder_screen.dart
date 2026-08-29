@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../alaram/daily_scheduler.dart';
 import '../../alaram/family_event_scheduler.dart';
+import '../../api/models/fetch_profile_model.dart';
 import '../../services/services.dart';
 import '../../theme/app_theme.dart';
 
@@ -15,6 +16,7 @@ class ReminderScreen extends StatefulWidget {
 
 class _ReminderScreenState extends State<ReminderScreen> {
   final _alarmService = AlarmService();
+  final _authService = AuthService();
   bool _loading = true;
   List _items = [];
 
@@ -24,8 +26,116 @@ class _ReminderScreenState extends State<ReminderScreen> {
     _load();
   }
 
+  // ── Same extraction logic already proven working in
+  // family_members_screen.dart — duplicated here rather than
+  // shared/refactored, to avoid any risk of disturbing that
+  // screen's already-working code. Ensures the Reminder tab always
+  // has fresh birthday/anniversary data (including "Self", added
+  // during registration) regardless of whether the user has ever
+  // opened the Family Members screen this session.
+  Future<void> _syncFamilyRemindersFromServer() async {
+    try {
+      final res = await _authService.getProfileWithFamily();
+      final family = _extractFamily(res);
+      final reminders = <FamilyMember>[];
+      for (final item in family) {
+        if (item is! Map) continue;
+        final m = Map<String, dynamic>.from(item);
+        final relationName = m['relation'] is Map
+            ? (m['relation']['name'] ?? '')
+            : (m['relation']?.toString() ?? '');
+        final baseId = m['id']?.toString() ?? '0';
+        final name = m['name']?.toString() ?? '';
+        final status = m['status']?.toString() ?? '1';
+
+        void add(String suffix, String eventName, String date) {
+          if (date.trim().isEmpty) return;
+          reminders.add(FamilyMember(
+            id: '$baseId-$suffix',
+            type: m['type']?.toString() ?? '',
+            status: status,
+            name: name,
+            eventDate: date,
+            relation: Event(id: '0', name: relationName),
+            event: Event(id: '0', name: eventName),
+          ));
+        }
+
+        add('birthday', 'Birthday', _birthdayDateOf(m));
+        add('anniversary', 'Anniversary', _anniversaryDateOf(m));
+      }
+      await FamilyEventScheduler.syncFamilyEventReminders(reminders);
+    } catch (_) {
+      // Silent — the reminder list still shows whatever was already
+      // locally cached from a previous sync, this just skips
+      // refreshing it this time (e.g. no network).
+    }
+  }
+
+  List _extractFamily(Map<String, dynamic>? res) {
+    if (res == null) return [];
+    final candidates = [
+      res['family'],
+      res['members'],
+      res['family_members'],
+      res['data'] is Map ? res['data']['family'] : null,
+      res['data'] is Map ? res['data']['members'] : null,
+      res['data'] is Map ? res['data']['family_members'] : null,
+      res['data'] is Map && res['data']['user'] is Map
+          ? res['data']['user']['family']
+          : null,
+      res['data'] is Map && res['data']['profile'] is Map
+          ? res['data']['profile']['family']
+          : null,
+    ];
+    for (final value in candidates) {
+      if (value is List) return value;
+      if (value is Map) {
+        for (final key in ['data', 'items', 'list', 'members']) {
+          final nested = value[key];
+          if (nested is List) return nested;
+        }
+      }
+    }
+    return [];
+  }
+
+  String _eventTypeOf(dynamic m) {
+    if (m is! Map) return 'birthday';
+    final raw = m['event_type'] ??
+        m['type'] ??
+        (m['event'] is Map ? m['event']['name'] : null) ??
+        m['event_name'];
+    final text = raw?.toString().toLowerCase().trim() ?? '';
+    return text.contains('anniversary') ? 'anniversary' : 'birthday';
+  }
+
+  String _birthdayDateOf(Map m) {
+    final direct = (m['birthday_date'] ?? m['birthday'] ?? m['dob'] ?? '')
+        .toString()
+        .trim();
+    if (direct.isNotEmpty && direct.toLowerCase() != 'null') return direct;
+    final eventType = _eventTypeOf(m);
+    if (eventType == 'birthday') {
+      return (m['date'] ?? m['event_date'] ?? '').toString();
+    }
+    return '';
+  }
+
+  String _anniversaryDateOf(Map m) {
+    final direct =
+        (m['anniversary_date'] ?? m['anniversary'] ?? '').toString().trim();
+    if (direct.isNotEmpty && direct.toLowerCase() != 'null') return direct;
+    final raw = (m['event_type'] ?? m['type'] ?? '').toString().toLowerCase();
+    if (raw.contains('anniversary')) {
+      return (m['date'] ?? m['event_date'] ?? '').toString();
+    }
+    return '';
+  }
+
   Future<void> _load() async {
     setState(() => _loading = true);
+    await _syncFamilyRemindersFromServer();
     final results = await Future.wait([
       _alarmService.listReminders(),
       FamilyEventScheduler.getStoredReminderItems(),

@@ -403,10 +403,21 @@ class _CommunityScreenState extends State<CommunityScreen> {
                                     width: 2))),
                         child: Center(
                             child: Stack(clipBehavior: Clip.none, children: [
-                              Text(_tabs[i - 1],
-                                  style: poppins(12,
-                                      w: FontWeight.w700,
-                                      c: sel ? C.ink : C.txl)),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    [Icons.dynamic_feed_rounded, Icons.how_to_vote_rounded, Icons.event_available_rounded][i - 1],
+                                    size: 15,
+                                    color: sel ? C.ink : C.txl,
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(_tabs[i - 1],
+                                      style: poppins(12,
+                                          w: FontWeight.w700,
+                                          c: sel ? C.ink : C.txl)),
+                                ],
+                              ),
                               if ((i == 2 && _hasNewPoll) || (i == 3 && _hasNewActivity))
                                 Positioned(
                                   right: -9,

@@ -165,7 +165,19 @@ class _HomeScreenState extends State<HomeScreen> {
     return [];
   }
 
+  // Check-in only opens from 8pm onward — before that, tapping any
+  // of the entry points shows a friendly message instead.
+  bool get _isCheckInWindowOpen => DateTime.now().hour >= 20;
+
   Future<void> _openCheckIn() async {
+    if (!_isCheckInWindowOpen) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Daily check-in opens at 8:00 PM',
+            style: poppins(12, c: C.white)),
+        backgroundColor: C.ink,
+      ));
+      return;
+    }
     final result = await Navigator.pushNamed(context, AppRoutes.checkIn);
     if (!mounted) return;
     if (result == true) {
@@ -568,23 +580,35 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Container(
               height: 44,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFFFFDD66), C.yellow],
-                ),
+                gradient: _isCheckInWindowOpen
+                    ? const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0xFFFFDD66), C.yellow],
+                      )
+                    : null,
+                color: _isCheckInWindowOpen ? null : C.bg2,
                 borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: C.yellow.withOpacity(.35),
-                    blurRadius: 12,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
+                boxShadow: _isCheckInWindowOpen
+                    ? [
+                        BoxShadow(
+                          color: C.yellow.withOpacity(.35),
+                          blurRadius: 12,
+                          offset: const Offset(0, 5),
+                        ),
+                      ]
+                    : null,
               ),
               child: Center(
-                child: Text('Start daily check-in →',
-                  style: poppins(12.5, w: FontWeight.w900, c: C.ink)),
+                child: _isCheckInWindowOpen
+                    ? Text('Start daily check-in →',
+                        style: poppins(12.5, w: FontWeight.w900, c: C.ink))
+                    : Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.lock_clock_rounded, size: 15, color: C.txm),
+                        const SizedBox(width: 6),
+                        Text('Check-in opens at 8:00 PM',
+                            style: poppins(12.5, w: FontWeight.w700, c: C.txm)),
+                      ]),
               ),
             ),
           ),
