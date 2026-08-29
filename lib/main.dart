@@ -276,8 +276,15 @@ void _openNotificationTarget(Map<String, dynamic> data) {
     final token = prefs.getString('auth_token') ?? '';
     if (token.isEmpty) return; // Not logged in — ignore
 
-    // Deep link: route to specific screen based on notification type
-    final type     = (data['type'] ?? data['module_type'] ?? '').toString().toLowerCase();
+    // Deep link: route to specific screen based on notification type.
+    // The actual backend sender (SendScheduledNotifications.php) sends
+    // this discriminator under the key 'screen' — data['type'] and
+    // data['module_type'] don't exist in the real payload at all,
+    // which is why every notification was silently falling through
+    // to the generic notification list regardless of its real type.
+    final type = (data['screen'] ?? data['type'] ?? data['module_type'] ?? '')
+        .toString()
+        .toLowerCase();
 
     switch (type) {
       case 'poll':
@@ -297,6 +304,12 @@ void _openNotificationTarget(Map<String, dynamic> data) {
       case 'offer':
       case 'coupon':
         nav.pushNamed(AppRoutes.offers);
+        break;
+      case 'checkin_reminder':
+        // Confirmed sent by SendCheckinReminders.php (the daily 8pm
+        // reminder) but had no case here at all — was silently
+        // falling through to the generic notification list.
+        nav.pushNamed(AppRoutes.checkIn);
         break;
       default:
         // Fallback → notifications list

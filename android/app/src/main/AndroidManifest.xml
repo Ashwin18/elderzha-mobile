@@ -16,7 +16,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
     <application
-        android:label="elderzha"
+        android:label="ElderZha"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

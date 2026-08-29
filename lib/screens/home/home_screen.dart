@@ -824,11 +824,24 @@ class _HomeScreenState extends State<HomeScreen> {
     final weekStart = _focusedWeekStart;
     final weekEnd = weekStart.add(const Duration(days: 6));
     final now = DateTime.now();
+    final currentWeekStart = now.subtract(Duration(days: now.weekday % 7));
+    final _isCurrentWeek = _dateOnly(weekStart) == _dateOnly(currentWeekStart);
     final rangeLabel = weekStart.month == weekEnd.month
         ? '${_monthShort(weekStart)} ${weekStart.day} - ${weekEnd.day}'
         : '${_monthShort(weekStart)} ${weekStart.day} - ${_monthShort(weekEnd)} ${weekEnd.day}';
 
-    return Container(
+    return GestureDetector(
+      onHorizontalDragEnd: (details) {
+        final velocity = details.primaryVelocity ?? 0;
+        if (velocity < -200) {
+          // Swiped left → next week
+          setState(() => _focusedWeekStart = weekStart.add(const Duration(days: 7)));
+        } else if (velocity > 200) {
+          // Swiped right → previous week
+          setState(() => _focusedWeekStart = weekStart.subtract(const Duration(days: 7)));
+        }
+      },
+      child: Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: C.white,
@@ -846,17 +859,40 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              GestureDetector(
-                onTap: () => setState(() =>
-                    _focusedWeekStart = weekStart.subtract(const Duration(days: 7))),
-                child: const Icon(Icons.chevron_left_rounded, size: 18, color: C.txl),
+              SizedBox(
+                width: 56,
+                child: !_isCurrentWeek
+                    ? GestureDetector(
+                        onTap: () => setState(() => _focusedWeekStart =
+                            now.subtract(Duration(days: now.weekday % 7))),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: C.yellowLight,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text('Today',
+                              style: poppins(10.5, w: FontWeight.w800, c: C.yellowDeep)),
+                        ),
+                      )
+                    : null,
               ),
-              Text(rangeLabel, style: poppins(13, w: FontWeight.w700, c: C.ink)),
-              GestureDetector(
-                onTap: () => setState(() =>
-                    _focusedWeekStart = weekStart.add(const Duration(days: 7))),
-                child: const Icon(Icons.chevron_right_rounded, size: 18, color: C.txl),
-              ),
+              Row(children: [
+                GestureDetector(
+                  onTap: () => setState(() =>
+                      _focusedWeekStart = weekStart.subtract(const Duration(days: 7))),
+                  child: const Icon(Icons.chevron_left_rounded, size: 18, color: C.txl),
+                ),
+                const SizedBox(width: 6),
+                Text(rangeLabel, style: poppins(13, w: FontWeight.w700, c: C.ink)),
+                const SizedBox(width: 6),
+                GestureDetector(
+                  onTap: () => setState(() =>
+                      _focusedWeekStart = weekStart.add(const Duration(days: 7))),
+                  child: const Icon(Icons.chevron_right_rounded, size: 18, color: C.txl),
+                ),
+              ]),
+              const SizedBox(width: 56),
             ],
           ),
           const SizedBox(height: 10),
@@ -976,6 +1012,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ],
+      ),
       ),
     );
   }

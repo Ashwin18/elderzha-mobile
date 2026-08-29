@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/app_theme.dart';
 import '../../services/services.dart';
 import '../../widgets/community_media.dart';
@@ -23,6 +24,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
   String? _error;
   bool _hasNewPoll = false;
   bool _hasNewActivity = false;
+  bool _showTabHint = false;
+  static const _tabHintPrefKey = 'spike_tab_hint_seen';
 
   @override
   void initState() {
@@ -30,6 +33,20 @@ class _CommunityScreenState extends State<CommunityScreen> {
     _tab = widget.initialTab <= 0 ? 1 : widget.initialTab.clamp(1, 3);
     _load();
     _checkForNewItems();
+    _loadTabHintState();
+  }
+
+  Future<void> _loadTabHintState() async {
+    final prefs = await SharedPreferences.getInstance();
+    final seen = prefs.getBool(_tabHintPrefKey) ?? false;
+    if (!seen && mounted) {
+      setState(() => _showTabHint = true);
+      await prefs.setBool(_tabHintPrefKey, true);
+    }
+  }
+
+  void _dismissTabHint() {
+    setState(() => _showTabHint = false);
   }
 
   // Lightweight check so the "Polls"/"Activities" tab labels can show
@@ -444,6 +461,39 @@ class _CommunityScreenState extends State<CommunityScreen> {
                 borderRadius: BorderRadius.only(
                     topLeft: Radius.circular(28),
                     topRight: Radius.circular(28))),
+            child: Column(children: [
+              if (_showTabHint)
+                Container(
+                  margin: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: C.yellowLight,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: C.yellowBorder),
+                  ),
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('📰 Feed — wellness tips & updates',
+                            style: poppins(11.5, w: FontWeight.w700, c: C.ink)),
+                        const SizedBox(height: 3),
+                        Text('🗳️ Polls — share your opinion',
+                            style: poppins(11.5, w: FontWeight.w700, c: C.ink)),
+                        const SizedBox(height: 3),
+                        Text('📅 Activities — daily challenges to join',
+                            style: poppins(11.5, w: FontWeight.w700, c: C.ink)),
+                      ]),
+                    ),
+                    GestureDetector(
+                      onTap: _dismissTabHint,
+                      child: const Padding(
+                        padding: EdgeInsets.only(left: 8, top: 2),
+                        child: Icon(Icons.close_rounded, size: 16, color: C.txm),
+                      ),
+                    ),
+                  ]),
+                ),
+              Expanded(
             // Activities (index 3) and Polls (index 2) get their own
             // dedicated time-gated calendar experiences — completely
             // separate from the generic feed the other 2 tabs use.
@@ -467,6 +517,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
                               ),
                       )),
           ),
+        ]),
+        ),
         ),
       ]),
       ),

@@ -127,6 +127,25 @@ class MainActivity : FlutterActivity() {
                         } catch (_: Exception) {}
                         result.success(true)
                     }
+                    // These two functions already existed fully
+                    // implemented below, but were never actually wired
+                    // into this handler — meaning every Flutter call to
+                    // them threw MissingPluginException, silently
+                    // swallowed by a try/catch on the Dart side. This
+                    // is why SOS/fall alerts were falling back to a
+                    // regular tap-to-open notification on Android 14+
+                    // instead of appearing full-screen immediately —
+                    // the permission was never actually being checked
+                    // or requested at all.
+                    "canUseFullScreenIntent" -> {
+                        result.success(canUseFullScreenIntent())
+                    }
+                    "requestFullScreenIntentPermission" -> {
+                        try {
+                            requestFullScreenIntentPermission()
+                        } catch (_: Exception) {}
+                        result.success(true)
+                    }
                     // Dart's shared_preferences plugin (2.3.0+) writes to
                     // Android DataStore, not classic SharedPreferences —
                     // native code cannot read it directly anymore. Flutter
