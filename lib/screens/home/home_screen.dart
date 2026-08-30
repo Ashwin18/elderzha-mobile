@@ -315,7 +315,7 @@ class _HomeScreenState extends State<HomeScreen> {
             // Header with photo background
             SliverToBoxAdapter(
               child: SizedBox(
-                height: 340,
+                height: 200,
                 child: Stack(
                   children: [
                     Positioned.fill(

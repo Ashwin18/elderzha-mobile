@@ -368,7 +368,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Column(
           children: [
             SizedBox(
-              height: 260,
+              height: 200,
               child: Stack(
                 children: [
                   Positioned.fill(
