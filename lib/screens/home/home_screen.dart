@@ -171,11 +171,79 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _openCheckIn() async {
     if (!_isCheckInWindowOpen) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Daily check-in opens at 8:00 PM',
-            style: poppins(12, c: C.white)),
-        backgroundColor: C.ink,
-      ));
+      showDialog(
+        context: context,
+        barrierColor: Colors.black.withOpacity(.45),
+        builder: (_) => Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+            decoration: BoxDecoration(
+              color: C.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: C.ink.withOpacity(.2),
+                  blurRadius: 30,
+                  offset: const Offset(0, 12),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFFFFDD66), C.yellow],
+                    ),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: C.yellow.withOpacity(.4),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.lock_clock_rounded, size: 30, color: C.ink),
+                ),
+                const SizedBox(height: 18),
+                Text('Check-in opens at 8:00 PM',
+                    textAlign: TextAlign.center,
+                    style: poppins(16, w: FontWeight.w800, c: C.ink)),
+                const SizedBox(height: 8),
+                Text(
+                  'Come back this evening for your daily wellbeing check-in.',
+                  textAlign: TextAlign.center,
+                  style: poppins(13, c: C.txm, h: 1.4),
+                ),
+                const SizedBox(height: 22),
+                SizedBox(
+                  width: double.infinity,
+                  height: 46,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: C.ink,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                      elevation: 0,
+                    ),
+                    child: Text('Got it',
+                        style: poppins(13.5, w: FontWeight.w800, c: C.yellow)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
       return;
     }
     final result = await Navigator.pushNamed(context, AppRoutes.checkIn);
@@ -315,7 +383,7 @@ class _HomeScreenState extends State<HomeScreen> {
             // Header with photo background
             SliverToBoxAdapter(
               child: SizedBox(
-                height: 260,
+                height: 225,
                 child: Stack(
                   children: [
                     Positioned.fill(
