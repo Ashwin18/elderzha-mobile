@@ -318,26 +318,29 @@ class _HomeScreenState extends State<HomeScreen> {
                 height: 230,
                 decoration: const BoxDecoration(color: C.yellow),
                 child: Stack(
-                  fit: StackFit.expand,
                   children: [
-                    Image.asset(
-                      'assets/images/home_header_photo.jpg',
-                      fit: BoxFit.cover,
+                    Positioned.fill(
+                      child: Image.asset(
+                        'assets/images/home_header_photo.jpg',
+                        fit: BoxFit.cover,
+                      ),
                     ),
                     // Fades the photo into the page's own background
                     // gradient below, so the transition feels smooth
                     // rather than a hard cut.
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          stops: const [0.0, 0.45, 1.0],
-                          colors: [
-                            C.yellow.withOpacity(.55),
-                            C.yellow.withOpacity(.15),
-                            const Color(0xFFFFF3D0),
-                          ],
+                    Positioned.fill(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            stops: const [0.0, 0.45, 1.0],
+                            colors: [
+                              C.yellow.withOpacity(.55),
+                              C.yellow.withOpacity(.15),
+                              const Color(0xFFFFF3D0),
+                            ],
+                          ),
                         ),
                       ),
                     ),

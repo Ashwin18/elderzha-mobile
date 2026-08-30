@@ -374,6 +374,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               child: Container(
               width: double.infinity,
+              height: 200,
               decoration: const BoxDecoration(
                 color: AppColors.yellow,
                 boxShadow: [
@@ -577,7 +578,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               physics: const NeverScrollableScrollPhysics(),
                               mainAxisSpacing: 10,
                               crossAxisSpacing: 10,
-                              childAspectRatio: 1.7,
+                              childAspectRatio: 1.55,
                               children: [
                                 _boxItem(
                                   context,
@@ -889,7 +890,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(18),
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: AppColors.bgCard,
           borderRadius: BorderRadius.circular(18),
@@ -908,8 +909,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Row(
               children: [
                 Container(
-                  width: 42,
-                  height: 42,
+                  width: 38,
+                  height: 38,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
@@ -921,19 +922,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(icon, size: 20, color: color),
+                  child: Icon(icon, size: 18, color: color),
                 ),
                 const Spacer(),
-                Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.inkLight),
+                Icon(Icons.chevron_right_rounded, size: 16, color: AppColors.inkLight),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.poppins(
-                fontSize: 13,
+                fontSize: 12.5,
                 fontWeight: FontWeight.w700,
                 color: AppColors.ink,
               ),
