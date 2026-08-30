@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_routes.dart';
 import '../../providers/auth_provider.dart';
@@ -938,6 +939,39 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ── Calendar ──────────────────────────────────────────────
+  // Counts everything SPECIAL scheduled for a given date — activities,
+  // polls, and dated reminders (family birthdays/anniversaries, custom
+  // one-time reminders). Deliberately excludes routine daily medical/
+  // food alarms, since those recur every single day and would make
+  // every future date show the same baseline count, diluting the
+  // badge's usefulness for spotting genuinely special upcoming items.
+  // Reuses data already fetched elsewhere on Home — no new API calls.
+  int _upcomingCountForDay(DateTime day) {
+    bool matchesDate(dynamic d) {
+      if (d is! Map) return false;
+      final date = DateTime.tryParse(d['date']?.toString() ?? '');
+      if (date == null) return false;
+      return date.year == day.year &&
+          date.month == day.month &&
+          date.day == day.day;
+    }
+
+    final activityCount = _activityDays.where(matchesDate).length;
+    final pollCount = _pollDays.where(matchesDate).length;
+    final datedReminderCount = _reminders.where((item) {
+      final raw =
+          (item['date'] ?? item['event_date'] ?? item['reminder_date'] ?? '')
+              .toString();
+      if (raw.isEmpty) return false;
+      final parsed = _tryParseDate(raw);
+      if (parsed == null) return false;
+      return parsed.year == day.year &&
+          parsed.month == day.month &&
+          parsed.day == day.day;
+    }).length;
+    return activityCount + pollCount + datedReminderCount;
+  }
+
   Widget _weekStrip() {
     const weekdays = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
     final weekStart = _focusedWeekStart;
@@ -1102,16 +1136,36 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ? Colors.white
                                       : isSel ? C.ink : fg)),
                           const SizedBox(height: 2),
-                          moodEmoji.isNotEmpty
-                              ? Text(moodEmoji, style: const TextStyle(fontSize: 12, height: 1))
-                              : SizedBox(
-                                  width: 5, height: 5,
-                                  child: type == 'event'
-                                      ? const DecoratedBox(
-                                          decoration: BoxDecoration(
-                                              color: C.orange, shape: BoxShape.circle))
-                                      : null,
+                          Builder(builder: (_) {
+                            if (moodEmoji.isNotEmpty) {
+                              return Text(moodEmoji,
+                                  style: const TextStyle(fontSize: 12, height: 1));
+                            }
+                            final showCount = type == 'future' || type == 'miss';
+                            final upcomingCount =
+                                showCount ? _upcomingCountForDay(cellDate) : 0;
+                            if (upcomingCount > 0) {
+                              return Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: type == 'miss' ? C.txl : C.yellowDeep,
+                                  borderRadius: BorderRadius.circular(999),
                                 ),
+                                child: Text(
+                                  upcomingCount > 9 ? '9+' : '$upcomingCount',
+                                  style: poppins(8, w: FontWeight.w800, c: Colors.white),
+                                ),
+                              );
+                            }
+                            return SizedBox(
+                              width: 5, height: 5,
+                              child: type == 'event'
+                                  ? const DecoratedBox(
+                                      decoration: BoxDecoration(
+                                          color: C.orange, shape: BoxShape.circle))
+                                  : null,
+                            );
+                          }),
                         ],
                       ),
                     ),
@@ -1265,17 +1319,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
               _activityPollStatusSection(_selectedDay),
-              if (rows.isNotEmpty) ...[
+              if (_checkInEmojiSequence(checkIn).isNotEmpty) ...[
                 const SizedBox(height: 12),
-                Wrap(
-                  spacing: 7,
-                  runSpacing: 7,
-                  children: rows
-                      .where((row) => row.key != 'Notes')
-                      .map(
-                          (row) => _p('${row.key}: ${row.value}', C.bg2, C.txm))
-                      .toList(),
-                ),
+                _StaggeredEmojiRow(items: _checkInEmojiSequence(checkIn)),
               ],
               if (notes.isNotEmpty) ...[
                 const SizedBox(height: 10),
@@ -1295,6 +1341,8 @@ class _HomeScreenState extends State<HomeScreen> {
               if (rows.isEmpty && notes.isEmpty)
                 Text('Check-in submitted for this date',
                     style: poppins(12, c: C.txl)),
+              const SizedBox(height: 12),
+              _whatsAppShareButton(_selectedDay, checkedIn: true, checkIn: checkIn),
             ],
           ),
         );
@@ -1380,7 +1428,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: const Icon(Icons.close, size: 16, color: C.txl),
                 ),
               ),
-              const Text('📭', style: TextStyle(fontSize: 30)),
+              const Text('😴', style: TextStyle(fontSize: 30)),
               const SizedBox(height: 8),
               Text(
                 'No check-in on $m $d',
@@ -1393,6 +1441,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 textAlign: TextAlign.center,
               ),
               _activityPollStatusSection(_selectedDay),
+              const SizedBox(height: 12),
+              _whatsAppShareButton(_selectedDay, checkedIn: false),
             ],
           ),
         );
@@ -1674,6 +1724,74 @@ class _HomeScreenState extends State<HomeScreen> {
     return null;
   }
 
+  // Maps a check-in field's text value to a representative emoji —
+  // covers the common mood/weather/people/activity selections, with
+  // a sensible fallback per field type for anything unmapped.
+  String _emojiForFieldValue(String fieldType, String value) {
+    final v = value.toLowerCase();
+    switch (fieldType) {
+      case 'mood':
+        if (v.contains('happy') || v.contains('great') || v.contains('good')) return '😊';
+        if (v.contains('sad') || v.contains('down')) return '😔';
+        if (v.contains('tired') || v.contains('exhaust')) return '😴';
+        if (v.contains('excit') || v.contains('joy')) return '🤩';
+        if (v.contains('calm') || v.contains('peace')) return '😌';
+        if (v.contains('anxious') || v.contains('worried') || v.contains('stress')) return '😟';
+        if (v.contains('angry') || v.contains('frustrat')) return '😠';
+        if (v.contains('sick') || v.contains('unwell') || v.contains('pain')) return '🤒';
+        return '🙂';
+      case 'weather':
+        if (v.contains('sun') || v.contains('clear')) return '☀️';
+        if (v.contains('rain')) return '🌧️';
+        if (v.contains('cloud')) return '☁️';
+        if (v.contains('storm') || v.contains('thunder')) return '⛈️';
+        if (v.contains('cold') || v.contains('cool')) return '🌤️';
+        if (v.contains('hot') || v.contains('warm')) return '🌡️';
+        return '🌤️';
+      case 'people':
+        if (v.contains('family')) return '👨‍👩‍👧';
+        if (v.contains('friend')) return '🧑‍🤝‍🧑';
+        if (v.contains('grandchild') || v.contains('grandkid')) return '🧒';
+        if (v.contains('alone') || v.contains('no one') || v.contains('nobody')) return '🧍';
+        return '👥';
+      case 'places':
+        if (v.contains('home')) return '🏠';
+        if (v.contains('park')) return '🌳';
+        if (v.contains('temple') || v.contains('church') || v.contains('mosque')) return '🛕';
+        if (v.contains('market') || v.contains('shop')) return '🛒';
+        if (v.contains('hospital') || v.contains('clinic') || v.contains('doctor')) return '🏥';
+        return '📍';
+      case 'activity':
+        if (v.contains('walk')) return '🚶';
+        if (v.contains('yoga') || v.contains('exercise') || v.contains('workout')) return '🧘';
+        if (v.contains('read')) return '📖';
+        if (v.contains('cook')) return '🍳';
+        if (v.contains('tv') || v.contains('movie')) return '📺';
+        if (v.contains('garden')) return '🌱';
+        return '🎯';
+      default:
+        return '✨';
+    }
+  }
+
+  // Builds the ordered list of (emoji, label) pairs for a check-in,
+  // used by the animated staggered-reveal row.
+  List<MapEntry<String, String>> _checkInEmojiSequence(Map<String, dynamic>? item) {
+    final sequence = <MapEntry<String, String>>[];
+    void add(String fieldType, List<String> keys, String label) {
+      final value = _field(item, keys);
+      if (value.isEmpty) return;
+      sequence.add(MapEntry(_emojiForFieldValue(fieldType, value), label));
+    }
+
+    add('mood', ['mood', 'mood_name', 'feeling'], 'Mood');
+    add('weather', ['weather', 'weather_name'], 'Weather');
+    add('people', ['people', 'persons', 'met_people', 'people_met'], 'People met');
+    add('places', ['places', 'place', 'locations', 'places_visited'], 'Places');
+    add('activity', ['activity', 'activities', 'activity_name', 'activities_done'], 'Activity');
+    return sequence;
+  }
+
   List<MapEntry<String, String>> _checkInRows(Map<String, dynamic>? item) {
     final rows = <MapEntry<String, String>>[];
     void add(String label, List<String> keys) {
@@ -1810,39 +1928,124 @@ class _HomeScreenState extends State<HomeScreen> {
   // answered/missed for a specific past day — independent of
   // whether a daily check-in was submitted that day, since these
   // are separate systems.
+  Future<void> _shareDayViaWhatsApp(DateTime day, {
+    required bool checkedIn,
+    Map<String, dynamic>? checkIn,
+  }) async {
+    final label = '${_monthShort(day)} ${day.day}, ${day.year}';
+    final buffer = StringBuffer('*My day — $label*\n\n');
+
+    if (checkedIn) {
+      final rows = _checkInRows(checkIn).where((r) => r.key != 'Notes');
+      if (rows.isNotEmpty) {
+        for (final row in rows) {
+          buffer.writeln('${row.key}: ${row.value}');
+        }
+      } else {
+        buffer.writeln('Checked in for the day ✅');
+      }
+    } else {
+      buffer.writeln('Did not check in this day 😴');
+    }
+
+    final activities = _activitiesOnDay(day);
+    final polls = _pollsOnDay(day);
+    if (activities.isNotEmpty) {
+      final replied = activities.where((a) => a['status'] == 'completed').length;
+      buffer.writeln('Activities: ${activities.length} posted, replied to $replied');
+    }
+    if (polls.isNotEmpty) {
+      final answered = polls.where((p) {
+        final poll = p['poll'];
+        return p['status'] == 'past' && poll is Map && poll['has_voted'] == true;
+      }).length;
+      buffer.writeln('Polls: ${polls.length} posted, answered $answered');
+    }
+
+    buffer.write('\nShared from ElderZha 💛');
+    final uri = Uri.parse('https://wa.me/?text=${Uri.encodeComponent(buffer.toString())}');
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Could not open WhatsApp', style: poppins(12, c: C.white)),
+          backgroundColor: C.ink,
+        ));
+      }
+    }
+  }
+
+  Widget _whatsAppShareButton(DateTime day, {
+    required bool checkedIn,
+    Map<String, dynamic>? checkIn,
+  }) {
+    return GestureDetector(
+      onTap: () => _shareDayViaWhatsApp(day, checkedIn: checkedIn, checkIn: checkIn),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          color: const Color(0xFF25D366).withOpacity(.12),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.share_rounded, size: 15, color: Color(0xFF128C7E)),
+          const SizedBox(width: 6),
+          Text('Share via WhatsApp',
+              style: poppins(11.5, w: FontWeight.w700, c: const Color(0xFF128C7E))),
+        ]),
+      ),
+    );
+  }
+
   Widget _activityPollStatusSection(DateTime day) {
     final activities = _activitiesOnDay(day);
     final polls = _pollsOnDay(day);
     if (activities.isEmpty && polls.isEmpty) return const SizedBox.shrink();
 
-    final activitiesResponded = activities.where((a) => a['status'] == 'completed').length;
-    final activitiesMissed = activities.where((a) => a['status'] == 'missed').length;
+    final activitiesReplied =
+        activities.where((a) => a['status'] == 'completed').length;
     final pollsAnswered = polls.where((p) {
       final poll = p['poll'];
       return p['status'] == 'past' && poll is Map && poll['has_voted'] == true;
     }).length;
-    final pollsMissed = polls.where((p) {
-      final poll = p['poll'];
-      return p['status'] == 'past' && (poll is! Map || poll['has_voted'] != true);
-    }).length;
 
-    if (activitiesResponded == 0 && activitiesMissed == 0 && pollsAnswered == 0 && pollsMissed == 0) {
-      return const SizedBox.shrink();
-    }
+    Widget row(String emoji, String label, int posted, int done) => Container(
+          margin: const EdgeInsets.only(top: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: C.bg2,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(children: [
+                Text(emoji, style: const TextStyle(fontSize: 15)),
+                const SizedBox(width: 7),
+                Text(label, style: poppins(12.5, w: FontWeight.w700, c: C.ink)),
+              ]),
+              RichText(
+                text: TextSpan(children: [
+                  TextSpan(
+                      text: '$posted posted · replied to ',
+                      style: poppins(11.5, c: C.txm)),
+                  TextSpan(
+                      text: '$done',
+                      style: poppins(11.5, w: FontWeight.w800,
+                          c: done > 0 ? C.green : C.red)),
+                ]),
+              ),
+            ],
+          ),
+        );
 
-    return Padding(
-      padding: const EdgeInsets.only(top: 10),
-      child: Wrap(spacing: 6, runSpacing: 6, children: [
-        if (activitiesResponded > 0)
-          _p('✅ $activitiesResponded activity replied', C.greenLight, const Color(0xFF145C30)),
-        if (activitiesMissed > 0)
-          _p('⚪ $activitiesMissed activity missed', C.bg2, C.txm),
-        if (pollsAnswered > 0)
-          _p('✅ $pollsAnswered poll answered', C.greenLight, const Color(0xFF145C30)),
-        if (pollsMissed > 0)
-          _p('⚪ $pollsMissed poll missed', C.bg2, C.txm),
-      ]),
-    );
+    return Column(children: [
+      if (activities.isNotEmpty)
+        row('📅', 'Activities', activities.length, activitiesReplied),
+      if (polls.isNotEmpty)
+        row('🗳️', 'Polls', polls.length, pollsAnswered),
+    ]);
   }
 
   String _field(Map<String, dynamic>? item, List<String> keys) {
@@ -1978,4 +2181,62 @@ class _HomeScreenState extends State<HomeScreen> {
           style: poppins(11, w: FontWeight.w700, c: fg),
         ),
       );
+}
+
+class _StaggeredEmojiRow extends StatefulWidget {
+  const _StaggeredEmojiRow({required this.items});
+  final List<MapEntry<String, String>> items;
+
+  @override
+  State<_StaggeredEmojiRow> createState() => _StaggeredEmojiRowState();
+}
+
+class _StaggeredEmojiRowState extends State<_StaggeredEmojiRow> {
+  int _visibleCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _reveal();
+  }
+
+  Future<void> _reveal() async {
+    for (var i = 0; i < widget.items.length; i++) {
+      await Future.delayed(const Duration(milliseconds: 120));
+      if (!mounted) return;
+      setState(() => _visibleCount = i + 1);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: List.generate(widget.items.length, (i) {
+        final visible = i < _visibleCount;
+        final entry = widget.items[i];
+        return Padding(
+          padding: EdgeInsets.only(right: i != widget.items.length - 1 ? 8 : 0),
+          child: AnimatedOpacity(
+            opacity: visible ? 1 : 0,
+            duration: const Duration(milliseconds: 220),
+            child: AnimatedScale(
+              scale: visible ? 1 : 0.4,
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutBack,
+              child: Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: C.yellowLight,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                alignment: Alignment.center,
+                child: Text(entry.key, style: const TextStyle(fontSize: 18)),
+              ),
+            ),
+          ),
+        );
+      }),
+    );
+  }
 }
