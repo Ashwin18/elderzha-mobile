@@ -315,146 +315,160 @@ class _HomeScreenState extends State<HomeScreen> {
             // Header with photo background
             SliverToBoxAdapter(
               child: Container(
-                height: 230,
-                decoration: const BoxDecoration(color: C.yellow),
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: Image.asset(
-                        'assets/images/home_header_photo.jpg',
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                    // Fades the photo into the page's own background
-                    // gradient below, so the transition feels smooth
-                    // rather than a hard cut.
-                    Positioned.fill(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            stops: const [0.0, 0.45, 1.0],
-                            colors: [
-                              C.yellow.withOpacity(.55),
-                              C.yellow.withOpacity(.15),
-                              const Color(0xFFFFF3D0),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    SafeArea(
+                color: C.yellow,
+                child: SafeArea(
                   bottom: false,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 12,
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '${_timeBasedGreeting()} 👋',
-                                style: poppins(
-                                  12,
-                                  w: FontWeight.w600,
-                                  c: C.yellowDeep,
-                                ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Greeting — sits in the plain background, not
+                      // overlapping the photo below, matching the
+                      // approved reference layout.
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(18, 12, 18, 10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${_timeBasedGreeting()} 👋',
+                              style: poppins(
+                                12,
+                                w: FontWeight.w600,
+                                c: C.yellowDeep,
                               ),
-                              Text(
-                                auth.userName,
-                                style: poppins(
-                                  19,
-                                  w: FontWeight.w700,
-                                  c: C.ink,
-                                ),
+                            ),
+                            Text(
+                              auth.userName,
+                              style: poppins(
+                                19,
+                                w: FontWeight.w700,
+                                c: C.ink,
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                        GestureDetector(
-                          onTap: () => Navigator.pushNamed(
-                            context,
-                            AppRoutes.notifications,
-                          ),
-                          child: Stack(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: const BoxDecoration(
-                                  color: C.white,
-                                  shape: BoxShape.circle,
+                      ),
+                      // Photo — its own section below the greeting, with
+                      // the notification/profile icons overlaid on the
+                      // photo itself (top-right), matching the reference.
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(22),
+                          child: SizedBox(
+                            height: 150,
+                            width: double.infinity,
+                            child: Stack(
+                              children: [
+                                Positioned.fill(
+                                  child: Image.asset(
+                                    'assets/images/home_header_photo.jpg',
+                                    fit: BoxFit.cover,
+                                  ),
                                 ),
-                                child: const Icon(
-                                  Icons.notifications_outlined,
-                                  size: 22,
-                                  color: C.ink,
-                                ),
-                              ),
-                              if (_notificationCount > 0)
-                                Positioned(
-                                  top: 4,
-                                  right: 4,
-                                  child: Container(
-                                    constraints: const BoxConstraints(
-                                      minWidth: 16,
-                                      minHeight: 16,
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 3,
-                                    ),
+                                Positioned.fill(
+                                  child: DecoratedBox(
                                     decoration: BoxDecoration(
-                                      color: C.red,
-                                      borderRadius: BorderRadius.circular(999),
-                                      border: Border.all(
-                                        color: C.white,
-                                        width: 2,
-                                      ),
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        _notificationCount > 99
-                                            ? '99+'
-                                            : '$_notificationCount',
-                                        style: poppins(
-                                          8,
-                                          w: FontWeight.w700,
-                                          c: Colors.white,
-                                        ),
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                        colors: [
+                                          Colors.black.withOpacity(.12),
+                                          Colors.transparent,
+                                        ],
                                       ),
                                     ),
                                   ),
                                 ),
-                            ],
+                                Positioned(
+                                  top: 12,
+                                  right: 12,
+                                  child: Row(
+                                    children: [
+                                      GestureDetector(
+                                        onTap: () => Navigator.pushNamed(
+                                          context,
+                                          AppRoutes.notifications,
+                                        ),
+                                        child: Stack(
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.all(8),
+                                              decoration: const BoxDecoration(
+                                                color: C.white,
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: const Icon(
+                                                Icons.notifications_outlined,
+                                                size: 22,
+                                                color: C.ink,
+                                              ),
+                                            ),
+                                            if (_notificationCount > 0)
+                                              Positioned(
+                                                top: 4,
+                                                right: 4,
+                                                child: Container(
+                                                  constraints: const BoxConstraints(
+                                                    minWidth: 16,
+                                                    minHeight: 16,
+                                                  ),
+                                                  padding: const EdgeInsets.symmetric(
+                                                    horizontal: 3,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: C.red,
+                                                    borderRadius: BorderRadius.circular(999),
+                                                    border: Border.all(
+                                                      color: C.white,
+                                                      width: 2,
+                                                    ),
+                                                  ),
+                                                  child: Center(
+                                                    child: Text(
+                                                      _notificationCount > 99
+                                                          ? '99+'
+                                                          : '$_notificationCount',
+                                                      style: poppins(
+                                                        8,
+                                                        w: FontWeight.w700,
+                                                        c: Colors.white,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      GestureDetector(
+                                        onTap: () => Navigator.pushNamed(
+                                            context, AppRoutes.profile),
+                                        child: Container(
+                                          width: 36,
+                                          height: 36,
+                                          decoration: BoxDecoration(
+                                            color: C.white,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Icon(
+                                            Icons.person_rounded,
+                                            size: 18,
+                                            color: C.ink,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                        const SizedBox(width: 4),
-                        GestureDetector(
-                          onTap: () =>
-                              Navigator.pushNamed(context, AppRoutes.profile),
-                          child: Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: C.white,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.person_rounded,
-                              size: 18,
-                              color: C.ink,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ),
-                  ],
                 ),
               ),
             ),
