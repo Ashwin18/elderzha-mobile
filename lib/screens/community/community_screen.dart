@@ -685,7 +685,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
       );
     }
 
-    final userName = p['user_name']?.toString().trim() ?? '';
+    final userName = (p['user_name'] ?? p['author'])?.toString().trim() ?? '';
     final userImage = p['user_image']?.toString();
     final likesCount = int.tryParse((p['likes_count'] ?? 0).toString()) ?? 0;
     final isLiked = p['is_liked'] == true;

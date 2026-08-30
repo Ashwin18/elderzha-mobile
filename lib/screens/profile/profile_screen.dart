@@ -367,14 +367,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
         color: AppColors.yellowDark,
         child: Column(
           children: [
-            Container(
+            ClipRRect(
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(28),
+                bottomRight: Radius.circular(28),
+              ),
+              child: Container(
               width: double.infinity,
               decoration: const BoxDecoration(
                 color: AppColors.yellow,
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(28),
-                  bottomRight: Radius.circular(28),
-                ),
                 boxShadow: [
                   BoxShadow(
                     color: Color(0x14000000),
@@ -383,7 +384,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ],
               ),
-              child: SafeArea(
+              child: Stack(children: [
+                Positioned.fill(
+                  child: Image.asset(
+                    'assets/images/home_header_photo.jpg',
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        stops: const [0.0, 0.45, 1.0],
+                        colors: [
+                          AppColors.yellow.withOpacity(.55),
+                          AppColors.yellow.withOpacity(.15),
+                          const Color(0xFFFFF3D0),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              SafeArea(
                 bottom: false,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
@@ -460,6 +484,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ),
                 ),
+              ),
+              ]),
               ),
             ),
             Expanded(
@@ -551,7 +577,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               physics: const NeverScrollableScrollPhysics(),
                               mainAxisSpacing: 10,
                               crossAxisSpacing: 10,
-                              childAspectRatio: 1.3,
+                              childAspectRatio: 1.7,
                               children: [
                                 _boxItem(
                                   context,
@@ -867,7 +893,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         decoration: BoxDecoration(
           color: AppColors.bgCard,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.border),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.ink.withOpacity(.06),
+              blurRadius: 14,
+              offset: const Offset(0, 5),
+            ),
+          ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -876,13 +908,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Row(
               children: [
                 Container(
-                  width: 36,
-                  height: 36,
+                  width: 42,
+                  height: 42,
                   decoration: BoxDecoration(
-                    color: color.withOpacity(.12),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color.lerp(color, Colors.white, 0.75)!,
+                        Color.lerp(color, Colors.white, 0.4)!,
+                      ],
+                    ),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(icon, size: 17, color: color),
+                  child: Icon(icon, size: 20, color: color),
                 ),
                 const Spacer(),
                 Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.inkLight),

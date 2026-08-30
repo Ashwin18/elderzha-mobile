@@ -164,7 +164,13 @@ class _OffersScreenState extends State<OffersScreen> {
         decoration: BoxDecoration(
           color: C.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: C.bd),
+          boxShadow: [
+            BoxShadow(
+              color: C.ink.withOpacity(.06),
+              blurRadius: 14,
+              offset: const Offset(0, 5),
+            ),
+          ],
         ),
         child: Row(children: [
           Container(

@@ -312,11 +312,36 @@ class _HomeScreenState extends State<HomeScreen> {
         color: C.yellowDark,
         child: CustomScrollView(
           slivers: [
-            // White top bar
+            // Header with photo background
             SliverToBoxAdapter(
               child: Container(
-                color: C.yellow,
-                child: SafeArea(
+                height: 230,
+                decoration: const BoxDecoration(color: C.yellow),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.asset(
+                      'assets/images/home_header_photo.jpg',
+                      fit: BoxFit.cover,
+                    ),
+                    // Fades the photo into the page's own background
+                    // gradient below, so the transition feels smooth
+                    // rather than a hard cut.
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          stops: const [0.0, 0.45, 1.0],
+                          colors: [
+                            C.yellow.withOpacity(.55),
+                            C.yellow.withOpacity(.15),
+                            const Color(0xFFFFF3D0),
+                          ],
+                        ),
+                      ),
+                    ),
+                    SafeArea(
                   bottom: false,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
@@ -355,11 +380,15 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           child: Stack(
                             children: [
-                              const Padding(
-                                padding: EdgeInsets.all(8),
-                                child: Icon(
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: const BoxDecoration(
+                                  color: C.white,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
                                   Icons.notifications_outlined,
-                                  size: 24,
+                                  size: 22,
                                   color: C.ink,
                                 ),
                               ),
@@ -421,6 +450,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                   ),
+                ),
+                  ],
                 ),
               ),
             ),

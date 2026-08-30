@@ -268,7 +268,13 @@ class _ActivityBannerCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: C.white,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: C.bd),
+          boxShadow: [
+            BoxShadow(
+              color: C.ink.withOpacity(.06),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
