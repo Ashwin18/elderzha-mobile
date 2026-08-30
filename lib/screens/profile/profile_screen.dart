@@ -367,131 +367,126 @@ class _ProfileScreenState extends State<ProfileScreen> {
         color: AppColors.yellowDark,
         child: Column(
           children: [
-            Container(
-              color: AppColors.yellow,
-              child: SafeArea(
-                bottom: false,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Identity block — sits in the plain background,
-                    // not overlapping the photo below, matching the
-                    // same reference layout used on Home.
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 64,
-                            height: 64,
-                            decoration: BoxDecoration(
-                              color: AppColors.yellowLight,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: AppColors.yellow, width: 2),
-                            ),
-                            clipBehavior: Clip.antiAlias,
-                            child: photoUrl.isNotEmpty
-                                ? Image.network(
-                                    photoUrl,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => const Icon(
-                                      Icons.person_rounded,
-                                      size: 30,
-                                      color: AppColors.ink,
-                                    ),
-                                  )
-                                : const Icon(
-                                    Icons.person_rounded,
-                                    size: 30,
-                                    color: AppColors.ink,
-                                  ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'My profile',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.yellowDeep,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  auth.userName,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w800,
-                                    color: AppColors.ink,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  auth.userPhone.isNotEmpty
-                                      ? '+91 ${auth.userPhone}'
-                                      : 'Mobile not available',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.yellowDeep,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+            SizedBox(
+              height: 260,
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: Container(color: AppColors.yellow),
+                  ),
+                  Positioned.fill(
+                    child: Image.asset(
+                      'assets/images/home_header_photo.jpg',
+                      fit: BoxFit.cover,
+                      alignment: Alignment.topCenter,
                     ),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 20, bottom: 10),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: _headerPill(_subscriptionHeaderText),
-                      ),
-                    ),
-                    // Photo — its own section below the identity block,
-                    // matching the same reference layout used on Home.
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(22),
-                        child: SizedBox(
-                          height: 130,
-                          width: double.infinity,
-                          child: Stack(
-                            children: [
-                              Positioned.fill(
-                                child: Image.asset(
-                                  'assets/images/home_header_photo.jpg',
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                              Positioned.fill(
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
-                                      colors: [
-                                        Colors.black.withOpacity(.10),
-                                        Colors.transparent,
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                  ),
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          stops: const [0.0, 0.7, 1.0],
+                          colors: [
+                            Colors.transparent,
+                            AppColors.yellow.withOpacity(.25),
+                            const Color(0xFFFFF3D0),
+                          ],
                         ),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  // Identity block — explicitly positioned at a fixed
+                  // top offset, matching the same approach used on
+                  // Home, so it sits reliably in the photo's clear
+                  // upper area rather than relying on a Row's
+                  // automatic layout.
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: SafeArea(
+                      bottom: false,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 60,
+                              height: 60,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.34),
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 2),
+                              ),
+                              clipBehavior: Clip.antiAlias,
+                              child: photoUrl.isNotEmpty
+                                  ? Image.network(
+                                      photoUrl,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => const Icon(
+                                        Icons.person_rounded,
+                                        size: 28,
+                                        color: AppColors.ink,
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.person_rounded,
+                                      size: 28,
+                                      color: AppColors.ink,
+                                    ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'My profile',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.ink,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    auth.userName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 19,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.ink,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    auth.userPhone.isNotEmpty
+                                        ? '+91 ${auth.userPhone}'
+                                        : 'Mobile not available',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.ink,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: _headerPill(_subscriptionHeaderText),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
             Expanded(
