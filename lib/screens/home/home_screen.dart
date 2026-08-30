@@ -605,10 +605,15 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       ),
-      // Off-screen — used purely to render and capture the WhatsApp
-      // share-card image. Never visible to the user.
-      Offstage(
-        offstage: true,
+      // Positioned far off-screen — used purely to render and
+      // capture the WhatsApp share-card image. Never visible to the
+      // user, but (unlike Offstage) this still actually PAINTS the
+      // widget, which RenderRepaintBoundary.toImage() requires —
+      // Offstage skips painting entirely, which was the real cause
+      // of the "Null check operator used on a null value" crash.
+      Positioned(
+        left: -9999,
+        top: -9999,
         child: RepaintBoundary(
           key: _shareCardKey,
           child: Material(

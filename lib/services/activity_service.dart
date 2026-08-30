@@ -48,9 +48,9 @@ class ActivityService {
       '/user/daily/activity/store',
       data: {
         'mood': mood,
-        'people': people,
-        'places': places,
-        'activities': activities,
+        'people_met': people,
+        'places_visited': places,
+        'activities_done': activities,
         'weather': weather,
         if (sleepTime != null) 'sleep_time': sleepTime,
         if (notes != null) 'notes': notes,
