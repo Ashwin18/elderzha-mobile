@@ -1283,6 +1283,8 @@ class _HomeScreenState extends State<HomeScreen> {
     void close() => setState(() => _selectedDay = DateTime.now());
     final dayReminders = _remindersForSelectedDay();
     final checkIn = _checkInForSelectedDay();
+    debugPrint('=== _detailCard: selectedDay=$_selectedDay, dayType=$t ===');
+    debugPrint('=== _detailCard: checkIn=$checkIn ===');
 
     switch (t) {
       case 'checkin':
@@ -1801,6 +1803,9 @@ class _HomeScreenState extends State<HomeScreen> {
   // Builds the ordered list of (emoji, label) pairs for a check-in,
   // used by the animated staggered-reveal row.
   List<MapEntry<String, String>> _checkInEmojiSequence(Map<String, dynamic>? item) {
+    debugPrint('=== _checkInEmojiSequence raw item ===');
+    debugPrint('$item');
+    debugPrint('=== end raw item ===');
     final sequence = <MapEntry<String, String>>[];
 
     // Single-value fields — one emoji each.
@@ -2118,10 +2123,6 @@ class _HomeScreenState extends State<HomeScreen> {
       }
       if (renderObject is! RenderRepaintBoundary) {
         throw Exception('Render object was ${renderObject.runtimeType}, not RenderRepaintBoundary');
-      }
-      if (renderObject.debugNeedsPaint) {
-        // Give it one more frame if it's still mid-paint.
-        await waitForFrame();
       }
       final image = await renderObject.toImage(pixelRatio: 2.5);
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
