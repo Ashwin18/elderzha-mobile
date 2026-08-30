@@ -1,6 +1,11 @@
+import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_routes.dart';
 import '../../providers/auth_provider.dart';
@@ -22,6 +27,10 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _actSvc = ActivityService();
+  final _shareCardKey = GlobalKey();
+  DateTime? _shareCardDay;
+  bool _shareCardCheckedIn = false;
+  Map<String, dynamic>? _shareCardCheckIn;
 
   bool _checkInDone = false;
   bool _loadError = false;
@@ -374,7 +383,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final auth = context.watch<AuthProvider>();
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Container(
+      body: Stack(children: [
+      Container(
         decoration: const BoxDecoration(gradient: C.bgGradient),
         child: RefreshIndicator(
         onRefresh: _loadAll,
@@ -594,6 +604,19 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       ),
+      // Off-screen — used purely to render and capture the WhatsApp
+      // share-card image. Never visible to the user.
+      Offstage(
+        offstage: true,
+        child: RepaintBoundary(
+          key: _shareCardKey,
+          child: Material(
+            color: Colors.transparent,
+            child: _shareCardContent(),
+          ),
+        ),
+      ),
+      ]),
     );
   }
 
@@ -1778,17 +1801,50 @@ class _HomeScreenState extends State<HomeScreen> {
   // used by the animated staggered-reveal row.
   List<MapEntry<String, String>> _checkInEmojiSequence(Map<String, dynamic>? item) {
     final sequence = <MapEntry<String, String>>[];
-    void add(String fieldType, List<String> keys, String label) {
+
+    // Single-value fields — one emoji each.
+    void addSingle(String fieldType, List<String> keys, String label) {
       final value = _field(item, keys);
       if (value.isEmpty) return;
       sequence.add(MapEntry(_emojiForFieldValue(fieldType, value), label));
     }
 
-    add('mood', ['mood', 'mood_name', 'feeling'], 'Mood');
-    add('weather', ['weather', 'weather_name'], 'Weather');
-    add('people', ['people', 'persons', 'met_people', 'people_met'], 'People met');
-    add('places', ['places', 'place', 'locations', 'places_visited'], 'Places');
-    add('activity', ['activity', 'activities', 'activity_name', 'activities_done'], 'Activity');
+    // Multi-value fields (People/Places/Activities can each have
+    // several selections) — one emoji PER selected item, not one
+    // combined emoji for the whole field. This was the actual bug
+    // behind "not all submitted emojis showing".
+    void addMulti(String fieldType, List<String> keys, String label) {
+      if (item == null) return;
+      final matchedKey = keys.firstWhere((k) => item[k] != null, orElse: () => '');
+      final raw = matchedKey.isEmpty ? null : item[matchedKey];
+      List<String> values;
+      if (raw is List) {
+        values = raw
+            .map((e) => e is Map
+                ? (e['name'] ?? e['label'] ?? e['title'] ?? e['value'])?.toString()
+                : e?.toString())
+            .whereType<String>()
+            .where((s) => s.trim().isNotEmpty)
+            .toList();
+      } else {
+        // Fall back to comma-splitting a single combined string, in
+        // case the API ever sends this field as text instead of a
+        // real list.
+        final combined = _field(item, keys);
+        values = combined.isEmpty
+            ? []
+            : combined.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+      }
+      for (final value in values) {
+        sequence.add(MapEntry(_emojiForFieldValue(fieldType, value), '$label: $value'));
+      }
+    }
+
+    addSingle('mood', ['mood', 'mood_name', 'feeling'], 'Mood');
+    addSingle('weather', ['weather', 'weather_name'], 'Weather');
+    addMulti('people', ['people', 'persons', 'met_people', 'people_met'], 'People met');
+    addMulti('places', ['places', 'place', 'locations', 'places_visited'], 'Places');
+    addMulti('activity', ['activities', 'activity', 'activity_name', 'activities_done'], 'Activity');
     return sequence;
   }
 
@@ -1928,48 +1984,143 @@ class _HomeScreenState extends State<HomeScreen> {
   // answered/missed for a specific past day — independent of
   // whether a daily check-in was submitted that day, since these
   // are separate systems.
+  Widget _shareCardContent() {
+    final day = _shareCardDay ?? DateTime.now();
+    final checkedIn = _shareCardCheckedIn;
+    final checkIn = _shareCardCheckIn;
+    final emojiSeq = checkedIn ? _checkInEmojiSequence(checkIn) : <MapEntry<String, String>>[];
+    final activities = _activitiesOnDay(day);
+    final polls = _pollsOnDay(day);
+    final activitiesReplied = activities.where((a) => a['status'] == 'completed').length;
+    final pollsAnswered = polls.where((p) {
+      final poll = p['poll'];
+      return p['status'] == 'past' && poll is Map && poll['has_voted'] == true;
+    }).length;
+
+    return Container(
+      width: 340,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: C.white,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFFFFDD66), C.yellow],
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(checkedIn ? Icons.check_rounded : Icons.nightlight_round,
+                  color: C.ink, size: 20),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${_monthShort(day)} ${day.day}, ${day.year}',
+                      style: poppins(14, w: FontWeight.w800, c: C.ink)),
+                  Text(checkedIn ? 'Daily check-in' : 'No check-in this day',
+                      style: poppins(11, c: C.txm)),
+                ],
+              ),
+            ),
+          ]),
+          if (emojiSeq.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Wrap(spacing: 8, runSpacing: 8, children: emojiSeq.map((e) {
+              return Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: C.yellowLight,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                alignment: Alignment.center,
+                child: Text(e.key, style: const TextStyle(fontSize: 18)),
+              );
+            }).toList()),
+          ],
+          if (activities.isNotEmpty || polls.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            if (activities.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(
+                  '📅 Activities: ${activities.length} posted · replied to $activitiesReplied',
+                  style: poppins(11.5, c: C.txm),
+                ),
+              ),
+            if (polls.isNotEmpty)
+              Text(
+                '🗳️ Polls: ${polls.length} posted · answered $pollsAnswered',
+                style: poppins(11.5, c: C.txm),
+              ),
+          ],
+          const SizedBox(height: 18),
+          Container(height: 1, color: C.bd),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Team ElderZha 💛',
+                  style: poppins(12, w: FontWeight.w800, c: C.yellowDeep)),
+              // TODO: replace with the real Play Store listing URL
+              // once the app is published.
+              Text('play.google.com/elderzha',
+                  style: poppins(9.5, c: C.txl)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _shareDayViaWhatsApp(DateTime day, {
     required bool checkedIn,
     Map<String, dynamic>? checkIn,
   }) async {
-    final label = '${_monthShort(day)} ${day.day}, ${day.year}';
-    final buffer = StringBuffer('*My day — $label*\n\n');
+    // Load the off-screen share card with this day's data, wait a
+    // couple of frames for it to actually render, then capture it.
+    setState(() {
+      _shareCardDay = day;
+      _shareCardCheckedIn = checkedIn;
+      _shareCardCheckIn = checkIn;
+    });
+    await Future.delayed(const Duration(milliseconds: 80));
+    if (!mounted) return;
 
-    if (checkedIn) {
-      final rows = _checkInRows(checkIn).where((r) => r.key != 'Notes');
-      if (rows.isNotEmpty) {
-        for (final row in rows) {
-          buffer.writeln('${row.key}: ${row.value}');
-        }
-      } else {
-        buffer.writeln('Checked in for the day ✅');
-      }
-    } else {
-      buffer.writeln('Did not check in this day 😴');
-    }
-
-    final activities = _activitiesOnDay(day);
-    final polls = _pollsOnDay(day);
-    if (activities.isNotEmpty) {
-      final replied = activities.where((a) => a['status'] == 'completed').length;
-      buffer.writeln('Activities: ${activities.length} posted, replied to $replied');
-    }
-    if (polls.isNotEmpty) {
-      final answered = polls.where((p) {
-        final poll = p['poll'];
-        return p['status'] == 'past' && poll is Map && poll['has_voted'] == true;
-      }).length;
-      buffer.writeln('Polls: ${polls.length} posted, answered $answered');
-    }
-
-    buffer.write('\nShared from ElderZha 💛');
-    final uri = Uri.parse('https://wa.me/?text=${Uri.encodeComponent(buffer.toString())}');
     try {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      final boundary = _shareCardKey.currentContext?.findRenderObject()
+          as RenderRepaintBoundary?;
+      if (boundary == null) throw Exception('Card not ready');
+      final image = await boundary.toImage(pixelRatio: 2.5);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) throw Exception('Could not encode image');
+
+      final dir = await getTemporaryDirectory();
+      final file = File(
+          '${dir.path}/elderzha_day_${day.year}${day.month}${day.day}.png');
+      await file.writeAsBytes(byteData.buffer.asUint8List());
+
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text: 'My day — ${_monthShort(day)} ${day.day}, ${day.year} · Shared from ElderZha 💛',
+      );
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Could not open WhatsApp', style: poppins(12, c: C.white)),
+          content: Text('Could not share this card', style: poppins(12, c: C.white)),
           backgroundColor: C.ink,
         ));
       }
