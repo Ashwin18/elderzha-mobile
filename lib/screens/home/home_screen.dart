@@ -314,160 +314,140 @@ class _HomeScreenState extends State<HomeScreen> {
           slivers: [
             // Header with photo background
             SliverToBoxAdapter(
-              child: SizedBox(
-                height: 200,
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: Container(color: C.yellow),
-                    ),
-                    Positioned.fill(
-                      child: Image.asset(
-                        'assets/images/home_header_photo.jpg',
-                        fit: BoxFit.cover,
-                        alignment: Alignment.topCenter,
-                      ),
-                    ),
-                    // Fades the photo into the page's own background
-                    // gradient below, so the transition feels smooth
-                    // rather than a hard cut.
-                    Positioned.fill(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            stops: const [0.0, 0.75, 1.0],
-                            colors: [
-                              Colors.transparent,
-                              C.yellow.withOpacity(.25),
-                              const Color(0xFFFFF3D0),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    // Greeting and icons — explicitly positioned at a
-                    // fixed top offset, sitting in the photo's own
-                    // clear upper area (above the people, who sit
-                    // lower in the frame) rather than relying on a
-                    // Row's automatic layout, which caused alignment
-                    // bugs in earlier attempts.
-                    Positioned(
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      child: SafeArea(
-                        bottom: false,
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '${_timeBasedGreeting()} 👋',
-                                      style: poppins(
-                                        13,
-                                        w: FontWeight.w600,
-                                        c: C.ink,
-                                      ),
+              child: Column(
+                children: [
+                  // Greeting — plain yellow background, matching
+                  // Reminder page's header style. No photo behind
+                  // it, so there is no overlap risk at all.
+                  Container(
+                    width: double.infinity,
+                    color: C.yellow,
+                    child: SafeArea(
+                      bottom: false,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${_timeBasedGreeting()} 👋',
+                                    style: poppins(
+                                      12,
+                                      w: FontWeight.w600,
+                                      c: C.yellowDeep,
                                     ),
-                                    Text(
-                                      auth.userName,
-                                      style: poppins(
-                                        19,
-                                        w: FontWeight.w700,
-                                        c: C.ink,
-                                      ),
+                                  ),
+                                  Text(
+                                    auth.userName,
+                                    style: poppins(
+                                      19,
+                                      w: FontWeight.w700,
+                                      c: C.ink,
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
-                              GestureDetector(
-                                onTap: () => Navigator.pushNamed(
-                                  context,
-                                  AppRoutes.notifications,
-                                ),
-                                child: Stack(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: const BoxDecoration(
-                                        color: C.white,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                        Icons.notifications_outlined,
-                                        size: 22,
-                                        color: C.ink,
-                                      ),
+                            ),
+                            // Only the notification icon now — profile
+                            // icon removed per request.
+                            GestureDetector(
+                              onTap: () => Navigator.pushNamed(
+                                context,
+                                AppRoutes.notifications,
+                              ),
+                              child: Stack(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: const BoxDecoration(
+                                      color: C.white,
+                                      shape: BoxShape.circle,
                                     ),
-                                    if (_notificationCount > 0)
-                                      Positioned(
-                                        top: 4,
-                                        right: 4,
-                                        child: Container(
-                                          constraints: const BoxConstraints(
-                                            minWidth: 16,
-                                            minHeight: 16,
+                                    child: const Icon(
+                                      Icons.notifications_outlined,
+                                      size: 22,
+                                      color: C.ink,
+                                    ),
+                                  ),
+                                  if (_notificationCount > 0)
+                                    Positioned(
+                                      top: 4,
+                                      right: 4,
+                                      child: Container(
+                                        constraints: const BoxConstraints(
+                                          minWidth: 16,
+                                          minHeight: 16,
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 3,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: C.red,
+                                          borderRadius: BorderRadius.circular(999),
+                                          border: Border.all(
+                                            color: C.white,
+                                            width: 2,
                                           ),
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 3,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: C.red,
-                                            borderRadius: BorderRadius.circular(999),
-                                            border: Border.all(
-                                              color: C.white,
-                                              width: 2,
-                                            ),
-                                          ),
-                                          child: Center(
-                                            child: Text(
-                                              _notificationCount > 99
-                                                  ? '99+'
-                                                  : '$_notificationCount',
-                                              style: poppins(
-                                                8,
-                                                w: FontWeight.w700,
-                                                c: Colors.white,
-                                              ),
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            _notificationCount > 99
+                                                ? '99+'
+                                                : '$_notificationCount',
+                                            style: poppins(
+                                              8,
+                                              w: FontWeight.w700,
+                                              c: Colors.white,
                                             ),
                                           ),
                                         ),
                                       ),
-                                  ],
-                                ),
+                                    ),
+                                ],
                               ),
-                              const SizedBox(width: 8),
-                              GestureDetector(
-                                onTap: () => Navigator.pushNamed(
-                                    context, AppRoutes.profile),
-                                child: Container(
-                                  width: 36,
-                                  height: 36,
-                                  decoration: BoxDecoration(
-                                    color: C.white,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.person_rounded,
-                                    size: 18,
-                                    color: C.ink,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  // Photo — medium height section below the greeting,
+                  // no text overlaid on it, so no cropping/headroom
+                  // tension at all.
+                  SizedBox(
+                    height: 170,
+                    width: double.infinity,
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: Image.asset(
+                            'assets/images/home_header_photo.jpg',
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        Positioned.fill(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                stops: const [0.0, 0.7, 1.0],
+                                colors: [
+                                  Colors.transparent,
+                                  C.yellow.withOpacity(.2),
+                                  const Color(0xFFFFF3D0),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
 
