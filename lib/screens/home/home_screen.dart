@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -2090,23 +2091,41 @@ class _HomeScreenState extends State<HomeScreen> {
     required bool checkedIn,
     Map<String, dynamic>? checkIn,
   }) async {
-    // Load the off-screen share card with this day's data, wait a
-    // couple of frames for it to actually render, then capture it.
+    // Load the off-screen share card with this day's data, then wait
+    // for it to actually finish painting before capturing it — a
+    // fixed delay isn't reliable across devices, so wait for two full
+    // frames via the scheduler instead.
     setState(() {
       _shareCardDay = day;
       _shareCardCheckedIn = checkedIn;
       _shareCardCheckIn = checkIn;
     });
-    await Future.delayed(const Duration(milliseconds: 80));
+
+    Future<void> waitForFrame() {
+      final completer = Completer<void>();
+      WidgetsBinding.instance.addPostFrameCallback((_) => completer.complete());
+      return completer.future;
+    }
+
+    await waitForFrame();
+    await waitForFrame();
     if (!mounted) return;
 
     try {
-      final boundary = _shareCardKey.currentContext?.findRenderObject()
-          as RenderRepaintBoundary?;
-      if (boundary == null) throw Exception('Card not ready');
-      final image = await boundary.toImage(pixelRatio: 2.5);
+      final renderObject = _shareCardKey.currentContext?.findRenderObject();
+      if (renderObject == null) {
+        throw Exception('Share card render object not found — context was null');
+      }
+      if (renderObject is! RenderRepaintBoundary) {
+        throw Exception('Render object was ${renderObject.runtimeType}, not RenderRepaintBoundary');
+      }
+      if (renderObject.debugNeedsPaint) {
+        // Give it one more frame if it's still mid-paint.
+        await waitForFrame();
+      }
+      final image = await renderObject.toImage(pixelRatio: 2.5);
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      if (byteData == null) throw Exception('Could not encode image');
+      if (byteData == null) throw Exception('image.toByteData returned null');
 
       final dir = await getTemporaryDirectory();
       final file = File(
@@ -2117,7 +2136,8 @@ class _HomeScreenState extends State<HomeScreen> {
         [XFile(file.path)],
         text: 'My day — ${_monthShort(day)} ${day.day}, ${day.year} · Shared from ElderZha 💛',
       );
-    } catch (_) {
+    } catch (e, stack) {
+      debugPrint('WhatsApp share card failed: $e\n$stack');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Could not share this card', style: poppins(12, c: C.white)),
@@ -2361,29 +2381,28 @@ class _StaggeredEmojiRowState extends State<_StaggeredEmojiRow> {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
       children: List.generate(widget.items.length, (i) {
         final visible = i < _visibleCount;
         final entry = widget.items[i];
-        return Padding(
-          padding: EdgeInsets.only(right: i != widget.items.length - 1 ? 8 : 0),
-          child: AnimatedOpacity(
-            opacity: visible ? 1 : 0,
+        return AnimatedOpacity(
+          opacity: visible ? 1 : 0,
+          duration: const Duration(milliseconds: 220),
+          child: AnimatedScale(
+            scale: visible ? 1 : 0.4,
             duration: const Duration(milliseconds: 220),
-            child: AnimatedScale(
-              scale: visible ? 1 : 0.4,
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOutBack,
-              child: Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: C.yellowLight,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                alignment: Alignment.center,
-                child: Text(entry.key, style: const TextStyle(fontSize: 18)),
+            curve: Curves.easeOutBack,
+            child: Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: C.yellowLight,
+                borderRadius: BorderRadius.circular(12),
               ),
+              alignment: Alignment.center,
+              child: Text(entry.key, style: const TextStyle(fontSize: 18)),
             ),
           ),
         );
