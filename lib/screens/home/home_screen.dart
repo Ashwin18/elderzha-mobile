@@ -2062,6 +2062,13 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             }).toList()),
           ],
+          if (checkedIn && _buildFullDaySummary(checkIn).isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              _buildFullDaySummary(checkIn),
+              style: poppins(12, c: C.txm, h: 1.5),
+            ),
+          ],
           if (activities.isNotEmpty || polls.isNotEmpty) ...[
             const SizedBox(height: 14),
             if (activities.isNotEmpty)
@@ -2105,14 +2112,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final buffer = StringBuffer('*My day — $label*\n\n');
 
     if (checkedIn) {
-      final rows = _checkInRows(checkIn).where((r) => r.key != 'Notes');
-      if (rows.isNotEmpty) {
-        for (final row in rows) {
-          buffer.writeln('${row.key}: ${row.value}');
-        }
-      } else {
-        buffer.writeln('Checked in for the day ✅');
-      }
+      final summary = _buildFullDaySummary(checkIn);
+      buffer.writeln(summary.isNotEmpty ? summary : 'Checked in for the day ✅');
       final notes = _field(checkIn, ['notes', 'note', 'description']);
       if (notes.isNotEmpty) {
         buffer.writeln('Notes: $notes');
