@@ -2097,6 +2097,48 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  String _buildShareCaptionText(DateTime day, {
+    required bool checkedIn,
+    Map<String, dynamic>? checkIn,
+  }) {
+    final label = '${_monthShort(day)} ${day.day}, ${day.year}';
+    final buffer = StringBuffer('*My day — $label*\n\n');
+
+    if (checkedIn) {
+      final rows = _checkInRows(checkIn).where((r) => r.key != 'Notes');
+      if (rows.isNotEmpty) {
+        for (final row in rows) {
+          buffer.writeln('${row.key}: ${row.value}');
+        }
+      } else {
+        buffer.writeln('Checked in for the day ✅');
+      }
+      final notes = _field(checkIn, ['notes', 'note', 'description']);
+      if (notes.isNotEmpty) {
+        buffer.writeln('Notes: $notes');
+      }
+    } else {
+      buffer.writeln('Did not check in this day 😴');
+    }
+
+    final activities = _activitiesOnDay(day);
+    final polls = _pollsOnDay(day);
+    if (activities.isNotEmpty) {
+      final replied = activities.where((a) => a['status'] == 'completed').length;
+      buffer.writeln('\n📅 Activities: ${activities.length} posted, replied to $replied');
+    }
+    if (polls.isNotEmpty) {
+      final answered = polls.where((p) {
+        final poll = p['poll'];
+        return p['status'] == 'past' && poll is Map && poll['has_voted'] == true;
+      }).length;
+      buffer.writeln('🗳️ Polls: ${polls.length} posted, answered $answered');
+    }
+
+    buffer.write('\nShared from ElderZha 💛');
+    return buffer.toString();
+  }
+
   Future<void> _shareDayViaWhatsApp(DateTime day, {
     required bool checkedIn,
     Map<String, dynamic>? checkIn,
@@ -2140,7 +2182,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       await Share.shareXFiles(
         [XFile(file.path)],
-        text: 'My day — ${_monthShort(day)} ${day.day}, ${day.year} · Shared from ElderZha 💛',
+        text: _buildShareCaptionText(day, checkedIn: checkedIn, checkIn: checkIn),
       );
     } catch (e, stack) {
       debugPrint('WhatsApp share card failed: $e\n$stack');

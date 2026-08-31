@@ -236,14 +236,14 @@ class _VideoPreviewState extends State<_VideoPreview> {
             _loading
                 ? const CircularProgressIndicator(color: C.yellow)
                 : Container(
-                    width: 34,
-                    height: 34,
+                    width: 26,
+                    height: 26,
                     decoration: const BoxDecoration(
                       color: Colors.black45,
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.play_arrow_rounded,
-                        color: Colors.white, size: 18),
+                        color: Colors.white, size: 15),
                   ),
           ],
         ),
@@ -455,14 +455,14 @@ class _YoutubePreviewState extends State<_YoutubePreview> {
             Container(color: Colors.black.withOpacity(.18)),
             Center(
               child: Container(
-                width: 34,
-                height: 34,
+                width: 26,
+                height: 26,
                 decoration: const BoxDecoration(
                   color: Color(0xFFE62117),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.play_arrow_rounded,
-                    color: Colors.white, size: 18),
+                    color: Colors.white, size: 15),
               ),
             ),
           ],
