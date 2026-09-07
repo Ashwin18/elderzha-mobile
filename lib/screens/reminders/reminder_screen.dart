@@ -263,12 +263,14 @@ class _ReminderScreenState extends State<ReminderScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         heroTag: 'add_reminder_fab',
         onPressed: () => _openSheet(),
         backgroundColor: AppColors.ink,
         foregroundColor: AppColors.yellow,
-        child: const Icon(Icons.add_rounded, size: 30),
+        icon: const Icon(Icons.add_rounded, size: 24),
+        label: Text('Add Reminder',
+            style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w700)),
       ),
       body: Container(
         decoration: const BoxDecoration(gradient: C.bgGradient),

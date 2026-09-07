@@ -19,6 +19,7 @@ import 'package:confetti/confetti.dart';
 import '../../theme/app_theme.dart';
 import '../../services/services.dart';
 import '../../widgets/community_media.dart';
+import '../../widgets/content_share_card.dart';
 import 'activity_participate_screen.dart';
 
 class ActivityCalendarTab extends StatefulWidget {
@@ -349,6 +350,18 @@ class _ActivityBannerCard extends StatelessWidget {
                       style: poppins(12.5, w: FontWeight.w700, c: isLocked ? C.txl : C.yellow)),
                 ),
               ),
+              if (!isLocked) ...[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: ContentShareButton(
+                    typeLabel: 'Activity',
+                    typeEmoji: '📅',
+                    title: title,
+                    subtitle: content.isNotEmpty ? content : null,
+                  ),
+                ),
+              ],
             ]),
           ),
         ]),

@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/app_theme.dart';
 import '../../services/services.dart';
 import '../../widgets/community_media.dart';
+import '../../widgets/content_share_card.dart';
 import 'activity_calendar_tab.dart';
 import 'poll_calendar_tab.dart';
 import 'activity_detail_screen.dart';
@@ -17,7 +18,7 @@ class CommunityScreen extends StatefulWidget {
 class _CommunityScreenState extends State<CommunityScreen> {
   final _svc = CommunityService();
   int _tab = 1;
-  final _tabs = ['Feed', 'Polls', 'Activities'];
+  final _tabs = ['Updates', 'Polls', 'Activities'];
   final _types = ['all', 'feed', 'polls', 'activities'];
   List _items = [];
   bool _loading = true;
@@ -320,7 +321,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
   String _contentLabel(Map p) {
     if (_isPollItem(p)) return 'Poll';
     if (_isActivityItem(p)) return 'Activity';
-    return 'Feed';
+    return 'Updates';
   }
 
   Widget _mixLabel(String label) {
@@ -378,7 +379,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                   padding: const EdgeInsets.fromLTRB(18, 14, 18, 12),
                   child: Row(children: [
                     Expanded(
-                        child: Text('Spike',
+                        child: Text('Spark',
                             style: poppins(20, w: FontWeight.w700, c: C.ink))),
                   ]),
                 ),
@@ -474,7 +475,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                   child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text('📰 Feed — wellness tips & updates',
+                        Text('📰 Updates — wellness tips & news',
                             style: poppins(11.5, w: FontWeight.w700, c: C.ink)),
                         const SizedBox(height: 3),
                         Text('🗳️ Polls — share your opinion',
@@ -735,13 +736,24 @@ class _CommunityScreenState extends State<CommunityScreen> {
         CommunityMedia(item: p, height: 240),
         if (id != 0) ...[
           const SizedBox(height: 10),
-          _LikeButton(
-            postId: id,
-            initialLiked: isLiked,
-            initialCount: likesCount,
-            svc: _svc,
-            isAdminPost: p['created_by'] == 'admin',
-          ),
+          Row(children: [
+            _LikeButton(
+              postId: id,
+              initialLiked: isLiked,
+              initialCount: likesCount,
+              svc: _svc,
+              isAdminPost: p['created_by'] == 'admin',
+            ),
+            const Spacer(),
+            ContentShareButton(
+              typeLabel: 'Feed Update',
+              typeEmoji: '📰',
+              title: (p is Map ? p['title'] : null)?.toString().isNotEmpty == true
+                  ? (p['title']).toString()
+                  : 'ElderZha Update',
+              subtitle: (p is Map ? p['notes'] : null)?.toString(),
+            ),
+          ]),
         ],
       ]),
     );

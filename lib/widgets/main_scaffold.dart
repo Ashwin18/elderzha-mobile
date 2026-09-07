@@ -30,7 +30,7 @@ class _MainScaffoldState extends State<MainScaffold>
   late int _communityInitialTab;
   late AnimationController _spikePulseController;
   late Animation<double> _spikePulseAnim;
-  final _labels = ['Home', 'Reminder', 'Spike', 'Offers', 'Profile'];
+  final _labels = ['Home', 'Reminder', 'Spark', 'Offers', 'Profile'];
   final _icons = [
     Icons.home_rounded,
     Icons.notifications_active_rounded,

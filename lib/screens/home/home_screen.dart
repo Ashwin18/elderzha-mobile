@@ -225,7 +225,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: const Icon(Icons.lock_clock_rounded, size: 30, color: C.ink),
                 ),
                 const SizedBox(height: 18),
-                Text('Check-in opens at 8:00 PM',
+                Text('Diary opens at 8PM',
                     textAlign: TextAlign.center,
                     style: poppins(16, w: FontWeight.w800, c: C.ink)),
                 const SizedBox(height: 8),
@@ -598,6 +598,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         .take(3)
                         .map<Widget>((a) => _activityChip(a)),
                   ],
+                  if (_activityDays.isNotEmpty || _pollDays.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    _activityPollCountsSummary(),
+                  ],
                 ]),
               ),
             ),
@@ -629,7 +633,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _todayWellbeingCard(String userName) {
     final nextReminder = _nextReminderForToday();
     final todayCount = _remindersForDay(DateTime.now()).length;
-    final activeDays = _activeDaysInFocusedMonth();
     final summary = _checkInSummary(_todayActivity);
     final mood = _field(_todayActivity, ['mood', 'mood_name', 'feeling']);
     final heroEmoji = _checkInDone
@@ -689,7 +692,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Expanded(
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Today’s wellbeing',
+              Text('A day in my life',
                   style: poppins(10, w: FontWeight.w800, c: C.yellowDeep)),
               const SizedBox(height: 2),
               Text(title,
@@ -711,7 +714,12 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(width: 7),
           _todayMetric('$todayCount', 'Alarms today'),
           const SizedBox(width: 7),
-          _todayMetric('$activeDays', 'Alarm days'),
+          _todayMetric(
+            nextReminder == null
+                ? '--'
+                : _field(nextReminder, ['title', 'name', 'reminder_title', 'event_name']),
+            todayCount > 0 ? "Today's reminder" : 'Next reminder',
+          ),
         ]),
         // Show all submitted check-in data as chips
         if (_checkInDone && _todayActivity != null) ...[
@@ -754,7 +762,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     : Row(mainAxisSize: MainAxisSize.min, children: [
                         const Icon(Icons.lock_clock_rounded, size: 15, color: C.txm),
                         const SizedBox(width: 6),
-                        Text('Check-in opens at 8:00 PM',
+                        Text('Diary opens at 8PM',
                             style: poppins(12.5, w: FontWeight.w700, c: C.txm)),
                       ]),
               ),
@@ -940,6 +948,71 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 
   // ── Activity chip from home activities API ────────────────
+  Widget _activityPollCountsSummary() {
+    final activitiesThisMonth = _activityDays.where((d) {
+      if (d is! Map) return false;
+      final parsed = _tryParseDate(d['date']?.toString() ?? '');
+      return parsed != null &&
+          parsed.year == _focusedMonth.year &&
+          parsed.month == _focusedMonth.month;
+    }).toList();
+    final pollsThisMonth = _pollDays.where((d) {
+      if (d is! Map) return false;
+      final parsed = _tryParseDate(d['date']?.toString() ?? '');
+      return parsed != null &&
+          parsed.year == _focusedMonth.year &&
+          parsed.month == _focusedMonth.month;
+    }).toList();
+
+    final activitiesCompleted =
+        activitiesThisMonth.where((a) => a['status'] == 'completed').length;
+    final activitiesPending = activitiesThisMonth.length - activitiesCompleted;
+    final pollsCompleted = pollsThisMonth.where((p) {
+      final poll = p['poll'];
+      return poll is Map && poll['has_voted'] == true;
+    }).length;
+    final pollsPending = pollsThisMonth.length - pollsCompleted;
+
+    Widget countRow(String emoji, String label, int completed, int pending) => Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: C.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: C.ink.withOpacity(.05),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(children: [
+            Text(emoji, style: const TextStyle(fontSize: 18)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(label, style: poppins(13, w: FontWeight.w700, c: C.ink)),
+            ),
+            _countPill('$completed completed', C.greenLight, const Color(0xFF145C30)),
+            const SizedBox(width: 6),
+            _countPill('$pending pending', C.bg2, C.txm),
+          ]),
+        );
+
+    return Column(children: [
+      if (activitiesThisMonth.isNotEmpty)
+        countRow('📅', 'Activities', activitiesCompleted, activitiesPending),
+      if (pollsThisMonth.isNotEmpty)
+        countRow('🗳️', 'Polls', pollsCompleted, pollsPending),
+    ]);
+  }
+
+  Widget _countPill(String text, Color bg, Color fg) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
+        child: Text(text, style: poppins(10, w: FontWeight.w800, c: fg)),
+      );
+
   Widget _activityChip(dynamic a) {
     final name = a['title'] ?? a['name'] ?? '';
     final emoji = a['emoji'] ?? '🏃';

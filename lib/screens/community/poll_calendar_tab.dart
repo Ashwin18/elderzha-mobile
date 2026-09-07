@@ -13,6 +13,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../../services/services.dart';
+import '../../widgets/content_share_card.dart';
 
 class PollCalendarTab extends StatefulWidget {
   const PollCalendarTab({super.key});
@@ -293,6 +294,19 @@ class _TodayPollCardState extends State<_TodayPollCard> {
               Text('$totalAnswered vote${totalAnswered == 1 ? '' : 's'} so far',
                   style: poppins(11.5, c: C.txl)),
             ],
+
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: ContentShareButton(
+                typeLabel: 'Poll',
+                typeEmoji: '🗳️',
+                title: question,
+                subtitle: hasVoted
+                    ? '$totalAnswered vote${totalAnswered == 1 ? '' : 's'} so far'
+                    : null,
+              ),
+            ),
 
             if (_voting) ...[
               const SizedBox(height: 10),
