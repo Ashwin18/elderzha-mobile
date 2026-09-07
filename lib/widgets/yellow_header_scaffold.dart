@@ -74,11 +74,12 @@ class YellowHeaderScaffold extends StatelessWidget {
                 ),
               ),
             ),
-            // White body slides up with curved top
+            // Body slides up with curved top — background comes
+            // through from the gradient behind it now, not a solid
+            // white fill.
             Expanded(
               child: Container(
                 decoration: const BoxDecoration(
-                  color: AppColors.bg,
                   borderRadius: BorderRadius.only(
                     topLeft: Radius.circular(28),
                     topRight: Radius.circular(28),

@@ -476,7 +476,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             Expanded(
               child: Container(
-                color: AppColors.bg,
                 child: _loading
                     ? const Center(
                         child: CircularProgressIndicator(

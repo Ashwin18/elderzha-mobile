@@ -458,7 +458,6 @@ class _CommunityScreenState extends State<CommunityScreen> {
         Expanded(
           child: Container(
             decoration: const BoxDecoration(
-                color: C.bg,
                 borderRadius: BorderRadius.only(
                     topLeft: Radius.circular(28),
                     topRight: Radius.circular(28))),
