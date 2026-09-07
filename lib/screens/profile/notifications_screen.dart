@@ -196,8 +196,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: C.bg,
-      body: Column(children: [
+      backgroundColor: Colors.transparent,
+      body: Container(
+        decoration: const BoxDecoration(gradient: C.bgGradient),
+        child: Column(children: [
         Container(
           color: C.yellow,
           child: SafeArea(
@@ -269,6 +271,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
         ),
       ]),
+      ),
     );
   }
 

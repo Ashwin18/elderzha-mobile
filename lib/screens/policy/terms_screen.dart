@@ -30,8 +30,10 @@ class _TermsScreenState extends State<TermsScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: C.bg,
-    body: Column(children: [
+    backgroundColor: Colors.transparent,
+    body: Container(
+      decoration: const BoxDecoration(gradient: C.bgGradient),
+      child: Column(children: [
       Container(color: C.yellow, child: SafeArea(bottom: false, child: Padding(
         padding: const EdgeInsets.fromLTRB(18, 14, 18, 20),
         child: Row(children: [
@@ -46,6 +48,7 @@ class _TermsScreenState extends State<TermsScreen> {
             ? const Center(child: CircularProgressIndicator(color: C.yellowDark))
             : SingleChildScrollView(padding: const EdgeInsets.all(18), child: Html(data: _content)),
       )),
-    ]),
+      ]),
+    ),
   );
 }

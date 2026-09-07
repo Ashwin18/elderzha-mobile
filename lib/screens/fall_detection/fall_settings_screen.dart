@@ -238,8 +238,10 @@ class _FallSettingsScreenState extends State<FallSettingsScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: C.bg,
-      body: Column(children: [
+      backgroundColor: Colors.transparent,
+      body: Container(
+        decoration: const BoxDecoration(gradient: C.bgGradient),
+        child: Column(children: [
         Container(
           color: C.yellow,
           child: SafeArea(bottom: false, child: Padding(
@@ -597,6 +599,7 @@ class _FallSettingsScreenState extends State<FallSettingsScreen>
                 ]),
         ),
       ]),
+      ),
     );
   }
 

@@ -634,8 +634,10 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F6F1),
-      body: SafeArea(
+      backgroundColor: Colors.transparent,
+      body: Container(
+        decoration: const BoxDecoration(gradient: C.bgGradient),
+        child: SafeArea(
           child: _loading
               ? const Center(
                   child: CupertinoActivityIndicator(
@@ -656,6 +658,7 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
                     _saveBtn(),
                   ]),
                 )),
+        ),
     );
   }
 

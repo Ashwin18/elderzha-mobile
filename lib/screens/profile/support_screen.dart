@@ -58,8 +58,10 @@ class _SupportScreenState extends State<SupportScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: C.bg,
-        body: Column(children: [
+        backgroundColor: Colors.transparent,
+        body: Container(
+          decoration: const BoxDecoration(gradient: C.bgGradient),
+          child: Column(children: [
           Container(
               width: double.infinity,
               color: C.yellow,
@@ -95,6 +97,7 @@ class _SupportScreenState extends State<SupportScreen> {
                     : _formView(),
           )),
         ]),
+        ),
       );
 
   Widget _formView() => SingleChildScrollView(

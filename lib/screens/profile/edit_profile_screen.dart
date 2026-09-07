@@ -133,8 +133,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: C.bg,
-      body: Column(children: [
+      backgroundColor: Colors.transparent,
+      body: Container(
+        decoration: const BoxDecoration(gradient: C.bgGradient),
+        child: Column(children: [
         // Yellow header
         Container(
           width: double.infinity,
@@ -309,6 +311,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ),
         ),
       ]),
+      ),
     );
   }
 

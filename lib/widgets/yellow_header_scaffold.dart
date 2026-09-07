@@ -31,8 +31,10 @@ class YellowHeaderScaffold extends StatelessWidget {
         statusBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
-        backgroundColor: AppColors.yellow,
-        body: Column(
+        backgroundColor: Colors.transparent,
+        body: Container(
+          decoration: const BoxDecoration(gradient: C.bgGradient),
+          child: Column(
           children: [
             // Yellow header zone
             SafeArea(
@@ -92,6 +94,7 @@ class YellowHeaderScaffold extends StatelessWidget {
               ),
             ),
           ],
+        ),
         ),
         bottomNavigationBar: bottomBar,
       ),
