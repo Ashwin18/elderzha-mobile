@@ -34,7 +34,7 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
     // 1 down
     'Son', 'Daughter', 'Son-in-law', 'Daughter-in-law', 'Nephew', 'Niece',
     // 2 down
-    'Grandson', 'Granddaughter',
+    'Grand Son', 'Grand Daughter',
     // Other
     'Friend', 'Other'
   ];

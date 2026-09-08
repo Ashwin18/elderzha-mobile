@@ -125,11 +125,25 @@ class AuthService {
 
 
   // ── family_member_table ID mappings ──────────────────────────────────────
+  // Confirmed directly against the live family_member_table (type='relation')
+  // rows. IDs 13-27 were added to the backend to support the expanded
+  // relationship list; the mapping here must exactly match what's stored
+  // there, since this ID is a genuine foreign key, not just a display label.
   static const Map<String, int> _relationIds = {
     'Father': 1, 'Mother': 2, 'Wife': 3, 'Husband': 4,
     'Son': 5, 'Daughter': 6, 'Grand Son': 7, 'Grand Daughter': 8,
-    'Self': 11, 'Spouse': 12, 'Child': 5, 'Parent': 1,
-    'Sibling': 5, 'Friend': 5, 'Other': 5,
+    'Self': 11, 'Spouse': 12,
+    'Grandfather': 13, 'Grandmother': 14,
+    'Father-in-law': 15, 'Mother-in-law': 16,
+    'Uncle': 17, 'Aunt': 18,
+    'Brother': 19, 'Sister': 20, 'Cousin': 21,
+    'Son-in-law': 22, 'Daughter-in-law': 23,
+    'Nephew': 24, 'Niece': 25,
+    'Friend': 26, 'Other': 27,
+    // Legacy UI labels no longer shown in the picker, kept so old
+    // saved data / any other caller using these strings still resolves.
+    'Child': 5, 'Parent': 1, 'Sibling': 19,
+    'Grandson': 7, 'Granddaughter': 8,
   };
   static const int _birthdayEventId   = 9;
   static const int _anniversaryEventId = 10;

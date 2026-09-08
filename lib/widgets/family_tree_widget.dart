@@ -33,8 +33,8 @@ const Map<String, _RelInfo> _relInfo = {
   'Daughter-in-law': _RelInfo(1, '👩', 'Children & their cousins'),
   'Nephew': _RelInfo(1, '👦', 'Children & their cousins'),
   'Niece': _RelInfo(1, '👧', 'Children & their cousins'),
-  'Grandson': _RelInfo(2, '👦', 'Grandchildren'),
-  'Granddaughter': _RelInfo(2, '👧', 'Grandchildren'),
+  'Grand Son': _RelInfo(2, '👦', 'Grandchildren'),
+  'Grand Daughter': _RelInfo(2, '👧', 'Grandchildren'),
   'Friend': _RelInfo(0, '🧑', 'Other'),
   'Other': _RelInfo(0, '🧑', 'Other'),
 };
