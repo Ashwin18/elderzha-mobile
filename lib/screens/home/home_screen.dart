@@ -638,6 +638,8 @@ class _HomeScreenState extends State<HomeScreen> {
             ? _moodEmojiForDay(DateTime.now())
             : '✓')
         : '😊';
+    final checkInSummary =
+        _checkInDone ? _buildFullDaySummary(_todayActivity) : '';
 
     return Container(
       padding: const EdgeInsets.all(13),
@@ -684,6 +686,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('A day in my life',
                   style: poppins(17, w: FontWeight.w900, c: C.ink)),
+              if (checkInSummary.isNotEmpty) ...[
+                const SizedBox(height: 3),
+                Text(checkInSummary,
+                    style: poppins(11.5, c: C.txm, h: 1.35)),
+              ],
             ]),
           ),
         ]),
@@ -712,6 +719,8 @@ class _HomeScreenState extends State<HomeScreen> {
             ..._buildCheckInChips(_todayActivity!),
           ]),
           const SizedBox(height: 9),
+          _whatsAppShareButton(DateTime.now(), checkedIn: true, checkIn: _todayActivity),
+          const SizedBox(height: 3),
         ],
         if (!_checkInDone) ...[
           const SizedBox(height: 11),
