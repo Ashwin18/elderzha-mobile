@@ -63,6 +63,24 @@ class _PollCalendarTabState extends State<PollCalendarTab> {
     }
   }
 
+  // Refreshes poll data (e.g. accurate vote percentages after
+  // submitting) WITHOUT toggling _loading — the full-screen spinner
+  // in build() tears down and rebuilds the whole ScrollView from
+  // scratch, resetting scroll position to the top. This keeps the
+  // existing content mounted and just updates it in place.
+  Future<void> _silentReload() async {
+    final res = await _svc.getPollCalendar(forceRefresh: true);
+    if (!mounted) return;
+    if (res != null && res['status'] == true) {
+      final data = res['data'];
+      setState(() {
+        _days = data is List
+            ? data.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
+            : [];
+      });
+    }
+  }
+
   List<Map<String, dynamic>> get _todayPolls =>
       _days.where((d) => d['status'] == 'today').toList();
 
@@ -117,7 +135,7 @@ class _PollCalendarTabState extends State<PollCalendarTab> {
           if (_todayPolls.isNotEmpty)
             for (int i = 0; i < _todayPolls.length; i++) ...[
               if (i > 0) const SizedBox(height: 14),
-              _TodayPollCard(day: _todayPolls[i], svc: _svc, onVoted: _load),
+              _TodayPollCard(day: _todayPolls[i], svc: _svc, onVoted: _silentReload),
             ]
           else
             _NoPollTodayCard(),
@@ -176,10 +194,18 @@ class _TodayPollCardState extends State<_TodayPollCard> {
       optionId: optionId,
     );
     if (!mounted) return;
-    setState(() => _voting = false);
     if (res['status'] == true) {
+      // Instant optimistic update — mark as voted right away so the
+      // user sees their choice immediately, rather than waiting on
+      // a full background refresh to reflect it.
+      setState(() {
+        _voting = false;
+        poll['has_voted'] = true;
+        poll['my_option_id'] = optionId.toString();
+      });
       widget.onVoted();
     } else {
+      setState(() => _voting = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(res['message']?.toString() ?? 'Failed to vote', style: poppins(12, c: C.white)),
         backgroundColor: C.red,
@@ -206,6 +232,16 @@ class _TodayPollCardState extends State<_TodayPollCard> {
       clipBehavior: Clip.antiAlias,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Container(height: 6, width: double.infinity, color: C.yellow),
+        if (poll['image'] != null && poll['image'].toString().isNotEmpty)
+          AspectRatio(
+            aspectRatio: 1.8,
+            child: Image.network(
+              poll['image'].toString(),
+              width: double.infinity,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(color: C.yellowLight),
+            ),
+          ),
         Padding(
           padding: const EdgeInsets.all(20),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
