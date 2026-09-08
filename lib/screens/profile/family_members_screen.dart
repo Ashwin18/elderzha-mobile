@@ -8,6 +8,7 @@ import '../../services/services.dart';
 import '../../alaram/family_event_scheduler.dart';
 import '../../api/models/fetch_profile_model.dart' show FamilyMember, Event;
 import '../../widgets/yellow_header_scaffold.dart';
+import '../../widgets/family_tree_widget.dart';
 
 class FamilyMembersScreen extends StatefulWidget {
   const FamilyMembersScreen({super.key});
@@ -203,6 +204,8 @@ class _FamilyMembersScreenState extends State<FamilyMembersScreen> {
                     ),
 
                     if (_members.isNotEmpty) ...[
+                      FamilyTreeWidget(members: _members),
+                      const SizedBox(height: 16),
                       _secHeader(Icons.people_rounded,
                           'Family members (${_members.length})'),
                       _memberList(_members),
