@@ -409,18 +409,19 @@ class _HomeScreenState extends State<HomeScreen> {
             // Header with photo background
             SliverToBoxAdapter(
               child: SizedBox(
-                height: 225,
+                height: 190,
                 child: Stack(
                   children: [
                     Positioned.fill(
                       child: Container(color: C.yellow),
                     ),
-                    // Using the better-proportioned photo (1.5:1,
-                    // more headroom before faces begin) confirmed via
-                    // direct measurement, not the original 2:1 photo.
+                    // Newest header photo (2.28:1) — has a clear plain
+                    // area (window light, blank wall) in its upper
+                    // portion for text overlay, with people positioned
+                    // with margin on both sides rather than at the edges.
                     Positioned.fill(
                       child: Image.asset(
-                        'assets/images/home_header_photo_v2.jpg',
+                        'assets/images/home_header_photo_v3.jpg',
                         fit: BoxFit.cover,
                       ),
                     ),
