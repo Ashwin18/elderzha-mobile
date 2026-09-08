@@ -739,7 +739,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
         const SizedBox(height: 10),
         if (text.isNotEmpty)
           Text(text, style: poppins(14, w: FontWeight.w700, c: C.ink, h: 1.45)),
-        CommunityMedia(item: p, height: 240),
+        CommunityMedia(item: p, height: 190),
         if (id != 0) ...[
           const SizedBox(height: 10),
           Row(children: [
