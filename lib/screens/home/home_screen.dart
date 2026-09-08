@@ -381,8 +381,6 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       } catch (_) {}
     }
-    final hasReminder = _remindersForDay(cellDate).isNotEmpty;
-    if (hasReminder) return 'event';
     final now = DateTime.now();
     if (_dateOnly(cellDate).isAfter(_dateOnly(now))) return 'future';
     if (cellDate.year == now.year &&
@@ -390,6 +388,8 @@ class _HomeScreenState extends State<HomeScreen> {
         cellDate.day == now.day) {
       return _checkInDone ? 'checkin' : 'today';
     }
+    final hasReminder = _datedRemindersForDay(cellDate).isNotEmpty;
+    if (hasReminder) return 'event';
     return 'miss';
   }
 
@@ -1297,7 +1297,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final d = _selectedDay.day;
     final m = _monthShort(_selectedDay);
     void close() => setState(() => _selectedDay = DateTime.now());
-    final dayReminders = _remindersForSelectedDay();
+    final dayReminders = _datedRemindersForDay(_selectedDay);
     final checkIn = _checkInForSelectedDay();
     debugPrint('=== _detailCard: selectedDay=$_selectedDay, dayType=$t ===');
     debugPrint('=== _detailCard: checkIn=$checkIn ===');
@@ -1688,6 +1688,26 @@ class _HomeScreenState extends State<HomeScreen> {
 
   List _remindersForSelectedDay() {
     return _remindersForDay(_selectedDay);
+  }
+
+  // Dated reminders only — excludes daily medical/food alarms, which
+  // apply to every day and should never make an otherwise-ordinary
+  // day look like it has a specific "event" on Home.
+  List _datedRemindersForDay(DateTime day) {
+    return _reminders.where((item) {
+      final raw =
+          (item['date'] ?? item['event_date'] ?? item['reminder_date'] ?? '')
+              .toString();
+      final repeat = _truthy(item['repeat']) ||
+          _truthy(item['is_repeat']) ||
+          _truthy(item['is_recurring']);
+      if (raw.isEmpty) return repeat;
+      final parsed = _tryParseDate(raw);
+      if (parsed == null) return repeat;
+      return parsed.year == day.year &&
+          parsed.month == day.month &&
+          parsed.day == day.day;
+    }).toList();
   }
 
   List _remindersForDay(DateTime day) {
