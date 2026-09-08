@@ -232,16 +232,6 @@ class _TodayPollCardState extends State<_TodayPollCard> {
       clipBehavior: Clip.antiAlias,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Container(height: 6, width: double.infinity, color: C.yellow),
-        if (poll['image'] != null && poll['image'].toString().isNotEmpty)
-          AspectRatio(
-            aspectRatio: 1.8,
-            child: Image.network(
-              poll['image'].toString(),
-              width: double.infinity,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(color: C.yellowLight),
-            ),
-          ),
         Padding(
           padding: const EdgeInsets.all(20),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -253,77 +243,101 @@ class _TodayPollCardState extends State<_TodayPollCard> {
               ),
             ]),
             const SizedBox(height: 14),
-            Text(question, style: poppins(18, w: FontWeight.w800, c: C.ink, h: 1.3)),
-            const SizedBox(height: 16),
-
-            ...options.map((opt) {
-              final optId = int.tryParse(opt['option_id'].toString());
-              final isMine = hasVoted && myOptionId?.toString() == opt['option_id'].toString();
-              final pct = opt['percentage'] ?? 0;
-
-              if (!hasVoted) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: GestureDetector(
-                    onTap: _voting ? null : () => _vote(optId!),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      decoration: BoxDecoration(
-                        color: C.bg2,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: C.bd),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: C.bd),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(question, style: poppins(18, w: FontWeight.w800, c: C.ink, h: 1.3)),
+                if (poll['image'] != null && poll['image'].toString().isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: AspectRatio(
+                      aspectRatio: 1.8,
+                      child: Image.network(
+                        poll['image'].toString(),
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(color: C.yellowLight),
                       ),
-                      child: Text(opt['option_text']?.toString() ?? '',
-                          style: poppins(14, w: FontWeight.w600, c: C.ink)),
                     ),
                   ),
-                );
-              }
+                ],
+                const SizedBox(height: 16),
 
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0, end: (pct / 100).clamp(0, 1).toDouble()),
-                  duration: const Duration(milliseconds: 700),
-                  curve: Curves.easeOutCubic,
-                  builder: (context, animatedFraction, child) {
-                    final animatedPct = (animatedFraction * 100).round();
-                    return Stack(children: [
-                      Container(
-                        width: double.infinity,
-                        height: 46,
-                        decoration: BoxDecoration(color: C.bg2, borderRadius: BorderRadius.circular(14)),
-                      ),
-                      FractionallySizedBox(
-                        widthFactor: animatedFraction,
+                ...options.map((opt) {
+                  final optId = int.tryParse(opt['option_id'].toString());
+                  final isMine = hasVoted && myOptionId?.toString() == opt['option_id'].toString();
+                  final pct = opt['percentage'] ?? 0;
+
+                  if (!hasVoted) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: GestureDetector(
+                        onTap: _voting ? null : () => _vote(optId!),
                         child: Container(
-                          height: 46,
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                           decoration: BoxDecoration(
-                            color: isMine ? C.yellow : C.yellowLight,
+                            color: C.bg2,
                             borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: C.bd),
                           ),
+                          child: Text(opt['option_text']?.toString() ?? '',
+                              style: poppins(14, w: FontWeight.w600, c: C.ink)),
                         ),
                       ),
-                      Positioned.fill(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Row(children: [
-                            if (isMine) const Icon(Icons.check_circle_rounded, size: 16, color: C.ink),
-                            if (isMine) const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(opt['option_text']?.toString() ?? '',
-                                  style: poppins(13.5, w: FontWeight.w700, c: C.ink)),
+                    );
+                  }
+
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0, end: (pct / 100).clamp(0, 1).toDouble()),
+                      duration: const Duration(milliseconds: 700),
+                      curve: Curves.easeOutCubic,
+                      builder: (context, animatedFraction, child) {
+                        final animatedPct = (animatedFraction * 100).round();
+                        return Stack(children: [
+                          Container(
+                            width: double.infinity,
+                            height: 46,
+                            decoration: BoxDecoration(color: C.bg2, borderRadius: BorderRadius.circular(14)),
+                          ),
+                          FractionallySizedBox(
+                            widthFactor: animatedFraction,
+                            child: Container(
+                              height: 46,
+                              decoration: BoxDecoration(
+                                color: isMine ? C.yellow : C.yellowLight,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
                             ),
-                            Text('$animatedPct%', style: poppins(13, w: FontWeight.w800, c: C.ink)),
-                          ]),
-                        ),
-                      ),
-                    ]);
-                  },
-                ),
-              );
-            }),
+                          ),
+                          Positioned.fill(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              child: Row(children: [
+                                if (isMine) const Icon(Icons.check_circle_rounded, size: 16, color: C.ink),
+                                if (isMine) const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(opt['option_text']?.toString() ?? '',
+                                      style: poppins(13.5, w: FontWeight.w700, c: C.ink)),
+                                ),
+                                Text('$animatedPct%', style: poppins(13, w: FontWeight.w800, c: C.ink)),
+                              ]),
+                            ),
+                          ),
+                        ]);
+                      },
+                    ),
+                  );
+                }),
+              ]),
+            ),
 
             if (hasVoted) ...[
               const SizedBox(height: 6),
