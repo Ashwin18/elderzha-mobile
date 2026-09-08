@@ -381,11 +381,12 @@ class _OtpScreenState extends State<OtpScreen> with CodeAutoFill {
         await DailyScheduler.clearStoredAlarms();
 
         // Food alarms
-        if ((d['food_alarm'] ?? 0) == 1) {
+        if (_truthy(d['food_alarm'] ?? d['food_alaram'])) {
           final foodImg = d['food_file']?.toString();
+          final breakfastTime = d['breakfast_time'] ?? d['bf_time'];
           if ((d['breakfast_status'] ?? 0) == 1 &&
-              d['breakfast_time'] != null) {
-            final t = _toTOD(d['breakfast_time'].toString());
+              breakfastTime != null) {
+            final t = _toTOD(breakfastTime.toString());
             if (t != null)
               await DailyScheduler.scheduleReminder(
                 AlarmType.food,
@@ -397,8 +398,9 @@ class _OtpScreenState extends State<OtpScreen> with CodeAutoFill {
                 imageUrl: foodImg,
               );
           }
-          if ((d['lunch_status'] ?? 0) == 1 && d['lunch_time'] != null) {
-            final t = _toTOD(d['lunch_time'].toString());
+          final lunchTime = d['lunch_time'] ?? d['l_time'];
+          if ((d['lunch_status'] ?? 0) == 1 && lunchTime != null) {
+            final t = _toTOD(lunchTime.toString());
             if (t != null)
               await DailyScheduler.scheduleReminder(
                 AlarmType.food,
@@ -410,8 +412,9 @@ class _OtpScreenState extends State<OtpScreen> with CodeAutoFill {
                 imageUrl: foodImg,
               );
           }
-          if ((d['dinner_status'] ?? 0) == 1 && d['dinner_time'] != null) {
-            final t = _toTOD(d['dinner_time'].toString());
+          final dinnerTime = d['dinner_time'] ?? d['d_time'];
+          if ((d['dinner_status'] ?? 0) == 1 && dinnerTime != null) {
+            final t = _toTOD(dinnerTime.toString());
             if (t != null)
               await DailyScheduler.scheduleReminder(
                 AlarmType.food,
@@ -429,12 +432,12 @@ class _OtpScreenState extends State<OtpScreen> with CodeAutoFill {
         if ((d['medical_alarm'] ?? 0) == 1) {
           final medImg = d['medical_file']?.toString();
           final medSlots = {
-            '💊 Elderzha • Morning Before Food': d['morning_before_food'],
-            '💊 Elderzha • Morning After Food': d['morning_after_food'],
-            '💊 Elderzha • Noon Before Food': d['afternoon_before_food'],
-            '💊 Elderzha • Noon After Food': d['afternoon_after_food'],
-            '🌙 Elderzha • Night Before Food': d['night_before_food'],
-            '🌙 Elderzha • Night After Food': d['night_after_food'],
+            '💊 Elderzha • Morning Before Food': d['morning_before_food'] ?? d['m_before_food'],
+            '💊 Elderzha • Morning After Food': d['morning_after_food'] ?? d['m_after_food'],
+            '💊 Elderzha • Noon Before Food': d['afternoon_before_food'] ?? d['af_before_food'],
+            '💊 Elderzha • Noon After Food': d['afternoon_after_food'] ?? d['af_after_food'],
+            '🌙 Elderzha • Night Before Food': d['night_before_food'] ?? d['n_before_food'],
+            '🌙 Elderzha • Night After Food': d['night_after_food'] ?? d['n_after_food'],
           };
           for (final e in medSlots.entries) {
             if (e.value != null && e.value.toString().isNotEmpty) {

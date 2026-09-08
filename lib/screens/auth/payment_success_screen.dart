@@ -164,22 +164,21 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
     required String? imageUrl,
   }) async {
     final items = [
-      ['morning_before_food', 'Morning medication before food'],
-      ['morning_after_food', 'Morning medication after food'],
-      ['afternoon_before_food', 'Afternoon medication before food'],
-      ['afternoon_after_food', 'Afternoon medication after food'],
-      ['night_before_food', 'Night medication before food'],
-      ['night_after_food', 'Night medication after food'],
+      ['morning_before_food', 'm_before_food', 'Morning medication before food'],
+      ['morning_after_food', 'm_after_food', 'Morning medication after food'],
+      ['afternoon_before_food', 'af_before_food', 'Afternoon medication before food'],
+      ['afternoon_after_food', 'af_after_food', 'Afternoon medication after food'],
+      ['night_before_food', 'n_before_food', 'Night medication before food'],
+      ['night_after_food', 'n_after_food', 'Night medication after food'],
     ];
     for (final item in items) {
-      final key = item[0];
-      final time = config[key]?.toString().trim() ?? '';
+      final time = (config[item[0]] ?? config[item[1]])?.toString().trim() ?? '';
       if (!_filled(time)) continue;
       await DailyScheduler.scheduleReminder(
         AlarmType.medical,
         _schedDate(time),
         time,
-        'ElderZha • ${item[1]}',
+        'ElderZha • ${item[2]}',
         'daily',
         soundUrl: tone,
         imageUrl: imageUrl,
@@ -193,19 +192,18 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
     required String? imageUrl,
   }) async {
     final items = [
-      ['breakfast_time', 'Breakfast reminder'],
-      ['lunch_time', 'Lunch reminder'],
-      ['dinner_time', 'Dinner reminder'],
+      ['breakfast_time', 'bf_time', 'Breakfast reminder'],
+      ['lunch_time', 'l_time', 'Lunch reminder'],
+      ['dinner_time', 'd_time', 'Dinner reminder'],
     ];
     for (final item in items) {
-      final key = item[0];
-      final time = config[key]?.toString().trim() ?? '';
+      final time = (config[item[0]] ?? config[item[1]])?.toString().trim() ?? '';
       if (!_filled(time)) continue;
       await DailyScheduler.scheduleReminder(
         AlarmType.food,
         _schedDate(time),
         time,
-        'ElderZha • ${item[1]}',
+        'ElderZha • ${item[2]}',
         'daily',
         soundUrl: tone,
         imageUrl: imageUrl,
