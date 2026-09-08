@@ -349,6 +349,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // Determine day type from API data, fallback to June 2026 static map
+  // True if a check-in field genuinely has a value — handles both
+  // plain scalar values (mood, weather) and list-shaped fields
+  // (people_met, places_visited, activities_done can each be lists).
+  bool _filledField(dynamic value) {
+    if (value == null) return false;
+    if (value is List) return value.isNotEmpty;
+    final text = value.toString().trim();
+    return text.isNotEmpty && text.toLowerCase() != 'null';
+  }
+
   String _dayType(DateTime cellDate) {
     for (final d in _monthData) {
       try {
@@ -360,7 +370,11 @@ class _HomeScreenState extends State<HomeScreen> {
           if (_truthy(d['has_checkin']) ||
               _truthy(d['is_completed']) ||
               _truthy(d['submitted']) ||
-              d['mood'] != null) {
+              _filledField(d['mood']) ||
+              _filledField(d['people_met']) ||
+              _filledField(d['places_visited']) ||
+              _filledField(d['activities_done']) ||
+              _filledField(d['weather'])) {
             return 'checkin';
           }
           if (_truthy(d['has_event'])) return 'event';
@@ -597,10 +611,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ..._homeActivities
                         .take(3)
                         .map<Widget>((a) => _activityChip(a)),
-                  ],
-                  if (_activityDays.isNotEmpty || _pollDays.isNotEmpty) ...[
-                    const SizedBox(height: 14),
-                    _activityPollCountsSummary(),
                   ],
                 ]),
               ),
@@ -941,71 +951,6 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 
   // ── Activity chip from home activities API ────────────────
-  Widget _activityPollCountsSummary() {
-    final activitiesThisMonth = _activityDays.where((d) {
-      if (d is! Map) return false;
-      final parsed = _tryParseDate(d['date']?.toString() ?? '');
-      return parsed != null &&
-          parsed.year == _focusedMonth.year &&
-          parsed.month == _focusedMonth.month;
-    }).toList();
-    final pollsThisMonth = _pollDays.where((d) {
-      if (d is! Map) return false;
-      final parsed = _tryParseDate(d['date']?.toString() ?? '');
-      return parsed != null &&
-          parsed.year == _focusedMonth.year &&
-          parsed.month == _focusedMonth.month;
-    }).toList();
-
-    final activitiesCompleted =
-        activitiesThisMonth.where((a) => a['status'] == 'completed').length;
-    final activitiesPending = activitiesThisMonth.length - activitiesCompleted;
-    final pollsCompleted = pollsThisMonth.where((p) {
-      final poll = p['poll'];
-      return poll is Map && poll['has_voted'] == true;
-    }).length;
-    final pollsPending = pollsThisMonth.length - pollsCompleted;
-
-    Widget countRow(String emoji, String label, int completed, int pending) => Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: C.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: C.ink.withOpacity(.05),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Row(children: [
-            Text(emoji, style: const TextStyle(fontSize: 18)),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(label, style: poppins(13, w: FontWeight.w700, c: C.ink)),
-            ),
-            _countPill('$completed completed', C.greenLight, const Color(0xFF145C30)),
-            const SizedBox(width: 6),
-            _countPill('$pending pending', C.bg2, C.txm),
-          ]),
-        );
-
-    return Column(children: [
-      if (activitiesThisMonth.isNotEmpty)
-        countRow('📅', 'Activities', activitiesCompleted, activitiesPending),
-      if (pollsThisMonth.isNotEmpty)
-        countRow('🗳️', 'Polls', pollsCompleted, pollsPending),
-    ]);
-  }
-
-  Widget _countPill(String text, Color bg, Color fg) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
-        child: Text(text, style: poppins(10, w: FontWeight.w800, c: fg)),
-      );
-
   Widget _activityChip(dynamic a) {
     final name = a['title'] ?? a['name'] ?? '';
     final emoji = a['emoji'] ?? '🏃';
@@ -2387,6 +2332,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+  bool _isToday(DateTime d) => _dateOnly(d) == _dateOnly(DateTime.now());
 
   bool _truthy(dynamic value) {
     if (value == true) return true;
