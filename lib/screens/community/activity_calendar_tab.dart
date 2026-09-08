@@ -285,19 +285,20 @@ class _ActivityBannerCard extends StatelessWidget {
                     colorFilter: isLocked
                         ? ColorFilter.mode(Colors.white.withOpacity(.55), BlendMode.srcOver)
                         : const ColorFilter.mode(Colors.transparent, BlendMode.multiply),
-                    child: Container(
-                      height: 130,
-                      width: double.infinity,
-                      color: C.yellowLight,
-                      child: Image.network(
-                        bannerUrl,
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) => Container(
-                          height: 130,
-                          width: double.infinity,
-                          color: C.yellowLight,
-                          child: Icon(Icons.image_rounded, size: 32,
-                              color: C.yellowDark.withOpacity(isLocked ? .4 : 1)),
+                    child: AspectRatio(
+                      aspectRatio: 1.8,
+                      child: Container(
+                        width: double.infinity,
+                        color: C.yellowLight,
+                        child: Image.network(
+                          bannerUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            width: double.infinity,
+                            color: C.yellowLight,
+                            child: Icon(Icons.image_rounded, size: 32,
+                                color: C.yellowDark.withOpacity(isLocked ? .4 : 1)),
+                          ),
                         ),
                       ),
                     ),
@@ -792,7 +793,7 @@ class _NoActivityTodayCard extends StatelessWidget {
     child: Column(children: [
       const Text('🌤️', style: TextStyle(fontSize: 40)),
       const SizedBox(height: 10),
-      Text('No activity for today', style: poppins(14, w: FontWeight.w700, c: C.ink)),
+      Text('No activity right now', style: poppins(14, w: FontWeight.w700, c: C.ink)),
       const SizedBox(height: 4),
       Text('Check back tomorrow for something new', style: poppins(12, c: C.txl)),
     ]),

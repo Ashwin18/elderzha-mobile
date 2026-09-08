@@ -709,12 +709,12 @@ class _CommunityScreenState extends State<CommunityScreen> {
         Row(children: [
           if (userName.isNotEmpty) ...[
             CircleAvatar(
-              radius: 16,
+              radius: 12,
               backgroundColor: C.yellowLight,
               backgroundImage: userImage != null && userImage.isNotEmpty ? NetworkImage(userImage) : null,
               child: userImage == null || userImage.isEmpty
                   ? Text(userName.substring(0, 1).toUpperCase(),
-                      style: poppins(12, w: FontWeight.w700, c: C.yellowDeep))
+                      style: poppins(10, w: FontWeight.w700, c: C.yellowDeep))
                   : null,
             ),
             const SizedBox(width: 8),

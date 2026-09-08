@@ -1533,7 +1533,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         alignment: Alignment.center,
                         child: Text(
-                          'Do check-in now →',
+                          _isCheckInWindowOpen ? 'Do check-in now →' : 'Diary Opens at 8PM',
                           style: poppins(13, w: FontWeight.w700, c: C.ink),
                         ),
                       ),

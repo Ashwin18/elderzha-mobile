@@ -327,7 +327,7 @@ class _NoPollTodayCard extends StatelessWidget {
     child: Column(children: [
       const Text('🗳️', style: TextStyle(fontSize: 40)),
       const SizedBox(height: 10),
-      Text('No poll for today', style: poppins(14, w: FontWeight.w700, c: C.ink)),
+      Text('No polls right now', style: poppins(14, w: FontWeight.w700, c: C.ink)),
       const SizedBox(height: 4),
       Text('Check back soon for something new', style: poppins(12, c: C.txl)),
     ]),
