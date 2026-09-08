@@ -671,15 +671,12 @@ class _HomeScreenState extends State<HomeScreen> {
             width: 46,
             height: 46,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFFFFDD66), C.yellow],
-              ),
+              color: C.white,
               borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: C.bd),
               boxShadow: [
                 BoxShadow(
-                  color: C.yellow.withOpacity(.35),
+                  color: C.ink.withOpacity(.08),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -687,8 +684,8 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             child: Center(
               child: heroEmoji == '✓'
-                  ? const Icon(Icons.check_rounded, color: C.ink, size: 25)
-                  : Text(heroEmoji, style: const TextStyle(fontSize: 23)),
+                  ? const Icon(Icons.check_rounded, color: C.yellowDark, size: 25)
+                  : _PulsingEmoji(emoji: heroEmoji, size: 23),
             ),
           ),
           const SizedBox(width: 10),
@@ -2493,6 +2490,47 @@ class _StaggeredEmojiRowState extends State<_StaggeredEmojiRow> {
           ),
         );
       }),
+    );
+  }
+}
+
+class _PulsingEmoji extends StatefulWidget {
+  const _PulsingEmoji({required this.emoji, required this.size});
+  final String emoji;
+  final double size;
+
+  @override
+  State<_PulsingEmoji> createState() => _PulsingEmojiState();
+}
+
+class _PulsingEmojiState extends State<_PulsingEmoji>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..repeat(reverse: true);
+    _scale = Tween<double>(begin: 1.0, end: 1.15).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ScaleTransition(
+      scale: _scale,
+      child: Text(widget.emoji, style: TextStyle(fontSize: widget.size)),
     );
   }
 }

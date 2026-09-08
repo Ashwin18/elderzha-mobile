@@ -45,6 +45,17 @@ class _MainScaffoldState extends State<MainScaffold>
     Icons.card_giftcard_outlined,
     Icons.person_outline_rounded
   ];
+  // Distinct soft color per tab, even when unselected — keeps the
+  // bar feeling colorful/lively rather than uniformly gray. Spark
+  // (index 2) uses its own dedicated asset, so its entry here is
+  // unused but kept for index alignment.
+  final _tabColors = [
+    const Color(0xFF6C8EE8), // Home — soft blue
+    const Color(0xFFB07EDB), // Reminder — soft purple
+    C.txl,                    // Spark — unused (own asset)
+    const Color(0xFFE8916C), // Offers — soft coral
+    const Color(0xFF4FB8A8), // Profile — soft teal
+  ];
 
   @override
   void initState() {
@@ -155,7 +166,7 @@ class _MainScaffoldState extends State<MainScaffold>
                     SizedBox(height: isSpike ? 3 : 2),
                     Text(_labels[i],
                         style: poppins(9,
-                            w: FontWeight.w900, c: sel ? C.yellowDark : C.txl)),
+                            w: FontWeight.w900, c: sel ? C.yellowDark : _tabColors[i])),
                   ]),
                 ));
               })),
@@ -210,7 +221,7 @@ class _MainScaffoldState extends State<MainScaffold>
             : Icon(
                 sel ? _icons[i] : _iconsOff[i],
                 size: 22,
-                color: sel ? C.ink : C.txl,
+                color: sel ? C.ink : _tabColors[i],
               ),
       ),
     );

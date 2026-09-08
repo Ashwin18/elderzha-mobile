@@ -201,22 +201,33 @@ class _ContentShareButtonState extends State<ContentShareButton> {
       GestureDetector(
         onTap: _share,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
-            color: C.bg2,
-            borderRadius: BorderRadius.circular(10),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF25D366), Color(0xFF128C7E)],
+            ),
+            borderRadius: BorderRadius.circular(999),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF25D366).withOpacity(.35),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             _busy
                 ? const SizedBox(
-                    width: 12,
-                    height: 12,
-                    child: CircularProgressIndicator(strokeWidth: 1.5))
-                : const Icon(Icons.share_rounded, size: 14, color: C.txm),
-            const SizedBox(width: 5),
+                    width: 15,
+                    height: 15,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.share_rounded, size: 18, color: Colors.white),
+            const SizedBox(width: 7),
             Text('Share',
                 style: GoogleFonts.poppins(
-                    fontSize: 11, fontWeight: FontWeight.w700, color: C.txm)),
+                    fontSize: 13.5, fontWeight: FontWeight.w800, color: Colors.white)),
           ]),
         ),
       ),
