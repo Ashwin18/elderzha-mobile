@@ -379,8 +379,15 @@ class _CommunityScreenState extends State<CommunityScreen> {
                   padding: const EdgeInsets.fromLTRB(18, 14, 18, 12),
                   child: Row(children: [
                     Expanded(
-                        child: Text('Spark',
-                            style: poppins(20, w: FontWeight.w700, c: C.ink))),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Spark',
+                                style: poppins(20, w: FontWeight.w700, c: C.ink)),
+                            Text('Adding a extra sparkle to your day',
+                                style: poppins(11.5, w: FontWeight.w600, c: C.yellowDeep)),
+                          ],
+                        )),
                   ]),
                 ),
                 // Underline tab bar

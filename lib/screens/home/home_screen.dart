@@ -633,21 +633,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _todayWellbeingCard(String userName) {
     final nextReminder = _nextReminderForToday();
     final todayCount = _remindersForDay(DateTime.now()).length;
-    final summary = _checkInSummary(_todayActivity);
-    final mood = _field(_todayActivity, ['mood', 'mood_name', 'feeling']);
     final heroEmoji = _checkInDone
         ? (_moodEmojiForDay(DateTime.now()).isNotEmpty
             ? _moodEmojiForDay(DateTime.now())
             : '✓')
         : '😊';
-    final title = _checkInDone
-        ? (summary.isNotEmpty
-            ? 'Today feels like $summary'
-            : 'Today’s check-in is saved')
-        : 'Check in once, see your day clearly';
-    final subtitle = _checkInDone
-        ? (mood.isNotEmpty ? 'Mood logged as $mood' : 'Your day is logged')
-        : 'A quick wellbeing check for $userName';
 
     return Container(
       padding: const EdgeInsets.all(13),
@@ -693,13 +683,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('A day in my life',
-                  style: poppins(10, w: FontWeight.w800, c: C.yellowDeep)),
-              const SizedBox(height: 2),
-              Text(title,
-                  style: poppins(15,
-                      w: FontWeight.w900, c: C.ink, h: 1.2)),
-              const SizedBox(height: 2),
-              Text(subtitle, style: poppins(10.5, c: C.txm, h: 1.3)),
+                  style: poppins(17, w: FontWeight.w900, c: C.ink)),
             ]),
           ),
         ]),
@@ -1776,7 +1760,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final d = _medicalRecord;
     if (d == null) return [];
     final items = <Map<String, dynamic>>[];
-    void add(String key, String label, String type) {
+    void add(String key, String statusKey, String label, String type) {
+      if (!_truthy(d[statusKey])) return;
       final value = d[key];
       if (value == null || value.toString().trim().isEmpty) return;
       items.add({
@@ -1788,17 +1773,20 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (_truthy(d['medical_alarm'])) {
-      add('morning_before_food', 'Morning medicine before food', 'Medical');
-      add('morning_after_food', 'Morning medicine after food', 'Medical');
-      add('afternoon_before_food', 'Afternoon medicine before food', 'Medical');
-      add('afternoon_after_food', 'Afternoon medicine after food', 'Medical');
-      add('night_before_food', 'Night medicine before food', 'Medical');
-      add('night_after_food', 'Night medicine after food', 'Medical');
+      add('m_before_food', 'morning_status', 'Morning medicine before food', 'Medical');
+      add('m_after_food', 'morning_status', 'Morning medicine after food', 'Medical');
+      add('af_before_food', 'afternoon_status', 'Afternoon medicine before food', 'Medical');
+      add('af_after_food', 'afternoon_status', 'Afternoon medicine after food', 'Medical');
+      add('n_before_food', 'night_status', 'Night medicine before food', 'Medical');
+      add('n_after_food', 'night_status', 'Night medicine after food', 'Medical');
     }
-    if (_truthy(d['food_alarm'])) {
-      add('breakfast_time', 'Breakfast reminder', 'Food');
-      add('lunch_time', 'Lunch reminder', 'Food');
-      add('dinner_time', 'Dinner reminder', 'Food');
+    // Note: actual DB column is 'food_alaram' (typo in the database
+    // itself, not a mistake here) — matching it exactly since that's
+    // what the live API actually returns.
+    if (_truthy(d['food_alaram'])) {
+      add('bf_time', 'breakfast_status', 'Breakfast reminder', 'Food');
+      add('l_time', 'lunch_status', 'Lunch reminder', 'Food');
+      add('d_time', 'dinner_status', 'Dinner reminder', 'Food');
     }
     return items;
   }

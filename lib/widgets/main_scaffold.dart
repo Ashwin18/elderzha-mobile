@@ -155,7 +155,7 @@ class _MainScaffoldState extends State<MainScaffold>
                     SizedBox(height: isSpike ? 3 : 2),
                     Text(_labels[i],
                         style: poppins(9,
-                            w: FontWeight.w800, c: sel ? C.yellowDark : C.txl)),
+                            w: FontWeight.w900, c: sel ? C.yellowDark : C.txl)),
                   ]),
                 ));
               })),

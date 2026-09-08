@@ -452,15 +452,18 @@ class _PollHistoryRow extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        // Visually distinct: voted = light green tint, never voted = plain white
-        color: hasVoted ? C.greenLight : C.white,
+        // Voted: neutral yellow/ink tint (matches 'my selection' styling
+        // used elsewhere) — NOT green, which misleadingly implied a
+        // "correct answer" rather than just showing your own response.
+        // Missed: red, so it's clearly flagged rather than blending in.
+        color: hasVoted ? C.yellowLight : C.redLight,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: hasVoted ? C.green.withOpacity(.3) : C.bd),
+        border: Border.all(color: hasVoted ? C.yellow.withOpacity(.4) : C.red.withOpacity(.3)),
       ),
       child: Row(children: [
         Icon(
-          hasVoted ? Icons.check_circle_rounded : Icons.circle_outlined,
-          color: hasVoted ? C.green : C.txl,
+          hasVoted ? Icons.check_circle_rounded : Icons.cancel_rounded,
+          color: hasVoted ? C.yellowDeep : C.red,
           size: 18,
         ),
         const SizedBox(width: 10),
@@ -469,8 +472,8 @@ class _PollHistoryRow extends StatelessWidget {
             Text(question, style: poppins(12.5, w: FontWeight.w700, c: C.ink),
                 maxLines: 1, overflow: TextOverflow.ellipsis),
             Text(
-              hasVoted ? 'You voted: $myOptionText · $dateLabel' : 'You didn\'t vote · $dateLabel',
-              style: poppins(11, c: hasVoted ? C.green : C.txl, w: FontWeight.w600),
+              hasVoted ? 'You voted: $myOptionText · $dateLabel' : 'Missed · $dateLabel',
+              style: poppins(11, c: hasVoted ? C.yellowDeep : C.red, w: FontWeight.w600),
             ),
           ]),
         ),

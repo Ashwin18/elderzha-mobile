@@ -285,17 +285,20 @@ class _ActivityBannerCard extends StatelessWidget {
                     colorFilter: isLocked
                         ? ColorFilter.mode(Colors.white.withOpacity(.55), BlendMode.srcOver)
                         : const ColorFilter.mode(Colors.transparent, BlendMode.multiply),
-                    child: Image.network(
-                      bannerUrl,
+                    child: Container(
                       height: 130,
                       width: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        height: 130,
-                        width: double.infinity,
-                        color: C.yellowLight,
-                        child: Icon(Icons.image_rounded, size: 32,
-                            color: C.yellowDark.withOpacity(isLocked ? .4 : 1)),
+                      color: C.yellowLight,
+                      child: Image.network(
+                        bannerUrl,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => Container(
+                          height: 130,
+                          width: double.infinity,
+                          color: C.yellowLight,
+                          child: Icon(Icons.image_rounded, size: 32,
+                              color: C.yellowDark.withOpacity(isLocked ? .4 : 1)),
+                        ),
                       ),
                     ),
                   )
