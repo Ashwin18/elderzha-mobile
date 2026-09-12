@@ -8,6 +8,8 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/timezone.dart' as tz;
@@ -244,6 +246,30 @@ Future<void> _showRemoteMessageNotification(RemoteMessage msg) async {
   if (!_isUsableNotification(payload)) return;
   await _rememberNotification(payload);
 
+  // Rich image — FCM's native notification.image field, previously
+  // completely ignored here since the OS never gets a chance to
+  // auto-display it (this function manually builds every
+  // notification via flutter_local_notifications for both
+  // foreground and background messages). Falls back to a plain
+  // data['image'] key too, in case a caller ever sends it that way
+  // instead of through the native notification field.
+  final imageUrl = _firstText([notif?.android?.imageUrl, data['image']]);
+  AndroidBitmap<Object>? bigPicture;
+  if (imageUrl != null && imageUrl.isNotEmpty) {
+    try {
+      final response = await http.get(Uri.parse(imageUrl)).timeout(const Duration(seconds: 8));
+      if (response.statusCode == 200) {
+        final dir = await getTemporaryDirectory();
+        final file = File('${dir.path}/notif_${DateTime.now().millisecondsSinceEpoch}.jpg');
+        await file.writeAsBytes(response.bodyBytes);
+        bigPicture = FilePathAndroidBitmap(file.path);
+      }
+    } catch (_) {
+      // Image failed to download — notification still shows fine
+      // without it, just as text-only, rather than failing entirely.
+    }
+  }
+
   await _localNotifs.show(
     (msg.messageId ?? '$title-$body-${data.hashCode}').hashCode,
     _cleanNotificationText(title),
@@ -256,6 +282,14 @@ Future<void> _showRemoteMessageNotification(RemoteMessage msg) async {
         importance: Importance.max,
         priority: Priority.high,
         icon: '@mipmap/ic_launcher',
+        largeIcon: bigPicture,
+        styleInformation: bigPicture != null
+            ? BigPictureStyleInformation(
+                bigPicture,
+                contentTitle: _cleanNotificationText(title),
+                summaryText: _cleanNotificationText(body),
+              )
+            : null,
       ),
       iOS: const DarwinNotificationDetails(),
     ),
