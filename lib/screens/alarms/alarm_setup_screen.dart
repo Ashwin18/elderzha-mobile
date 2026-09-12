@@ -90,15 +90,6 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
   // Family members added locally
   final List<Map<String, String>> _family = [];
 
-  // Guided wizard state — one question at a time instead of a long
-  // form. -1 = not started yet (show the intro "do you take
-  // medicine at all" question), 0..5 = one of the 6 time-slot
-  // questions, 6 = show the completed summary.
-  int _medWizardIndex = -1;
-  // Same pattern for the food step: -1 = intro, 0..2 = breakfast/
-  // lunch/dinner questions, 3 = summary.
-  int _foodWizardIndex = -1;
-
   @override
   void initState() {
     super.initState();
@@ -881,232 +872,206 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
   Widget _medStep() => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (_medWizardIndex >= 6) ...[
-            _schedulePreview(),
+          _masterToggleCard(
+            emoji: '💊',
+            title: 'Medicine alarms',
+            subtitle: _medicalEnabled
+                ? "We've set sensible default times below"
+                : 'Turned off — toggle on to set medicine alarms',
+            value: _medicalEnabled,
+            onChanged: (v) => setState(() => _medicalEnabled = v),
+          ),
+          if (_medicalEnabled) ...[
             const SizedBox(height: 12),
-          ],
-          _medWizardCard(),
-          if (_medWizardIndex >= 6) ...[
+            _editableAlarmList(_medQuestions, _med, _medOn),
+            const SizedBox(height: 12),
+            _schedulePreview(),
             const SizedBox(height: 12),
             _alarmMediaPanel(medical: true),
           ],
         ],
       );
 
-  // The 6 questions the wizard walks through, in order.
+  // The 6 medicine time slots, in display order.
   static const _medQuestions = [
-    ('morning_before_food', '☀️', 'Morning medicine', 'Before breakfast?'),
-    ('morning_after_food', '☀️', 'Morning medicine', 'After breakfast?'),
-    ('afternoon_before_food', '🌤️', 'Afternoon medicine', 'Before lunch?'),
-    ('afternoon_after_food', '🌤️', 'Afternoon medicine', 'After lunch?'),
-    ('night_before_food', '🌙', 'Night medicine', 'Before dinner?'),
-    ('night_after_food', '🌙', 'Night medicine', 'After dinner?'),
+    ('morning_before_food', '☀️', 'Morning, before food'),
+    ('morning_after_food', '☀️', 'Morning, after food'),
+    ('afternoon_before_food', '🌤️', 'Afternoon, before food'),
+    ('afternoon_after_food', '🌤️', 'Afternoon, after food'),
+    ('night_before_food', '🌙', 'Night, before food'),
+    ('night_after_food', '🌙', 'Night, after food'),
   ];
 
-  Widget _medWizardCard() {
-    // Intro question — do they want medicine alarms at all?
-    if (_medWizardIndex == -1) {
-      return _wizardQuestionPanel(
-        emoji: '💊',
-        title: 'Medicine alarms',
-        subtitle: 'Do you take regular medicine?',
-        onNo: () => setState(() {
-          _medicalEnabled = false;
-          for (final key in _medOn.keys) {
-            _medOn[key] = false;
-          }
-          _medWizardIndex = 6;
-        }),
-        onYes: () => setState(() {
-          _medicalEnabled = true;
-          _medWizardIndex = 0;
-        }),
-        noLabel: 'Not for me',
-        yesLabel: 'Yes, set times',
-      );
-    }
+  // The 3 food time slots, in display order.
+  static const _foodQuestions = [
+    ('breakfast_time', '🍳', 'Breakfast'),
+    ('lunch_time', '🍽️', 'Lunch'),
+    ('dinner_time', '🌙', 'Dinner'),
+  ];
 
-    // Walking through the 6 time-slot questions
-    if (_medWizardIndex < 6) {
-      final q = _medQuestions[_medWizardIndex];
-      final key = q.$1;
-      final isOn = _medOn[key] ?? false;
-      return Column(children: [
-        _wizardProgress(_medWizardIndex, 6),
-        const SizedBox(height: 14),
-        _wizardQuestionPanel(
-          emoji: q.$2,
-          title: q.$3,
-          subtitle: q.$4,
-          timeValue: isOn ? _med[key] : null,
-          onNo: () => setState(() {
-            _medOn[key] = false;
-            _medWizardIndex++;
-          }),
-          onYes: () async {
-            await _pickTime(key, _med);
-            if (!mounted) return;
-            setState(() {
-              _medOn[key] = true;
-              _medWizardIndex++;
-            });
-          },
-          noLabel: 'Skip this one',
-          yesLabel: isOn ? 'Change time' : 'Yes, set time',
-        ),
-      ]);
-    }
-
-    // Done — nothing more to show here (summary panel renders above)
-    return const SizedBox.shrink();
-  }
-
-  Widget _wizardProgress(int index, int total) => Row(children: [
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: index / total,
-              minHeight: 6,
-              backgroundColor: C.bg3,
-              valueColor: const AlwaysStoppedAnimation(C.yellowDark),
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Text('${index + 1}/$total', style: poppins(11.5, w: FontWeight.w700, c: C.txm)),
-      ]);
-
-  Widget _wizardQuestionPanel({
+  Widget _masterToggleCard({
     required String emoji,
     required String title,
     required String subtitle,
-    required VoidCallback onNo,
-    required VoidCallback onYes,
-    required String noLabel,
-    required String yesLabel,
-    String? timeValue,
+    required bool value,
+    required ValueChanged<bool> onChanged,
   }) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 28, 20, 20),
-      decoration: BoxDecoration(
-        color: C.yellowMid,
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: Column(children: [
-        Text(emoji, style: const TextStyle(fontSize: 52)),
-        const SizedBox(height: 12),
-        Text(title, textAlign: TextAlign.center, style: poppins(18, w: FontWeight.w800, c: C.ink)),
-        const SizedBox(height: 4),
-        Text(subtitle, textAlign: TextAlign.center, style: poppins(13, w: FontWeight.w600, c: C.yellowDeep)),
-        if (timeValue != null) ...[
-          const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-            decoration: BoxDecoration(color: C.white, borderRadius: BorderRadius.circular(14)),
-            child: Text(timeValue, style: poppins(20, w: FontWeight.w800, c: C.ink)),
-          ),
-        ],
-        const SizedBox(height: 20),
-        Row(children: [
-          Expanded(
-            child: GestureDetector(
-              onTap: onNo,
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                decoration: BoxDecoration(color: C.white, borderRadius: BorderRadius.circular(14)),
-                child: Center(child: Text(noLabel, style: poppins(13.5, w: FontWeight.w700, c: C.yellowDeep))),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: GestureDetector(
-              onTap: onYes,
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                decoration: BoxDecoration(color: C.ink, borderRadius: BorderRadius.circular(14)),
-                child: Center(child: Text(yesLabel, style: poppins(13.5, w: FontWeight.w700, c: C.yellow))),
-              ),
-            ),
-          ),
-        ]),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: C.yellowMid, borderRadius: BorderRadius.circular(18)),
+      child: Row(children: [
+        Container(
+          width: 44, height: 44,
+          decoration: BoxDecoration(color: C.yellow, borderRadius: BorderRadius.circular(13)),
+          child: Center(child: Text(emoji, style: const TextStyle(fontSize: 22))),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, style: poppins(15, w: FontWeight.w700, c: C.ink)),
+            const SizedBox(height: 2),
+            Text(subtitle, style: poppins(11.5, c: C.yellowDeep)),
+          ]),
+        ),
+        Switch(value: value, activeColor: C.ink, onChanged: onChanged),
       ]),
     );
   }
 
-  // The 3 questions the food wizard walks through, in order.
-  static const _foodQuestions = [
-    ('breakfast_time', '🍳', 'Breakfast', 'What time?'),
-    ('lunch_time', '🍽️', 'Lunch', 'What time?'),
-    ('dinner_time', '🌙', 'Dinner', 'What time?'),
-  ];
-
-  Widget _foodWizardCard() {
-    if (_foodWizardIndex == -1) {
-      return _wizardQuestionPanel(
-        emoji: '🍽️',
-        title: 'Meal reminders',
-        subtitle: 'Want reminders for breakfast, lunch and dinner?',
-        onNo: () => setState(() {
-          _foodEnabled = false;
-          for (final key in _foodOn.keys) {
-            _foodOn[key] = false;
-          }
-          _foodWizardIndex = 3;
-        }),
-        onYes: () => setState(() {
-          _foodEnabled = true;
-          _foodWizardIndex = 0;
-        }),
-        noLabel: 'Not for me',
-        yesLabel: 'Yes, set times',
-      );
-    }
-
-    if (_foodWizardIndex < 3) {
-      final q = _foodQuestions[_foodWizardIndex];
-      final key = q.$1;
-      final isOn = _foodOn[key] ?? false;
-      return Column(children: [
-        _wizardProgress(_foodWizardIndex, 3),
-        const SizedBox(height: 14),
-        _wizardQuestionPanel(
-          emoji: q.$2,
-          title: q.$3,
-          subtitle: q.$4,
-          timeValue: isOn ? _food[key] : null,
-          onNo: () => setState(() {
-            _foodOn[key] = false;
-            _foodWizardIndex++;
-          }),
-          onYes: () async {
-            await _pickTime(key, _food);
-            if (!mounted) return;
-            setState(() {
-              _foodOn[key] = true;
-              _foodWizardIndex++;
-            });
-          },
-          noLabel: 'Skip this one',
-          yesLabel: isOn ? 'Change time' : 'Yes, set time',
+  // Reusable editable list — shown pre-filled with sensible defaults
+  // (already ON, already timed), rather than asking one question at
+  // a time from a blank slate. Tapping a row toggles that slot;
+  // tapping the pencil opens a friendly confirmation before changing
+  // the actual time.
+  Widget _editableAlarmList(
+    List<(String, String, String)> items,
+    Map<String, String> timeMap,
+    Map<String, bool> onMap,
+  ) {
+    return Column(children: items.map((item) {
+      final key = item.$1;
+      final emoji = item.$2;
+      final label = item.$3;
+      final isOn = onMap[key] ?? false;
+      return GestureDetector(
+        onTap: () => setState(() => onMap[key] = !isOn),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: C.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: C.bd),
+          ),
+          child: Opacity(
+            opacity: isOn ? 1 : .45,
+            child: Row(children: [
+              Text(emoji, style: const TextStyle(fontSize: 20)),
+              const SizedBox(width: 10),
+              Expanded(child: Text(label, style: poppins(13, w: FontWeight.w600, c: C.ink))),
+              Text(isOn ? timeMap[key] ?? '' : 'Off',
+                  style: poppins(13, w: FontWeight.w700, c: isOn ? C.ink : C.txl)),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () => _showChangeTimeSheet(key, emoji, label, timeMap, onMap),
+                child: Icon(Icons.edit_rounded, size: 17, color: C.yellowDark),
+              ),
+            ]),
+          ),
         ),
-      ]);
-    }
+      );
+    }).toList());
+  }
 
-    return const SizedBox.shrink();
+  // Friendly bottom-sheet confirmation before actually changing a
+  // time that's already set — prevents an accidental tap from
+  // silently overwriting a time the user meant to keep.
+  Future<void> _showChangeTimeSheet(
+    String key,
+    String emoji,
+    String label,
+    Map<String, String> timeMap,
+    Map<String, bool> onMap,
+  ) async {
+    final currentTime = timeMap[key] ?? '';
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        padding: const EdgeInsets.fromLTRB(22, 14, 22, 30),
+        decoration: const BoxDecoration(
+          color: C.white,
+          borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(width: 40, height: 4, decoration: BoxDecoration(color: C.bd, borderRadius: BorderRadius.circular(2))),
+          const SizedBox(height: 18),
+          Text(emoji, style: const TextStyle(fontSize: 36)),
+          const SizedBox(height: 10),
+          Text('Change $label time?', textAlign: TextAlign.center, style: poppins(16, w: FontWeight.w800, c: C.ink)),
+          const SizedBox(height: 4),
+          Text('Currently $currentTime', style: poppins(12.5, c: C.txm)),
+          const SizedBox(height: 18),
+          Row(children: [
+            Expanded(
+              child: GestureDetector(
+                onTap: () => Navigator.pop(context, false),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  decoration: BoxDecoration(color: C.bg2, borderRadius: BorderRadius.circular(13)),
+                  child: Center(child: Text('Keep $currentTime', style: poppins(12.5, w: FontWeight.w600, c: C.txm))),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: GestureDetector(
+                onTap: () => Navigator.pop(context, true),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  decoration: BoxDecoration(color: C.yellow, borderRadius: BorderRadius.circular(13)),
+                  child: Center(child: Text('Pick new time', style: poppins(12.5, w: FontWeight.w700, c: C.ink))),
+                ),
+              ),
+            ),
+          ]),
+        ]),
+      ),
+    );
+    if (result == true) {
+      await _pickTime(key, timeMap);
+      if (!mounted) return;
+      setState(() {
+        onMap[key] = true;
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('$label updated to ${timeMap[key]}', style: poppins(12, c: C.white)),
+            backgroundColor: const Color(0xFF3B6D11),
+            duration: const Duration(seconds: 2),
+          ));
+        }
+      });
+    }
   }
 
   Widget _foodStep() => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (_foodWizardIndex >= 3) ...[
-            _foodSchedulePreview(),
+          _masterToggleCard(
+            emoji: '🍽️',
+            title: 'Meal reminders',
+            subtitle: _foodEnabled
+                ? "We've set sensible default times below"
+                : 'Turned off — toggle on to set meal reminders',
+            value: _foodEnabled,
+            onChanged: (v) => setState(() => _foodEnabled = v),
+          ),
+          if (_foodEnabled) ...[
             const SizedBox(height: 12),
-          ],
-          _foodWizardCard(),
-          if (_foodWizardIndex >= 3) ...[
+            _editableAlarmList(_foodQuestions, _food, _foodOn),
+            const SizedBox(height: 12),
+            _foodSchedulePreview(),
             const SizedBox(height: 12),
             _alarmMediaPanel(medical: false),
           ],
@@ -1143,6 +1108,26 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
 
   Widget _familyStep() => Column(
         children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(18),
+            margin: const EdgeInsets.only(bottom: 14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFBEAF0),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Column(children: [
+              const Text('🌳', style: TextStyle(fontSize: 36)),
+              const SizedBox(height: 8),
+              Text('Add your family', style: poppins(16, w: FontWeight.w800, c: C.ink)),
+              const SizedBox(height: 4),
+              Text(
+                "We'll remind you of their birthdays, anniversaries, and important events — and build your Family Tree as you go.",
+                textAlign: TextAlign.center,
+                style: poppins(12, c: C.txm, h: 1.4),
+              ),
+            ]),
+          ),
           GestureDetector(
             onTap: _addFamilySheet,
             child: Container(
@@ -1725,9 +1710,6 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
                       ),
                     ),
                   ),
-                  if ((_step == 0 && _medWizardIndex >= 6) ||
-                      (_step == 1 && _foodWizardIndex >= 3) ||
-                      _step == 2)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                     child: Column(
