@@ -47,6 +47,23 @@ class _FamilyMembersScreenState extends State<FamilyMembersScreen> {
     _rescheduleFamilyAlarms(apiMembers);
   }
 
+  // Refreshes the member list WITHOUT toggling _loading — the
+  // full-screen spinner in build() unmounts the entire body
+  // (including FamilyTreeWidget), so returning from Add/Edit Member
+  // via the regular _load() recreates the tree fresh every time,
+  // silently seeding its "already seen" set with the just-added
+  // member and preventing its entrance animation from ever playing.
+  // This keeps the tree widget mounted throughout, so a genuinely
+  // new member can actually animate in as intended.
+  Future<void> _silentReload() async {
+    final res = await _authService.getProfileWithFamily();
+    final apiMembers = _extractFamily(res);
+    if (!mounted) return;
+    setState(() => _members = apiMembers);
+    _purgeStaleLocalCache();
+    _rescheduleFamilyAlarms(apiMembers);
+  }
+
   Future<void> _purgeStaleLocalCache() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -121,7 +138,7 @@ class _FamilyMembersScreenState extends State<FamilyMembersScreen> {
         content: Text('Deleted!', style: GoogleFonts.poppins()),
         backgroundColor: AppColors.green,
         duration: const Duration(seconds: 1)));
-    _load();
+    _silentReload();
   }
 
   Future<void> _rescheduleFamilyAlarms(List family) async {
@@ -186,7 +203,7 @@ class _FamilyMembersScreenState extends State<FamilyMembersScreen> {
                     // Add button
                     GestureDetector(
                       onTap: () => Navigator.pushNamed(context, '/add-member')
-                          .then((_) => _load()),
+                          .then((_) => _silentReload()),
                       child: Container(
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(vertical: 13),
@@ -337,7 +354,7 @@ class _FamilyMembersScreenState extends State<FamilyMembersScreen> {
                 GestureDetector(
                   onTap: () => Navigator.pushNamed(context, '/add-member',
                           arguments: map)
-                      .then((_) => _load()),
+                      .then((_) => _silentReload()),
                   child: Container(
                       width: 30,
                       height: 30,
