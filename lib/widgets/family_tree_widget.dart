@@ -81,12 +81,31 @@ class FamilyTreeWidget extends StatefulWidget {
 
 class _FamilyTreeWidgetState extends State<FamilyTreeWidget> {
   bool _expanded = false;
+  // Tracks members already shown once, so only a genuinely NEW
+  // addition gets the entrance animation — existing members never
+  // re-animate just because the widget rebuilds for some other
+  // reason (e.g. expanding/collapsing the view).
+  final Set<String> _seenKeys = {};
 
   String _nameOf(dynamic m) => (m['name'] ?? '').toString();
   String _relationOf(dynamic m) {
     final r = m['relation'];
     if (r is Map) return (r['name'] ?? '').toString();
     return (r ?? '').toString();
+  }
+
+  String _keyOf(dynamic m) => '${_nameOf(m)}|${_relationOf(m)}';
+
+  @override
+  void initState() {
+    super.initState();
+    // Seed with whatever members already exist when this widget
+    // first mounts, so the tree doesn't animate everything in on
+    // every normal screen visit — only a member added AFTER this
+    // point (a fresh addition) will be new relative to this set.
+    for (final m in widget.members) {
+      _seenKeys.add(_keyOf(m));
+    }
   }
 
   @override
@@ -180,7 +199,8 @@ class _FamilyTreeWidgetState extends State<FamilyTreeWidget> {
           child: Center(
             child: Transform.translate(
               offset: Offset(offset, 0),
-              child: _node(_nameOf(m), info.emoji, _rowColor(info.row), _rowBorder(info.row)),
+              child: _node(_nameOf(m), info.emoji, _rowColor(info.row), _rowBorder(info.row),
+                  animKey: _keyOf(m)),
             ),
           ),
         ));
@@ -189,8 +209,9 @@ class _FamilyTreeWidgetState extends State<FamilyTreeWidget> {
     return widgets;
   }
 
-  Widget _node(String name, String emoji, Color bg, Color border, {double radius = 26}) {
-    return Column(mainAxisSize: MainAxisSize.min, children: [
+  Widget _node(String name, String emoji, Color bg, Color border, {double radius = 26, String? animKey}) {
+    final isNew = animKey != null && !_seenKeys.contains(animKey);
+    final node = Column(mainAxisSize: MainAxisSize.min, children: [
       Container(
         width: radius * 2,
         height: radius * 2,
@@ -211,6 +232,24 @@ class _FamilyTreeWidgetState extends State<FamilyTreeWidget> {
             style: GoogleFonts.poppins(fontSize: 9.5, fontWeight: FontWeight.w600, color: border)),
       ),
     ]);
+
+    if (!isNew) return node;
+
+    // Entrance animation for a genuinely new member — a gentle
+    // scale + fade in. Marks itself as seen once finished, via a
+    // post-frame callback so it never re-animates on later rebuilds.
+    return TweenAnimationBuilder<double>(
+      key: ValueKey('anim_$animKey'),
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.elasticOut,
+      onEnd: () => _seenKeys.add(animKey),
+      builder: (context, value, child) => Transform.scale(
+        scale: value.clamp(0.0, 1.0),
+        child: Opacity(opacity: value.clamp(0.0, 1.0), child: child),
+      ),
+      child: node,
+    );
   }
 
   Widget _buildExpanded(BuildContext context) {
@@ -251,7 +290,7 @@ class _FamilyTreeWidgetState extends State<FamilyTreeWidget> {
                 children: members.map((m) {
                   final info = _infoFor(_relationOf(m));
                   return _node(_nameOf(m), info.emoji, _rowColor(info.row), _rowBorder(info.row),
-                      radius: 24);
+                      radius: 24, animKey: _keyOf(m));
                 }).toList(),
               ),
             ]),
@@ -271,12 +310,24 @@ class _TreeLinesPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = const Color(0xFFE8C766)
-      ..strokeWidth = 2;
+      ..strokeWidth = 2.5
+      ..style = PaintingStyle.stroke;
     final youCenter = Offset(size.width / 2, 105);
+    var branchIndex = 0;
     for (final m in members) {
       final info = _infoFor(relationOf(m));
-      final y = 105.0 + info.row * 70.0;
-      canvas.drawLine(youCenter, Offset(size.width / 2, y), paint);
+      final end = Offset(size.width / 2, 105.0 + info.row * 70.0);
+      // A curved branch rather than a straight spoke — alternates
+      // its bow left/right per branch so multiple lines don't all
+      // overlap on the same vertical path, giving a more literal
+      // tree-branch look.
+      final midY = (youCenter.dy + end.dy) / 2;
+      final bow = (branchIndex.isEven ? 1 : -1) * 22.0;
+      branchIndex++;
+      final path = Path()
+        ..moveTo(youCenter.dx, youCenter.dy)
+        ..quadraticBezierTo(youCenter.dx + bow, midY, end.dx, end.dy);
+      canvas.drawPath(path, paint);
     }
   }
 
