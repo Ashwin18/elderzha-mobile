@@ -90,6 +90,15 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
   // Family members added locally
   final List<Map<String, String>> _family = [];
 
+  // Guided wizard state — one question at a time instead of a long
+  // form. -1 = not started yet (show the intro "do you take
+  // medicine at all" question), 0..5 = one of the 6 time-slot
+  // questions, 6 = show the completed summary.
+  int _medWizardIndex = -1;
+  // Same pattern for the food step: -1 = intro, 0..2 = breakfast/
+  // lunch/dinner questions, 3 = summary.
+  int _foodWizardIndex = -1;
+
   @override
   void initState() {
     super.initState();
@@ -835,60 +844,6 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
         ),
       );
 
-  // Quick-start presets — instantly fills in a full set of sensible
-  // times, which the user can then fine-tune, rather than setting
-  // every single time slot manually from scratch.
-  Widget _quickPresets() {
-    final presets = <String, Map<String, String>>{
-      'Typical day': {
-        'morning_before_food': '07:30 AM', 'morning_after_food': '08:30 AM',
-        'afternoon_before_food': '12:30 PM', 'afternoon_after_food': '01:30 PM',
-        'night_before_food': '08:00 PM', 'night_after_food': '09:00 PM',
-      },
-      'Early riser': {
-        'morning_before_food': '06:00 AM', 'morning_after_food': '07:00 AM',
-        'afternoon_before_food': '11:30 AM', 'afternoon_after_food': '12:30 PM',
-        'night_before_food': '06:30 PM', 'night_after_food': '07:30 PM',
-      },
-      'Late riser': {
-        'morning_before_food': '09:00 AM', 'morning_after_food': '10:00 AM',
-        'afternoon_before_food': '01:30 PM', 'afternoon_after_food': '02:30 PM',
-        'night_before_food': '09:00 PM', 'night_after_food': '10:00 PM',
-      },
-    };
-    return SizedBox(
-      height: 40,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: presets.entries.map((entry) {
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: GestureDetector(
-              onTap: () => setState(() {
-                _med.addAll(entry.value);
-                _medicalEnabled = true;
-                for (final key in _medOn.keys) {
-                  _medOn[key] = true;
-                }
-              }),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                decoration: BoxDecoration(
-                  color: C.white,
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: C.bd),
-                ),
-                child: Center(
-                  child: Text(entry.key, style: poppins(12.5, w: FontWeight.w700, c: C.ink)),
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
   // Live preview — a running summary of the day forming as the
   // user sets times, so the form feels like it's building a
   // picture rather than just collecting isolated field values.
@@ -926,215 +881,265 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
   Widget _medStep() => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _quickPresets(),
-          const SizedBox(height: 12),
-          _schedulePreview(),
-          const SizedBox(height: 12),
-          _alarmMasterToggle(
-            title: 'Medical alarm',
-            subtitle: 'Turn on all medicine reminders',
-            value: _medicalEnabled,
-            icon: Icons.medication_rounded,
-            onChanged: (v) => setState(() {
-              _medicalEnabled = v;
-              for (final key in _medOn.keys) {
-                _medOn[key] = v;
-              }
-            }),
-          ),
-          const SizedBox(height: 12),
-          IgnorePointer(
-            ignoring: !_medicalEnabled,
-            child: Opacity(
-              opacity: _medicalEnabled ? 1 : .42,
-              child: Column(
-                children: [
-                  _medicalGroup(
-                    'Morning medicine',
-                    'Breakfast linked dose',
-                    Icons.wb_sunny_rounded,
-                    'morning_before_food',
-                    'morning_after_food',
-                  ),
-                  const SizedBox(height: 12),
-                  _medicalGroup(
-                    'Afternoon medicine',
-                    'Lunch linked dose',
-                    Icons.wb_twilight_rounded,
-                    'afternoon_before_food',
-                    'afternoon_after_food',
-                  ),
-                  const SizedBox(height: 12),
-                  _medicalGroup(
-                    'Night medicine',
-                    'Dinner linked dose',
-                    Icons.nightlight_round,
-                    'night_before_food',
-                    'night_after_food',
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _alarmMediaPanel(medical: true),
+          if (_medWizardIndex >= 6) ...[
+            _schedulePreview(),
+            const SizedBox(height: 12),
+          ],
+          _medWizardCard(),
+          if (_medWizardIndex >= 6) ...[
+            const SizedBox(height: 12),
+            _alarmMediaPanel(medical: true),
+          ],
         ],
       );
 
-  Widget _alarmMasterToggle({
-    required String title,
-    required String subtitle,
-    required bool value,
-    required IconData icon,
-    required ValueChanged<bool> onChanged,
-  }) =>
-      _premiumPanel([
-        Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: value ? C.greenLight : C.bg3,
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: Icon(icon, color: value ? C.green : C.txl, size: 22),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title,
-                        style: poppins(15, w: FontWeight.w800, c: C.ink)),
-                    const SizedBox(height: 2),
-                    Text(value ? subtitle : 'Alarm is off',
-                        style: poppins(11, w: FontWeight.w600, c: C.txl)),
-                  ]),
-            ),
-            Switch(
-              value: value,
-              activeColor: C.green,
-              onChanged: onChanged,
-            ),
-          ],
+  // The 6 questions the wizard walks through, in order.
+  static const _medQuestions = [
+    ('morning_before_food', '☀️', 'Morning medicine', 'Before breakfast?'),
+    ('morning_after_food', '☀️', 'Morning medicine', 'After breakfast?'),
+    ('afternoon_before_food', '🌤️', 'Afternoon medicine', 'Before lunch?'),
+    ('afternoon_after_food', '🌤️', 'Afternoon medicine', 'After lunch?'),
+    ('night_before_food', '🌙', 'Night medicine', 'Before dinner?'),
+    ('night_after_food', '🌙', 'Night medicine', 'After dinner?'),
+  ];
+
+  Widget _medWizardCard() {
+    // Intro question — do they want medicine alarms at all?
+    if (_medWizardIndex == -1) {
+      return _wizardQuestionPanel(
+        emoji: '💊',
+        title: 'Medicine alarms',
+        subtitle: 'Do you take regular medicine?',
+        onNo: () => setState(() {
+          _medicalEnabled = false;
+          for (final key in _medOn.keys) {
+            _medOn[key] = false;
+          }
+          _medWizardIndex = 6;
+        }),
+        onYes: () => setState(() {
+          _medicalEnabled = true;
+          _medWizardIndex = 0;
+        }),
+        noLabel: 'Not for me',
+        yesLabel: 'Yes, set times',
+      );
+    }
+
+    // Walking through the 6 time-slot questions
+    if (_medWizardIndex < 6) {
+      final q = _medQuestions[_medWizardIndex];
+      final key = q.$1;
+      final isOn = _medOn[key] ?? false;
+      return Column(children: [
+        _wizardProgress(_medWizardIndex, 6),
+        const SizedBox(height: 14),
+        _wizardQuestionPanel(
+          emoji: q.$2,
+          title: q.$3,
+          subtitle: q.$4,
+          timeValue: isOn ? _med[key] : null,
+          onNo: () => setState(() {
+            _medOn[key] = false;
+            _medWizardIndex++;
+          }),
+          onYes: () async {
+            await _pickTime(key, _med);
+            if (!mounted) return;
+            setState(() {
+              _medOn[key] = true;
+              _medWizardIndex++;
+            });
+          },
+          noLabel: 'Skip this one',
+          yesLabel: isOn ? 'Change time' : 'Yes, set time',
         ),
       ]);
+    }
 
-  Widget _medicalGroup(String title, String subtitle, IconData icon,
-      String beforeKey, String afterKey) {
-    return _premiumPanel([
-      Row(
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: C.yellowMid,
-              borderRadius: BorderRadius.circular(14),
+    // Done — nothing more to show here (summary panel renders above)
+    return const SizedBox.shrink();
+  }
+
+  Widget _wizardProgress(int index, int total) => Row(children: [
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: index / total,
+              minHeight: 6,
+              backgroundColor: C.bg3,
+              valueColor: const AlwaysStoppedAnimation(C.yellowDark),
             ),
-            child: Icon(icon, color: C.yellowDeep, size: 21),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title, style: poppins(14, w: FontWeight.w800, c: C.ink)),
-              const SizedBox(height: 2),
-              Text(subtitle, style: poppins(11, w: FontWeight.w600, c: C.txl)),
-            ]),
+        ),
+        const SizedBox(width: 10),
+        Text('${index + 1}/$total', style: poppins(11.5, w: FontWeight.w700, c: C.txm)),
+      ]);
+
+  Widget _wizardQuestionPanel({
+    required String emoji,
+    required String title,
+    required String subtitle,
+    required VoidCallback onNo,
+    required VoidCallback onYes,
+    required String noLabel,
+    required String yesLabel,
+    String? timeValue,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 28, 20, 20),
+      decoration: BoxDecoration(
+        color: C.yellowMid,
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Column(children: [
+        Text(emoji, style: const TextStyle(fontSize: 52)),
+        const SizedBox(height: 12),
+        Text(title, textAlign: TextAlign.center, style: poppins(18, w: FontWeight.w800, c: C.ink)),
+        const SizedBox(height: 4),
+        Text(subtitle, textAlign: TextAlign.center, style: poppins(13, w: FontWeight.w600, c: C.yellowDeep)),
+        if (timeValue != null) ...[
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+            decoration: BoxDecoration(color: C.white, borderRadius: BorderRadius.circular(14)),
+            child: Text(timeValue, style: poppins(20, w: FontWeight.w800, c: C.ink)),
           ),
         ],
-      ),
-      const SizedBox(height: 4),
-      _premiumTimeRow(
-        icon: Icons.medication_rounded,
-        title: 'Before food',
-        subtitle: 'Take 30 minutes before food',
-        key: beforeKey,
-        map: _med,
-        enabled: _medicalEnabled && (_medOn[beforeKey] ?? true),
-        onToggle: _medicalEnabled
-            ? (v) => setState(() => _medOn[beforeKey] = v)
-            : null,
-      ),
-      _premiumTimeRow(
-        icon: Icons.check_circle_rounded,
-        title: 'After food',
-        subtitle: 'Take after food',
-        key: afterKey,
-        map: _med,
-        enabled: _medicalEnabled && (_medOn[afterKey] ?? true),
-        onToggle: _medicalEnabled
-            ? (v) => setState(() => _medOn[afterKey] = v)
-            : null,
-        isLast: true,
-      ),
-    ]);
+        const SizedBox(height: 20),
+        Row(children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: onNo,
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(color: C.white, borderRadius: BorderRadius.circular(14)),
+                child: Center(child: Text(noLabel, style: poppins(13.5, w: FontWeight.w700, c: C.yellowDeep))),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: GestureDetector(
+              onTap: onYes,
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(color: C.ink, borderRadius: BorderRadius.circular(14)),
+                child: Center(child: Text(yesLabel, style: poppins(13.5, w: FontWeight.w700, c: C.yellow))),
+              ),
+            ),
+          ),
+        ]),
+      ]),
+    );
+  }
+
+  // The 3 questions the food wizard walks through, in order.
+  static const _foodQuestions = [
+    ('breakfast_time', '🍳', 'Breakfast', 'What time?'),
+    ('lunch_time', '🍽️', 'Lunch', 'What time?'),
+    ('dinner_time', '🌙', 'Dinner', 'What time?'),
+  ];
+
+  Widget _foodWizardCard() {
+    if (_foodWizardIndex == -1) {
+      return _wizardQuestionPanel(
+        emoji: '🍽️',
+        title: 'Meal reminders',
+        subtitle: 'Want reminders for breakfast, lunch and dinner?',
+        onNo: () => setState(() {
+          _foodEnabled = false;
+          for (final key in _foodOn.keys) {
+            _foodOn[key] = false;
+          }
+          _foodWizardIndex = 3;
+        }),
+        onYes: () => setState(() {
+          _foodEnabled = true;
+          _foodWizardIndex = 0;
+        }),
+        noLabel: 'Not for me',
+        yesLabel: 'Yes, set times',
+      );
+    }
+
+    if (_foodWizardIndex < 3) {
+      final q = _foodQuestions[_foodWizardIndex];
+      final key = q.$1;
+      final isOn = _foodOn[key] ?? false;
+      return Column(children: [
+        _wizardProgress(_foodWizardIndex, 3),
+        const SizedBox(height: 14),
+        _wizardQuestionPanel(
+          emoji: q.$2,
+          title: q.$3,
+          subtitle: q.$4,
+          timeValue: isOn ? _food[key] : null,
+          onNo: () => setState(() {
+            _foodOn[key] = false;
+            _foodWizardIndex++;
+          }),
+          onYes: () async {
+            await _pickTime(key, _food);
+            if (!mounted) return;
+            setState(() {
+              _foodOn[key] = true;
+              _foodWizardIndex++;
+            });
+          },
+          noLabel: 'Skip this one',
+          yesLabel: isOn ? 'Change time' : 'Yes, set time',
+        ),
+      ]);
+    }
+
+    return const SizedBox.shrink();
   }
 
   Widget _foodStep() => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _alarmMasterToggle(
-            title: 'Food alarm',
-            subtitle: 'Turn on breakfast, lunch and dinner',
-            value: _foodEnabled,
-            icon: Icons.restaurant_rounded,
-            onChanged: (v) => setState(() {
-              _foodEnabled = v;
-              for (final key in _foodOn.keys) {
-                _foodOn[key] = v;
-              }
-            }),
-          ),
-          const SizedBox(height: 12),
-          IgnorePointer(
-            ignoring: !_foodEnabled,
-            child: Opacity(
-              opacity: _foodEnabled ? 1 : .42,
-              child: _premiumPanel([
-                _premiumTimeRow(
-                  icon: Icons.wb_sunny_rounded,
-                  title: 'Breakfast',
-                  subtitle: 'Morning meal reminder',
-                  key: 'breakfast_time',
-                  map: _food,
-                  enabled: _foodEnabled && (_foodOn['breakfast_time'] ?? true),
-                  onToggle: _foodEnabled
-                      ? (v) => setState(() => _foodOn['breakfast_time'] = v)
-                      : null,
-                ),
-                _premiumTimeRow(
-                  icon: Icons.restaurant_rounded,
-                  title: 'Lunch',
-                  subtitle: 'Afternoon meal reminder',
-                  key: 'lunch_time',
-                  map: _food,
-                  enabled: _foodEnabled && (_foodOn['lunch_time'] ?? true),
-                  onToggle: _foodEnabled
-                      ? (v) => setState(() => _foodOn['lunch_time'] = v)
-                      : null,
-                ),
-                _premiumTimeRow(
-                  icon: Icons.nightlight_round,
-                  title: 'Dinner',
-                  subtitle: 'Night meal reminder',
-                  key: 'dinner_time',
-                  map: _food,
-                  enabled: _foodEnabled && (_foodOn['dinner_time'] ?? true),
-                  onToggle: _foodEnabled
-                      ? (v) => setState(() => _foodOn['dinner_time'] = v)
-                      : null,
-                  isLast: true,
-                ),
-              ]),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _alarmMediaPanel(medical: false),
+          if (_foodWizardIndex >= 3) ...[
+            _foodSchedulePreview(),
+            const SizedBox(height: 12),
+          ],
+          _foodWizardCard(),
+          if (_foodWizardIndex >= 3) ...[
+            const SizedBox(height: 12),
+            _alarmMediaPanel(medical: false),
+          ],
         ],
       );
+
+  Widget _foodSchedulePreview() {
+    const labels = {
+      'breakfast_time': 'Breakfast',
+      'lunch_time': 'Lunch',
+      'dinner_time': 'Dinner',
+    };
+    final entries = _foodOn.entries.where((e) => e.value).toList();
+    if (!_foodEnabled || entries.isEmpty) return const SizedBox.shrink();
+
+    return _premiumPanel([
+      Row(children: [
+        const Icon(Icons.calendar_view_day_rounded, size: 18, color: C.yellowDark),
+        const SizedBox(width: 8),
+        Text('Your meals so far', style: poppins(13, w: FontWeight.w800, c: C.ink)),
+      ]),
+      const SizedBox(height: 10),
+      ...entries.map((e) => Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(children: [
+              Container(width: 6, height: 6, decoration: const BoxDecoration(color: C.yellowDark, shape: BoxShape.circle)),
+              const SizedBox(width: 8),
+              Expanded(child: Text(labels[e.key] ?? e.key, style: poppins(12, c: C.txm))),
+              Text(_food[e.key] ?? '', style: poppins(12, w: FontWeight.w700, c: C.ink)),
+            ]),
+          )),
+    ]);
+  }
 
   Widget _familyStep() => Column(
         children: [
@@ -1723,6 +1728,9 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
                       ),
                     ),
                   ),
+                  if ((_step == 0 && _medWizardIndex >= 6) ||
+                      (_step == 1 && _foodWizardIndex >= 3) ||
+                      _step == 2)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                     child: Column(
