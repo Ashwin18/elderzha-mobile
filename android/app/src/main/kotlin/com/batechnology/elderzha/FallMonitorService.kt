@@ -277,7 +277,8 @@ class FallMonitorService : Service(), SensorEventListener {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val alertNotification = NotificationCompat.Builder(this, ALERT_CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setColor(android.graphics.Color.parseColor("#E53935"))
             .setContentTitle("Possible fall detected")
             .setContentText("Tap immediately if you are safe")
             .setCategory(NotificationCompat.CATEGORY_ALARM)
@@ -380,7 +381,8 @@ class FallMonitorService : Service(), SensorEventListener {
         )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setColor(android.graphics.Color.parseColor("#FFCC01"))
             .setContentTitle("ElderZha — Fall Detection Active")
             .setContentText("Monitoring for falls in the background")
             .setPriority(NotificationCompat.PRIORITY_LOW)

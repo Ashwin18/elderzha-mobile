@@ -283,7 +283,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   Widget _notifRow(dynamic n) {
     if (n is! Map) return const SizedBox.shrink();
-    final dot = n['dot'] as Color? ?? C.yellow;
     final title = _cleanText(n['title'] ??
         n['message'] ??
         n['body'] ??
@@ -294,7 +293,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final tag = _notificationLabel(n);
     final colors = _labelColors(tag);
     final tagBg = colors.$1;
-    final tagFg = colors.$2;
     final subtitle = _cleanText(n['message'] ??
         n['body'] ??
         n['description'] ??
@@ -309,39 +307,80 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (title.isEmpty && tag.isEmpty && time.toString().isEmpty) {
       return const SizedBox.shrink();
     }
+    final gradient = _labelGradient(tag);
+    final icon = _labelIcon(tag);
+
     return GestureDetector(
       onTap: () => _openTarget(n),
       behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 11),
-        decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: C.bg2))),
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [tagBg, C.white],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(color: gradient.last.withOpacity(.12), blurRadius: 10, offset: const Offset(0, 3)),
+          ],
+        ),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Container(
-              width: 10,
-              height: 10,
-              margin: const EdgeInsets.only(top: 3, right: 10),
-              decoration: BoxDecoration(color: dot, shape: BoxShape.circle)),
+          Stack(clipBehavior: Clip.none, children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: gradient,
+                ),
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Icon(icon, color: C.white, size: 22),
+            ),
+            Positioned(
+              bottom: -4,
+              right: -4,
+              child: Container(
+                width: 20,
+                height: 20,
+                padding: const EdgeInsets.all(2),
+                decoration: const BoxDecoration(
+                  color: C.ink,
+                  shape: BoxShape.circle,
+                  border: Border.fromBorderSide(BorderSide(color: C.white, width: 2)),
+                ),
+                child: ClipOval(
+                  child: Image.asset('assets/images/app_icon.png', fit: BoxFit.cover),
+                ),
+              ),
+            ),
+          ]),
+          const SizedBox(width: 12),
           Expanded(
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                Text(title, style: poppins(13, w: FontWeight.w700, c: C.ink)),
+                Text(title, style: poppins(13.5, w: FontWeight.w700, c: C.ink)),
                 if (subtitle.isNotEmpty && subtitle != title) ...[
                   const SizedBox(height: 3),
                   Text(subtitle, style: poppins(12, c: C.txm, h: 1.35)),
                 ],
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 Row(children: [
                   if (tag.isNotEmpty) ...[
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
+                          horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                          color: tagBg,
+                          color: gradient.last,
                           borderRadius: BorderRadius.circular(999)),
-                      child: Text(tag,
-                          style: poppins(10, w: FontWeight.w700, c: tagFg)),
+                      child: Text(tag.toUpperCase(),
+                          style: poppins(9.5, w: FontWeight.w800, c: C.white)),
                     ),
                     const SizedBox(width: 6),
                   ],
@@ -440,6 +479,40 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         return (const Color(0xFFFFE6E6), C.red);
       default:
         return (C.bg2, C.txm);
+    }
+  }
+
+  IconData _labelIcon(String label) {
+    switch (label) {
+      case 'Offer':
+        return Icons.card_giftcard_rounded;
+      case 'Poll':
+        return Icons.how_to_vote_rounded;
+      case 'Activity':
+        return Icons.groups_rounded;
+      case 'Feed':
+        return Icons.forum_rounded;
+      case 'Reminder':
+        return Icons.alarm_rounded;
+      default:
+        return Icons.notifications_rounded;
+    }
+  }
+
+  List<Color> _labelGradient(String label) {
+    switch (label) {
+      case 'Offer':
+        return const [Color(0xFFFFC928), Color(0xFFB8860B)];
+      case 'Poll':
+        return const [Color(0xFF6FCF5A), Color(0xFF3B6D11)];
+      case 'Activity':
+        return const [Color(0xFF4FA8E8), Color(0xFF0C447C)];
+      case 'Feed':
+        return const [Color(0xFFB98CE8), Color(0xFF6B3FA0)];
+      case 'Reminder':
+        return const [Color(0xFFE86868), Color(0xFF9B2C2C)];
+      default:
+        return const [Color(0xFFB0AEA6), Color(0xFF716F68)];
     }
   }
 

@@ -146,41 +146,60 @@ class _CoreFeaturesGridPage extends StatelessWidget {
       // Soft organic blob shapes behind the heading, approximating
       // the reference's wavy background accent.
       Positioned(
-        top: -40, left: -60,
+        top: 110, left: -60,
         child: Container(
           width: 180, height: 180,
           decoration: BoxDecoration(color: _DT.brightYellow.withOpacity(0.25), shape: BoxShape.circle),
         ),
       ),
       Positioned(
-        top: 10, right: -70,
+        top: 160, right: -70,
         child: Container(
           width: 160, height: 160,
           decoration: BoxDecoration(color: _DT.primaryYellow.withOpacity(0.2), shape: BoxShape.circle),
         ),
       ),
       SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
         child: Column(
           children: [
-            const SizedBox(height: 8),
-            Text('Everything you need', textAlign: TextAlign.center, style: _heading(26)),
-            const SizedBox(height: 4),
-            Text('5 features, all included', style: _body(14, color: _DT.navy.withOpacity(0.7))),
-            const SizedBox(height: 4),
-            Container(width: 90, height: 3, decoration: BoxDecoration(color: _DT.primaryYellow, borderRadius: BorderRadius.circular(2))),
-            const SizedBox(height: 20),
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 0.95,
-              children: _items.map((item) => _FeatureCard(emoji: item.$1, title: item.$2, subtitle: item.$3)).toList(),
+            ClipRRect(
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(32),
+                bottomRight: Radius.circular(32),
+              ),
+              child: Image.asset(
+                'assets/images/home_header_photo_v3.jpg',
+                height: 150,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
             ),
-            const SizedBox(height: 12),
-            _FamilyTreeCard(),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                children: [
+                  const SizedBox(height: 18),
+                  Text('Everything you need', textAlign: TextAlign.center, style: _heading(26)),
+                  const SizedBox(height: 4),
+                  Text('5 features, all included', style: _body(14, color: _DT.navy.withOpacity(0.7))),
+                  const SizedBox(height: 4),
+                  Container(width: 90, height: 3, decoration: BoxDecoration(color: _DT.primaryYellow, borderRadius: BorderRadius.circular(2))),
+                  const SizedBox(height: 20),
+                  GridView.count(
+                    crossAxisCount: 2,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    childAspectRatio: 0.95,
+                    children: _items.map((item) => _FeatureCard(emoji: item.$1, title: item.$2, subtitle: item.$3)).toList(),
+                  ),
+                  const SizedBox(height: 12),
+                  _FamilyTreeCard(),
+                  const SizedBox(height: 12),
+                ],
+              ),
+            ),
           ],
         ),
       ),

@@ -129,7 +129,8 @@ class AlarmSoundService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setColor(android.graphics.Color.parseColor("#FFCC01"))
             .setContentTitle(title)
             .setContentText(notes.ifBlank { "Alarm is ringing." })
             .setCategory(NotificationCompat.CATEGORY_ALARM)

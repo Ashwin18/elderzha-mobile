@@ -152,8 +152,12 @@ class AlarmReceiver : BroadcastReceiver() {
         )
 
         val image = loadBitmap(imageUrl)
+        val defaultLargeIcon = BitmapFactory.decodeResource(
+            context.resources, R.mipmap.ic_launcher
+        )
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setColor(android.graphics.Color.parseColor("#FFCC01"))
             .setContentTitle(title)
             .setContentText(notes.ifBlank { "Tap to open ElderZha." })
             .setPriority(NotificationCompat.PRIORITY_MAX)
@@ -165,6 +169,7 @@ class AlarmReceiver : BroadcastReceiver() {
             .setDeleteIntent(dismissIntent) // swipe = dismiss + stop sound
             .setFullScreenIntent(fullScreenIntent, true) // always show full screen
             .setOnlyAlertOnce(true)
+            .setLargeIcon(image ?: defaultLargeIcon)
             // Gap 3 Fix: Explicit "Dismiss" action button on notification
             .addAction(
                 android.R.drawable.ic_menu_close_clear_cancel,
@@ -173,13 +178,11 @@ class AlarmReceiver : BroadcastReceiver() {
             )
 
         if (image != null) {
-            builder
-                .setLargeIcon(image)
-                .setStyle(
-                    NotificationCompat.BigPictureStyle()
-                        .bigPicture(image)
-                        .bigLargeIcon(null as Bitmap?)
-                )
+            builder.setStyle(
+                NotificationCompat.BigPictureStyle()
+                    .bigPicture(image)
+                    .bigLargeIcon(null as Bitmap?)
+            )
         }
 
         manager.notify(id, builder.build())

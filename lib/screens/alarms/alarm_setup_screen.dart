@@ -11,8 +11,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../alaram/alarm_config_store.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/app_routes.dart';
 import '../../services/services.dart';
-import '../auth/signup_add_family_screen.dart';
 
 const MethodChannel _alarmSetupChannel = MethodChannel('alarm_service');
 
@@ -1360,10 +1360,7 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
       );
       if (!mounted) return;
     }
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const SignupAddFamilyScreen()),
-    );
+    Navigator.pushReplacementNamed(context, AppRoutes.payment);
   }
 
   Future<void> _saveSetupFamilyFallback() async {
