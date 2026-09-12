@@ -883,7 +883,7 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
           ),
           if (_medicalEnabled) ...[
             const SizedBox(height: 12),
-            _editableAlarmList(_medQuestions, _med, _medOn),
+            _groupedMedList(),
             const SizedBox(height: 12),
             _schedulePreview(),
             const SizedBox(height: 12),
@@ -891,16 +891,6 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
           ],
         ],
       );
-
-  // The 6 medicine time slots, in display order.
-  static const _medQuestions = [
-    ('morning_before_food', '☀️', 'Morning, before food'),
-    ('morning_after_food', '☀️', 'Morning, after food'),
-    ('afternoon_before_food', '🌤️', 'Afternoon, before food'),
-    ('afternoon_after_food', '🌤️', 'Afternoon, after food'),
-    ('night_before_food', '🌙', 'Night, before food'),
-    ('night_after_food', '🌙', 'Night, after food'),
-  ];
 
   // The 3 food time slots, in display order.
   static const _foodQuestions = [
@@ -939,11 +929,116 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
     );
   }
 
+  // Groups the 6 medicine slots into 3 color-coded time-of-day
+  // cards (Morning/Afternoon/Night), each showing its before/after
+  // food pair side by side. Each slot keeps its own fully
+  // independent switch — the card is a visual grouping only, not a
+  // shared on/off control, so e.g. "before food on, after food off"
+  // within the same time of day works exactly as expected.
+  Widget _groupedMedList() {
+    return Column(children: [
+      _timeOfDayGroupCard(
+        emoji: '☀️',
+        label: 'MORNING',
+        gradient: const [Color(0xFFFFF3C4), Color(0xFFFFE9A0)],
+        labelColor: C.yellowDeep,
+        beforeKey: 'morning_before_food',
+        afterKey: 'morning_after_food',
+      ),
+      const SizedBox(height: 10),
+      _timeOfDayGroupCard(
+        emoji: '🌤️',
+        label: 'AFTERNOON',
+        gradient: const [Color(0xFFFFE0C4), Color(0xFFFFC98A)],
+        labelColor: const Color(0xFF7A4A00),
+        beforeKey: 'afternoon_before_food',
+        afterKey: 'afternoon_after_food',
+      ),
+      const SizedBox(height: 10),
+      _timeOfDayGroupCard(
+        emoji: '🌙',
+        label: 'NIGHT',
+        gradient: const [Color(0xFFD8DEF5), Color(0xFFB8C4EC)],
+        labelColor: const Color(0xFF1E2A6B),
+        beforeKey: 'night_before_food',
+        afterKey: 'night_after_food',
+      ),
+    ]);
+  }
+
+  Widget _timeOfDayGroupCard({
+    required String emoji,
+    required String label,
+    required List<Color> gradient,
+    required Color labelColor,
+    required String beforeKey,
+    required String afterKey,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: gradient),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Text(emoji, style: const TextStyle(fontSize: 20)),
+          const SizedBox(width: 8),
+          Text(label, style: poppins(12.5, w: FontWeight.w800, c: labelColor)),
+        ]),
+        const SizedBox(height: 10),
+        Row(children: [
+          Expanded(child: _slotMiniCard('Before food', beforeKey)),
+          const SizedBox(width: 8),
+          Expanded(child: _slotMiniCard('After food', afterKey)),
+        ]),
+      ]),
+    );
+  }
+
+  Widget _slotMiniCard(String label, String key) {
+    final isOn = _medOn[key] ?? false;
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: isOn ? C.white : C.white.withOpacity(.55),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: isOn ? C.yellowBorder : C.bd),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(child: Text(label, style: poppins(10, c: C.txm))),
+          Transform.scale(
+            scale: .78,
+            child: Switch(
+              value: isOn,
+              activeColor: C.ink,
+              activeTrackColor: C.yellow,
+              onChanged: (v) => setState(() => _medOn[key] = v),
+            ),
+          ),
+        ]),
+        if (isOn)
+          GestureDetector(
+            onTap: () => _showChangeTimeSheet(key, '⏰', label, _med, _medOn),
+            child: Row(children: [
+              Text(_med[key] ?? '', style: poppins(14.5, w: FontWeight.w800, c: C.ink)),
+              const SizedBox(width: 4),
+              Icon(Icons.edit_rounded, size: 12, color: C.yellowDark),
+            ]),
+          )
+        else
+          Text('Off', style: poppins(12.5, c: C.txl)),
+      ]),
+    );
+  }
+
   // Reusable editable list — shown pre-filled with sensible defaults
   // (already ON, already timed), rather than asking one question at
-  // a time from a blank slate. Tapping a row toggles that slot;
-  // tapping the pencil opens a friendly confirmation before changing
-  // the actual time.
+  // a time from a blank slate. Each row has an explicit, visible
+  // Switch to enable/disable that specific alarm — tapping the time
+  // pill (shown only while on) opens a friendly confirmation before
+  // changing the actual time.
   Widget _editableAlarmList(
     List<(String, String, String)> items,
     Map<String, String> timeMap,
@@ -954,32 +1049,43 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
       final emoji = item.$2;
       final label = item.$3;
       final isOn = onMap[key] ?? false;
-      return GestureDetector(
-        onTap: () => setState(() => onMap[key] = !isOn),
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: C.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: C.bd),
-          ),
-          child: Opacity(
-            opacity: isOn ? 1 : .45,
-            child: Row(children: [
-              Text(emoji, style: const TextStyle(fontSize: 20)),
-              const SizedBox(width: 10),
-              Expanded(child: Text(label, style: poppins(13, w: FontWeight.w600, c: C.ink))),
-              Text(isOn ? timeMap[key] ?? '' : 'Off',
-                  style: poppins(13, w: FontWeight.w700, c: isOn ? C.ink : C.txl)),
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: () => _showChangeTimeSheet(key, emoji, label, timeMap, onMap),
-                child: Icon(Icons.edit_rounded, size: 17, color: C.yellowDark),
-              ),
-            ]),
-          ),
+      return Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: C.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: isOn ? C.yellowBorder : C.bd),
         ),
+        child: Row(children: [
+          Text(emoji, style: TextStyle(fontSize: 20, color: isOn ? null : C.txl)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(label,
+                style: poppins(13, w: FontWeight.w600, c: isOn ? C.ink : C.txl)),
+          ),
+          if (isOn) ...[
+            GestureDetector(
+              onTap: () => _showChangeTimeSheet(key, emoji, label, timeMap, onMap),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(color: C.bg2, borderRadius: BorderRadius.circular(999)),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Text(timeMap[key] ?? '', style: poppins(12.5, w: FontWeight.w700, c: C.ink)),
+                  const SizedBox(width: 4),
+                  Icon(Icons.edit_rounded, size: 14, color: C.yellowDark),
+                ]),
+              ),
+            ),
+            const SizedBox(width: 10),
+          ],
+          Switch(
+            value: isOn,
+            activeColor: C.ink,
+            activeTrackColor: C.yellow,
+            onChanged: (v) => setState(() => onMap[key] = v),
+          ),
+        ]),
       );
     }).toList());
   }
@@ -1797,12 +1903,8 @@ class _AddFamilySheetState extends State<_AddFamilySheet> {
   DateTime? _anniversaryDate;
   String _relation = 'Spouse';
   final _relations = [
-    'Spouse',
-    'Child',
-    'Parent',
-    'Sibling',
-    'Friend',
-    'Other',
+    'Mother', 'Father', 'Spouse', 'Son', 'Daughter',
+    'Grand Son', 'Grand Daughter', 'Son in law', 'Daughter in law',
   ];
 
   @override
