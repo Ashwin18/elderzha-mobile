@@ -25,18 +25,8 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
   bool _saving = false;
 
   final _relations = [
-    // 2 up
-    'Grandfather', 'Grandmother',
-    // 1 up
-    'Father', 'Mother', 'Father-in-law', 'Mother-in-law', 'Uncle', 'Aunt',
-    // Same row
-    'Spouse', 'Brother', 'Sister', 'Cousin',
-    // 1 down
-    'Son', 'Daughter', 'Son-in-law', 'Daughter-in-law', 'Nephew', 'Niece',
-    // 2 down
-    'Grand Son', 'Grand Daughter',
-    // Other
-    'Friend', 'Other'
+    'Mother', 'Father', 'Spouse', 'Son', 'Daughter',
+    'Grand Son', 'Grand Daughter', 'Son in law', 'Daughter in law',
   ];
 
   @override

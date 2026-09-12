@@ -144,6 +144,9 @@ class AuthService {
     // saved data / any other caller using these strings still resolves.
     'Child': 5, 'Parent': 1, 'Sibling': 19,
     'Grandson': 7, 'Granddaughter': 8,
+    // Current UI uses no-hyphen spelling; backend entries were added
+    // with hyphens — same IDs, just an alternate spelling alias.
+    'Son in law': 22, 'Daughter in law': 23,
   };
   static const int _birthdayEventId   = 9;
   static const int _anniversaryEventId = 10;

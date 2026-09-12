@@ -50,6 +50,12 @@ class BenefitsShowcaseScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 18),
                 const BenefitsList(),
+                const SizedBox(height: 10),
+                Text(
+                  'SOS alert and Local offers are normally premium-tier — included free while this launch offer lasts.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(fontSize: 11, color: const Color(0xFF854F0B), height: 1.4),
+                ),
               ]),
             ),
           ),
@@ -77,28 +83,32 @@ class BenefitsShowcaseScreen extends StatelessWidget {
 }
 
 class BenefitsList extends StatelessWidget {
-  const BenefitsList({super.key});
+  const BenefitsList({super.key, this.unlocked = false});
+  final bool unlocked;
 
+  // (icon, bg, fg, title, subtitle, isLaunchOffer)
   static const _items = [
-    (Icons.notifications_active_rounded, Color(0xFFFCEBEB), Color(0xFF791F1F), 'Fall Detection SOS', 'Auto-alerts your family if you fall'),
-    (Icons.medication_rounded, Color(0xFFFAEEDA), Color(0xFF633806), 'Medicine and meal alarms', 'Never miss a dose or a meal'),
-    (Icons.event_available_rounded, Color(0xFFEAF3DE), Color(0xFF27500A), 'Daily activities and polls', 'A little something new each day'),
-    (Icons.people_alt_rounded, Color(0xFFE6F1FB), Color(0xFF0C447C), 'Family connect', 'Keep loved ones in the loop'),
-    (Icons.sell_rounded, Color(0xFFEEEDFE), Color(0xFF3C3489), 'Offers nearby', 'Local deals picked for you'),
-    (Icons.article_rounded, Color(0xFFFAECE7), Color(0xFF712B13), 'Wellness feed', 'Fresh tips and stories to enjoy'),
+    (Icons.alarm_rounded, Color(0xFFE6F1FB), Color(0xFF0C447C), 'Reminders and alarms', 'Never miss a dose or appointment', false),
+    (Icons.how_to_vote_rounded, Color(0xFFEAF3DE), Color(0xFF27500A), 'Activities and polls', 'Join in and share your voice', false),
+    (Icons.forum_rounded, Color(0xFFEEEDFE), Color(0xFF3C3489), 'Community', 'Connect with others like you', false),
+    (Icons.menu_book_rounded, Color(0xFFFAECE7), Color(0xFF712B13), 'Daily diary', 'Log your mood and your day', false),
+    (Icons.family_restroom_rounded, Color(0xFFFBEAF0), Color(0xFF72243E), 'Family tree', 'See your whole family, visually', false),
+    (Icons.sos_rounded, Color(0xFFFAEEDA), Color(0xFF854F0B), 'SOS alert', 'One tap to reach family instantly', true),
+    (Icons.card_giftcard_rounded, Color(0xFFFAEEDA), Color(0xFF854F0B), 'Local offers', 'Deals from stores near you', true),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: _items.map((item) {
-        final (icon, bg, fg, title, subtitle) = item;
+        final (icon, bg, fg, title, subtitle, isLaunchOffer) = item;
+        final highlight = isLaunchOffer && !unlocked;
         return Container(
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0xFFE8E5DA)),
+            color: highlight ? const Color(0xFFFAEEDA) : Colors.white,
+            border: Border.all(color: highlight ? const Color(0xFFEF9F27) : const Color(0xFFE8E5DA)),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(children: [
@@ -114,6 +124,14 @@ class BenefitsList extends StatelessWidget {
                 Text(subtitle, style: GoogleFonts.poppins(fontSize: 11, color: const Color(0xFF8A8878))),
               ]),
             ),
+            if (unlocked)
+              const Icon(Icons.check_circle_rounded, size: 20, color: Color(0xFF27500A))
+            else if (isLaunchOffer)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(color: const Color(0xFFEF9F27), borderRadius: BorderRadius.circular(999)),
+                child: Text('Launch offer', style: GoogleFonts.poppins(fontSize: 9, fontWeight: FontWeight.w700, color: const Color(0xFF412402))),
+              ),
           ]),
         );
       }).toList(),

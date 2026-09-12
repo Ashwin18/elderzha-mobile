@@ -12,6 +12,7 @@ import '../../theme/app_theme.dart';
 import '../../utils/app_routes.dart';
 import '../../services/services.dart';
 import '../../widgets/ez_button.dart';
+import 'benefits_showcase_screen.dart';
 
 class PaymentSuccessScreen extends StatefulWidget {
   const PaymentSuccessScreen({super.key});
@@ -51,58 +52,71 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
         children: [
           const _ConfettiLayer(),
           SafeArea(
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Success icon
-                    Container(
-                      width: 90,
-                      height: 90,
-                      decoration: const BoxDecoration(
-                        color: AppColors.greenLight,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.check_circle_rounded,
-                        size: 52,
-                        color: AppColors.green,
-                      ),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Success icon
+                  Container(
+                    width: 90,
+                    height: 90,
+                    decoration: const BoxDecoration(
+                      color: AppColors.greenLight,
+                      shape: BoxShape.circle,
                     ),
-                    const SizedBox(height: 20),
+                    child: const Icon(
+                      Icons.check_circle_rounded,
+                      size: 52,
+                      color: AppColors.green,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
 
+                  Text(
+                    "You're all set! 🎉",
+                    style: GoogleFonts.poppins(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.ink,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Every feature below is unlocked now',
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      color: AppColors.inkLight,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+
+                  if (paymentId.isNotEmpty) ...[
+                    const SizedBox(height: 10),
                     Text(
-                      'Payment Successful! 🎉',
+                      'Payment ID: $paymentId',
                       style: GoogleFonts.poppins(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.ink,
+                        fontSize: 12,
+                        color: AppColors.inkLight,
                       ),
                       textAlign: TextAlign.center,
                     ),
-
-                    if (paymentId.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      Text(
-                        'Payment ID: $paymentId',
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          color: AppColors.inkLight,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-
-                    const SizedBox(height: 36),
-                    EzButton(
-                      label: 'Go to Home →',
-                      onTap: () => Navigator.pushNamedAndRemoveUntil(
-                          context, AppRoutes.home, (route) => false),
-                    ),
                   ],
-                ),
+
+                  const SizedBox(height: 24),
+                  const SizedBox(
+                    width: double.infinity,
+                    child: BenefitsList(unlocked: true),
+                  ),
+
+                  const SizedBox(height: 12),
+                  EzButton(
+                    label: 'Go to Home →',
+                    onTap: () => Navigator.pushNamedAndRemoveUntil(
+                        context, AppRoutes.home, (route) => false),
+                  ),
+                ],
               ),
             ),
           ),

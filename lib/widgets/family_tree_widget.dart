@@ -15,42 +15,27 @@ class _RelInfo {
 }
 
 const Map<String, _RelInfo> _relInfo = {
-  'Grandfather': _RelInfo(-2, '👴', 'Grandparents'),
-  'Grandmother': _RelInfo(-2, '👵', 'Grandparents'),
-  'Father': _RelInfo(-1, '👨', 'Parents & their siblings'),
-  'Mother': _RelInfo(-1, '👩', 'Parents & their siblings'),
-  'Father-in-law': _RelInfo(-1, '👨', 'Parents & their siblings'),
-  'Mother-in-law': _RelInfo(-1, '👩', 'Parents & their siblings'),
-  'Uncle': _RelInfo(-1, '👨', 'Parents & their siblings'),
-  'Aunt': _RelInfo(-1, '👩', 'Parents & their siblings'),
+  'Father': _RelInfo(-1, '👨', 'Parents'),
+  'Mother': _RelInfo(-1, '👩', 'Parents'),
   'Spouse': _RelInfo(0, '❤️', 'Your generation'),
-  'Brother': _RelInfo(0, '👨', 'Your generation'),
-  'Sister': _RelInfo(0, '👩', 'Your generation'),
-  'Cousin': _RelInfo(0, '🧑', 'Your generation'),
-  'Son': _RelInfo(1, '👦', 'Children & their cousins'),
-  'Daughter': _RelInfo(1, '👧', 'Children & their cousins'),
-  'Son-in-law': _RelInfo(1, '👨', 'Children & their cousins'),
-  'Daughter-in-law': _RelInfo(1, '👩', 'Children & their cousins'),
-  'Nephew': _RelInfo(1, '👦', 'Children & their cousins'),
-  'Niece': _RelInfo(1, '👧', 'Children & their cousins'),
+  'Son': _RelInfo(1, '👦', 'Children'),
+  'Daughter': _RelInfo(1, '👧', 'Children'),
+  'Son in law': _RelInfo(1, '👨', 'Children'),
+  'Daughter in law': _RelInfo(1, '👩', 'Children'),
   'Grand Son': _RelInfo(2, '👦', 'Grandchildren'),
   'Grand Daughter': _RelInfo(2, '👧', 'Grandchildren'),
-  'Friend': _RelInfo(0, '🧑', 'Other'),
-  'Other': _RelInfo(0, '🧑', 'Other'),
 };
-
-_RelInfo _infoFor(String relation) =>
-    _relInfo[relation] ?? const _RelInfo(0, '🧑', 'Other');
 
 // Fixed generation order for the expanded view's section list.
 const List<String> _groupOrder = [
-  'Grandparents',
-  'Parents & their siblings',
+  'Parents',
   'Your generation',
-  'Children & their cousins',
+  'Children',
   'Grandchildren',
-  'Other',
 ];
+
+_RelInfo _infoFor(String relation) =>
+    _relInfo[relation] ?? const _RelInfo(0, '🧑', 'Other');
 
 // Color per generation row, close-to-far from "You" at row 0.
 Color _rowColor(int row) {
