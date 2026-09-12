@@ -1,82 +1,166 @@
 // lib/screens/auth/benefits_showcase_screen.dart
 //
-// Shown right after a new user finishes profile + alarm setup,
-// right before the trial/subscription (payment) screen — the
-// moment they're about to be asked to commit is exactly when
-// they should see what they're committing to.
+// Shown right after OTP verification succeeds, before profile
+// setup even begins — a swipeable, colorful carousel introducing
+// every feature the app has, so new users know exactly what
+// they're signing up for from the very first moment.
 //
-// Same 6-benefit list is reused for the subscription-gate renewal
-// case (isRenewal: true) via a shared _BenefitsList widget, so the
-// two screens can't drift apart over time.
+// BenefitsList (the flat list variant) is still used separately by
+// the subscription-gate renewal screen — this file's carousel is
+// specifically the new-signup first-impression experience.
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import '../../utils/app_routes.dart';
 
-class BenefitsShowcaseScreen extends StatelessWidget {
+class BenefitsShowcaseScreen extends StatefulWidget {
   final String? userName;
-  const BenefitsShowcaseScreen({super.key, this.userName});
+  final Map<String, dynamic>? profileArgs;
+  const BenefitsShowcaseScreen({super.key, this.userName, this.profileArgs});
+
+  @override
+  State<BenefitsShowcaseScreen> createState() => _BenefitsShowcaseScreenState();
+}
+
+class _BenefitsShowcaseScreenState extends State<BenefitsShowcaseScreen> {
+  final _ctrl = PageController();
+  int _page = 0;
+
+  // (emoji, title, subtitle, bg, fg, isLaunchOffer)
+  static const _pages = [
+    ('⏰', 'Reminders and alarms', 'Never miss a dose or appointment — smart alarms timed around your day.', Color(0xFFE6F1FB), Color(0xFF0C447C), false),
+    ('🗳️', 'Activities and polls', 'Join in on daily activities and share your voice in community polls.', Color(0xFFEAF3DE), Color(0xFF27500A), false),
+    ('💬', 'Community', 'Connect, share, and hear from others who understand your journey.', Color(0xFFEEEDFE), Color(0xFF3C3489), false),
+    ('📖', 'Daily diary', 'Log your mood, your day, and watch your story unfold over time.', Color(0xFFFAECE7), Color(0xFF712B13), false),
+    ('🌳', 'Family tree', 'See your whole family, beautifully, as you add them one by one.', Color(0xFFFBEAF0), Color(0xFF72243E), false),
+    ('🚨', 'SOS alert', 'One tap instantly reaches your family in an emergency.', Color(0xFFFAEEDA), Color(0xFF854F0B), true),
+    ('🎁', 'Local offers', 'Deals and discounts from stores and services near you.', Color(0xFFFAEEDA), Color(0xFF854F0B), true),
+  ];
+
+  void _next() {
+    if (_page < _pages.length - 1) {
+      _ctrl.nextPage(duration: const Duration(milliseconds: 320), curve: Curves.easeInOut);
+    } else {
+      Navigator.pushReplacementNamed(context, AppRoutes.setupProfile, arguments: widget.profileArgs);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final name = userName?.trim();
+    final current = _pages[_page];
+    final bg = current.$4;
+    final fg = current.$5;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAF8),
+      backgroundColor: bg,
       body: SafeArea(
         child: Column(children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const SizedBox(height: 12),
-                Container(
-                  width: 52, height: 52,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1A1726),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Icon(Icons.celebration_rounded, color: Color(0xFFFFCC01), size: 24),
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  (name != null && name.isNotEmpty)
-                      ? 'Welcome to ElderZha, $name'
-                      : 'Welcome to ElderZha',
-                  style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w700, color: const Color(0xFF1A1726)),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  "Here's everything waiting for you",
-                  style: GoogleFonts.poppins(fontSize: 13, color: const Color(0xFF6B6960)),
-                ),
-                const SizedBox(height: 18),
-                const BenefitsList(),
-                const SizedBox(height: 10),
-                Text(
-                  'SOS alert and Local offers are normally premium-tier — included free while this launch offer lasts.',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(fontSize: 11, color: const Color(0xFF854F0B), height: 1.4),
-                ),
-              ]),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-            child: SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pushReplacementNamed(context, AppRoutes.payment),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1A1726),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  elevation: 0,
-                ),
-                child: Text('Continue',
-                    style: GoogleFonts.poppins(fontSize: 14.5, fontWeight: FontWeight.w700, color: const Color(0xFFFFCC01))),
+          Align(
+            alignment: Alignment.topRight,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 8, top: 4),
+              child: TextButton(
+                onPressed: () => Navigator.pushReplacementNamed(context, AppRoutes.setupProfile, arguments: widget.profileArgs),
+                child: Text('Skip', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500, color: fg.withOpacity(0.6))),
               ),
             ),
           ),
+          Expanded(
+            child: PageView.builder(
+              controller: _ctrl,
+              onPageChanged: (i) => setState(() => _page = i),
+              itemCount: _pages.length,
+              itemBuilder: (_, i) => _FeaturePage(
+                emoji: _pages[i].$1,
+                title: _pages[i].$2,
+                subtitle: _pages[i].$3,
+                fg: _pages[i].$5,
+                isLaunchOffer: _pages[i].$6,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
+            child: Column(children: [
+              SmoothPageIndicator(
+                controller: _ctrl,
+                count: _pages.length,
+                effect: ExpandingDotsEffect(
+                  activeDotColor: fg, dotColor: fg.withOpacity(0.25),
+                  dotHeight: 8, dotWidth: 8, expansionFactor: 3,
+                ),
+              ),
+              const SizedBox(height: 22),
+              GestureDetector(
+                onTap: _next,
+                child: Container(
+                  width: double.infinity, height: 52,
+                  decoration: BoxDecoration(color: fg, borderRadius: BorderRadius.circular(16)),
+                  child: Center(
+                    child: Text(
+                      _page < _pages.length - 1 ? 'Next →' : 'Get started',
+                      style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white),
+                    ),
+                  ),
+                ),
+              ),
+            ]),
+          ),
         ]),
+      ),
+    );
+  }
+}
+
+class _FeaturePage extends StatelessWidget {
+  const _FeaturePage({
+    required this.emoji,
+    required this.title,
+    required this.subtitle,
+    required this.fg,
+    required this.isLaunchOffer,
+  });
+  final String emoji;
+  final String title;
+  final String subtitle;
+  final Color fg;
+  final bool isLaunchOffer;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 140,
+            height: 140,
+            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+            child: Center(child: Text(emoji, style: const TextStyle(fontSize: 64))),
+          ),
+          const SizedBox(height: 32),
+          if (isLaunchOffer) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(color: fg, borderRadius: BorderRadius.circular(999)),
+              child: Text('✨ Included free — launch offer',
+                  style: GoogleFonts.poppins(fontSize: 11.5, fontWeight: FontWeight.w700, color: Colors.white)),
+            ),
+            const SizedBox(height: 14),
+          ],
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(fontSize: 24, fontWeight: FontWeight.w800, color: fg),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(fontSize: 14.5, color: fg.withOpacity(0.75), height: 1.5),
+          ),
+        ],
       ),
     );
   }

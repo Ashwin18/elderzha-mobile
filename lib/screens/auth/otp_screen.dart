@@ -234,17 +234,22 @@ class _OtpScreenState extends State<OtpScreen> with CodeAutoFill {
     }
 
     // ── NEW USER — go through setup steps ───────────────────────────────────
-    // Step 1 — Profile complete?
+    // Step 1 — Profile complete? Show the feature showcase first — this is
+    // the very first thing a brand new user sees, right after OTP succeeds.
     if (!isProfileUpdated) {
       final profile = auth.user;
-      Navigator.pushReplacementNamed(
+      Navigator.pushReplacement(
         context,
-        AppRoutes.setupProfile,
-        arguments: {
-          ..._profileArgs,
-          if (profile?['name'] != null) 'name': profile?['name'],
-          if (profile?['gender'] != null) 'gender': profile?['gender'],
-        },
+        MaterialPageRoute(
+          builder: (_) => BenefitsShowcaseScreen(
+            userName: profile?['name']?.toString() ?? profile?['first_name']?.toString(),
+            profileArgs: {
+              ..._profileArgs,
+              if (profile?['name'] != null) 'name': profile?['name'],
+              if (profile?['gender'] != null) 'gender': profile?['gender'],
+            },
+          ),
+        ),
       );
       return;
     }
@@ -255,16 +260,9 @@ class _OtpScreenState extends State<OtpScreen> with CodeAutoFill {
       return;
     }
 
-    // Step 3 — Show what they get, right before asking them to pay
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => BenefitsShowcaseScreen(
-          userName: auth.user?['name']?.toString() ??
-              auth.user?['first_name']?.toString(),
-        ),
-      ),
-    );
+    // Step 3 — Profile + alarm both done, feature showcase already shown
+    // earlier in this flow — go straight to payment.
+    Navigator.pushReplacementNamed(context, AppRoutes.payment);
   }
 
   Map<String, dynamic>? _extractUser(Map<String, dynamic>? res) {
