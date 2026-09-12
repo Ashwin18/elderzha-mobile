@@ -11,8 +11,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../alaram/alarm_config_store.dart';
 import '../../theme/app_theme.dart';
-import '../../utils/app_routes.dart';
 import '../../services/services.dart';
+import '../auth/signup_add_family_screen.dart';
 
 const MethodChannel _alarmSetupChannel = MethodChannel('alarm_service');
 
@@ -835,9 +835,101 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
         ),
       );
 
+  // Quick-start presets — instantly fills in a full set of sensible
+  // times, which the user can then fine-tune, rather than setting
+  // every single time slot manually from scratch.
+  Widget _quickPresets() {
+    final presets = <String, Map<String, String>>{
+      'Typical day': {
+        'morning_before_food': '07:30 AM', 'morning_after_food': '08:30 AM',
+        'afternoon_before_food': '12:30 PM', 'afternoon_after_food': '01:30 PM',
+        'night_before_food': '08:00 PM', 'night_after_food': '09:00 PM',
+      },
+      'Early riser': {
+        'morning_before_food': '06:00 AM', 'morning_after_food': '07:00 AM',
+        'afternoon_before_food': '11:30 AM', 'afternoon_after_food': '12:30 PM',
+        'night_before_food': '06:30 PM', 'night_after_food': '07:30 PM',
+      },
+      'Late riser': {
+        'morning_before_food': '09:00 AM', 'morning_after_food': '10:00 AM',
+        'afternoon_before_food': '01:30 PM', 'afternoon_after_food': '02:30 PM',
+        'night_before_food': '09:00 PM', 'night_after_food': '10:00 PM',
+      },
+    };
+    return SizedBox(
+      height: 40,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: presets.entries.map((entry) {
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: GestureDetector(
+              onTap: () => setState(() {
+                _med.addAll(entry.value);
+                _medicalEnabled = true;
+                for (final key in _medOn.keys) {
+                  _medOn[key] = true;
+                }
+              }),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                decoration: BoxDecoration(
+                  color: C.white,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: C.bd),
+                ),
+                child: Center(
+                  child: Text(entry.key, style: poppins(12.5, w: FontWeight.w700, c: C.ink)),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // Live preview — a running summary of the day forming as the
+  // user sets times, so the form feels like it's building a
+  // picture rather than just collecting isolated field values.
+  Widget _schedulePreview() {
+    const labels = {
+      'morning_before_food': 'Morning (before food)',
+      'morning_after_food': 'Morning (after food)',
+      'afternoon_before_food': 'Afternoon (before food)',
+      'afternoon_after_food': 'Afternoon (after food)',
+      'night_before_food': 'Night (before food)',
+      'night_after_food': 'Night (after food)',
+    };
+    final entries = _medOn.entries.where((e) => e.value).toList();
+    if (!_medicalEnabled || entries.isEmpty) return const SizedBox.shrink();
+
+    return _premiumPanel([
+      Row(children: [
+        const Icon(Icons.calendar_view_day_rounded, size: 18, color: C.yellowDark),
+        const SizedBox(width: 8),
+        Text('Your day so far', style: poppins(13, w: FontWeight.w800, c: C.ink)),
+      ]),
+      const SizedBox(height: 10),
+      ...entries.map((e) => Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(children: [
+              Container(width: 6, height: 6, decoration: const BoxDecoration(color: C.yellowDark, shape: BoxShape.circle)),
+              const SizedBox(width: 8),
+              Expanded(child: Text(labels[e.key] ?? e.key, style: poppins(12, c: C.txm))),
+              Text(_med[e.key] ?? '', style: poppins(12, w: FontWeight.w700, c: C.ink)),
+            ]),
+          )),
+    ]);
+  }
+
   Widget _medStep() => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _quickPresets(),
+          const SizedBox(height: 12),
+          _schedulePreview(),
+          const SizedBox(height: 12),
           _alarmMasterToggle(
             title: 'Medical alarm',
             subtitle: 'Turn on all medicine reminders',
@@ -1263,7 +1355,10 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
       );
       if (!mounted) return;
     }
-    Navigator.pushReplacementNamed(context, AppRoutes.payment);
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const SignupAddFamilyScreen()),
+    );
   }
 
   Future<void> _saveSetupFamilyFallback() async {
@@ -1491,7 +1586,7 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Create your first medical, food and family reminders',
+                      'This powers your Reminders & Alarms feature — so you never miss a dose',
                       style: poppins(12, w: FontWeight.w600, c: C.yellowDeep),
                     ),
                     const SizedBox(height: 14),

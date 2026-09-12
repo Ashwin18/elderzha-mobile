@@ -1,13 +1,16 @@
 // lib/screens/auth/benefits_showcase_screen.dart
 //
 // Shown right after OTP verification succeeds, before profile
-// setup even begins — a swipeable, colorful carousel introducing
-// every feature the app has, so new users know exactly what
-// they're signing up for from the very first moment.
+// setup even begins. Condensed to 2 swipeable pages (not one per
+// feature) so new users see everything in a quick glance rather
+// than a long swipe sequence:
+//   Page 1 — a compact grid of all 5 core features at once
+//   Page 2 — a dedicated celebratory moment for the 2 premium
+//            features included free as a launch offer
 //
 // BenefitsList (the flat list variant) is still used separately by
-// the subscription-gate renewal screen — this file's carousel is
-// specifically the new-signup first-impression experience.
+// the subscription-gate renewal screen — unchanged, this file's
+// carousel is specifically the new-signup first-impression screen.
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
@@ -26,30 +29,25 @@ class _BenefitsShowcaseScreenState extends State<BenefitsShowcaseScreen> {
   final _ctrl = PageController();
   int _page = 0;
 
-  // (emoji, title, subtitle, bg, fg, isLaunchOffer)
-  static const _pages = [
-    ('⏰', 'Reminders and alarms', 'Never miss a dose or appointment — smart alarms timed around your day.', Color(0xFFE6F1FB), Color(0xFF0C447C), false),
-    ('🗳️', 'Activities and polls', 'Join in on daily activities and share your voice in community polls.', Color(0xFFEAF3DE), Color(0xFF27500A), false),
-    ('💬', 'Community', 'Connect, share, and hear from others who understand your journey.', Color(0xFFEEEDFE), Color(0xFF3C3489), false),
-    ('📖', 'Daily diary', 'Log your mood, your day, and watch your story unfold over time.', Color(0xFFFAECE7), Color(0xFF712B13), false),
-    ('🌳', 'Family tree', 'See your whole family, beautifully, as you add them one by one.', Color(0xFFFBEAF0), Color(0xFF72243E), false),
-    ('🚨', 'SOS alert', 'One tap instantly reaches your family in an emergency.', Color(0xFFFAEEDA), Color(0xFF854F0B), true),
-    ('🎁', 'Local offers', 'Deals and discounts from stores and services near you.', Color(0xFFFAEEDA), Color(0xFF854F0B), true),
-  ];
+  static const _pageCount = 2;
+  static const _bgColors = [Color(0xFFE6F1FB), Color(0xFFFAEEDA)];
+  static const _fgColors = [Color(0xFF0C447C), Color(0xFF854F0B)];
+
+  void _goToProfile() =>
+      Navigator.pushReplacementNamed(context, AppRoutes.setupProfile, arguments: widget.profileArgs);
 
   void _next() {
-    if (_page < _pages.length - 1) {
+    if (_page < _pageCount - 1) {
       _ctrl.nextPage(duration: const Duration(milliseconds: 320), curve: Curves.easeInOut);
     } else {
-      Navigator.pushReplacementNamed(context, AppRoutes.setupProfile, arguments: widget.profileArgs);
+      _goToProfile();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final current = _pages[_page];
-    final bg = current.$4;
-    final fg = current.$5;
+    final bg = _bgColors[_page];
+    final fg = _fgColors[_page];
 
     return Scaffold(
       backgroundColor: bg,
@@ -60,23 +58,16 @@ class _BenefitsShowcaseScreenState extends State<BenefitsShowcaseScreen> {
             child: Padding(
               padding: const EdgeInsets.only(right: 8, top: 4),
               child: TextButton(
-                onPressed: () => Navigator.pushReplacementNamed(context, AppRoutes.setupProfile, arguments: widget.profileArgs),
+                onPressed: _goToProfile,
                 child: Text('Skip', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500, color: fg.withOpacity(0.6))),
               ),
             ),
           ),
           Expanded(
-            child: PageView.builder(
+            child: PageView(
               controller: _ctrl,
               onPageChanged: (i) => setState(() => _page = i),
-              itemCount: _pages.length,
-              itemBuilder: (_, i) => _FeaturePage(
-                emoji: _pages[i].$1,
-                title: _pages[i].$2,
-                subtitle: _pages[i].$3,
-                fg: _pages[i].$5,
-                isLaunchOffer: _pages[i].$6,
-              ),
+              children: const [_CoreFeaturesGridPage(), _LaunchOfferPage()],
             ),
           ),
           Padding(
@@ -84,7 +75,7 @@ class _BenefitsShowcaseScreenState extends State<BenefitsShowcaseScreen> {
             child: Column(children: [
               SmoothPageIndicator(
                 controller: _ctrl,
-                count: _pages.length,
+                count: _pageCount,
                 effect: ExpandingDotsEffect(
                   activeDotColor: fg, dotColor: fg.withOpacity(0.25),
                   dotHeight: 8, dotWidth: 8, expansionFactor: 3,
@@ -98,7 +89,7 @@ class _BenefitsShowcaseScreenState extends State<BenefitsShowcaseScreen> {
                   decoration: BoxDecoration(color: fg, borderRadius: BorderRadius.circular(16)),
                   child: Center(
                     child: Text(
-                      _page < _pages.length - 1 ? 'Next →' : 'Get started',
+                      _page < _pageCount - 1 ? 'Next →' : 'Get started',
                       style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white),
                     ),
                   ),
@@ -112,54 +103,112 @@ class _BenefitsShowcaseScreenState extends State<BenefitsShowcaseScreen> {
   }
 }
 
-class _FeaturePage extends StatelessWidget {
-  const _FeaturePage({
-    required this.emoji,
-    required this.title,
-    required this.subtitle,
-    required this.fg,
-    required this.isLaunchOffer,
-  });
-  final String emoji;
-  final String title;
-  final String subtitle;
-  final Color fg;
-  final bool isLaunchOffer;
+class _CoreFeaturesGridPage extends StatelessWidget {
+  const _CoreFeaturesGridPage();
+
+  // (emoji, label)
+  static const _items = [
+    ('⏰', 'Reminders\n& alarms'),
+    ('🗳️', 'Activities\n& polls'),
+    ('💬', 'Community'),
+    ('📖', 'Daily diary'),
+    ('🌳', 'Family tree'),
+  ];
 
   @override
   Widget build(BuildContext context) {
+    const fg = Color(0xFF042C53);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
+      padding: const EdgeInsets.symmetric(horizontal: 28),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text('Everything you need',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w800, color: fg)),
+          const SizedBox(height: 4),
+          Text('5 features, all included',
+              style: GoogleFonts.poppins(fontSize: 13.5, color: fg.withOpacity(0.75))),
+          const SizedBox(height: 22),
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 1.05,
+            children: _items.map((item) {
+              return Container(
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(item.$1, style: const TextStyle(fontSize: 30)),
+                    const SizedBox(height: 6),
+                    Text(item.$2, textAlign: TextAlign.center,
+                        style: GoogleFonts.poppins(fontSize: 11.5, fontWeight: FontWeight.w600, color: fg)),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LaunchOfferPage extends StatelessWidget {
+  const _LaunchOfferPage();
+
+  @override
+  Widget build(BuildContext context) {
+    const fg = Color(0xFF412402);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 28),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 140,
-            height: 140,
-            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-            child: Center(child: Text(emoji, style: const TextStyle(fontSize: 64))),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            decoration: BoxDecoration(color: const Color(0xFFEF9F27), borderRadius: BorderRadius.circular(999)),
+            child: Text('✨ Launch offer', style: GoogleFonts.poppins(fontSize: 12.5, fontWeight: FontWeight.w700, color: fg)),
           ),
-          const SizedBox(height: 32),
-          if (isLaunchOffer) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(color: fg, borderRadius: BorderRadius.circular(999)),
-              child: Text('✨ Included free — launch offer',
-                  style: GoogleFonts.poppins(fontSize: 11.5, fontWeight: FontWeight.w700, color: Colors.white)),
+          const SizedBox(height: 16),
+          Text('Plus, included free',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w800, color: fg)),
+          const SizedBox(height: 4),
+          Text('Normally premium-tier — yours at no extra cost',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(fontSize: 13, color: fg.withOpacity(0.75))),
+          const SizedBox(height: 22),
+          Row(children: [
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Column(children: [
+                  const Text('🚨', style: TextStyle(fontSize: 36)),
+                  const SizedBox(height: 10),
+                  Text('SOS alert', style: GoogleFonts.poppins(fontSize: 13.5, fontWeight: FontWeight.w600, color: fg)),
+                ]),
+              ),
             ),
-            const SizedBox(height: 14),
-          ],
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(fontSize: 24, fontWeight: FontWeight.w800, color: fg),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            subtitle,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(fontSize: 14.5, color: fg.withOpacity(0.75), height: 1.5),
-          ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Column(children: [
+                  const Text('🎁', style: TextStyle(fontSize: 36)),
+                  const SizedBox(height: 10),
+                  Text('Local offers', style: GoogleFonts.poppins(fontSize: 13.5, fontWeight: FontWeight.w600, color: fg)),
+                ]),
+              ),
+            ),
+          ]),
         ],
       ),
     );
