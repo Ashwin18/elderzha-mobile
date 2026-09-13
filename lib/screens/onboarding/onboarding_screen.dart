@@ -136,7 +136,7 @@ class _WelcomePage extends StatelessWidget {
             const SizedBox(height: 18),
             ClipRRect(
               borderRadius: BorderRadius.circular(24),
-              child: Image.asset('assets/images/onboarding_couple.png', height: 260, fit: BoxFit.cover),
+              child: Image.asset('assets/images/home_header_photo_v3.jpg', width: double.infinity, height: 260, fit: BoxFit.cover),
             ),
             const SizedBox(height: 20),
             Text('Welcome to Elderzha!', textAlign: TextAlign.center, style: _heading(24)),
@@ -167,15 +167,18 @@ class _FeaturesPage extends StatelessWidget {
             Text('From daily reminders to fun activities, Elderzha keeps you engaged every day.',
                 textAlign: TextAlign.center, style: _body(13)),
             const SizedBox(height: 18),
-            Stack(alignment: Alignment.center, children: [
-              ClipOval(
-                child: Image.asset('assets/images/onboarding_woman.png', width: 190, height: 190, fit: BoxFit.cover),
-              ),
-              Positioned(top: 0, left: 0, child: _iconBadge('🔔', 'Reminders\n& Alarms', _DT.yellow)),
-              Positioned(top: 0, right: 0, child: _iconBadge('🧠', 'Activities\n& Polls', _DT.purple)),
-              Positioned(bottom: 6, left: 6, child: _iconBadge('👥', 'Community', _DT.pink)),
-              Positioned(bottom: 6, right: 6, child: _iconBadge('🚶', 'Walking', const Color(0xFF3FA35E))),
-            ]),
+            SizedBox(
+              width: 280, height: 280,
+              child: Stack(alignment: Alignment.center, children: [
+                ClipOval(
+                  child: Image.asset('assets/images/home_header_photo_v3.jpg', width: 190, height: 190, fit: BoxFit.cover),
+                ),
+                Positioned(top: 0, left: 0, child: _iconBadge('🔔', 'Reminders\n& Alarms', _DT.yellow)),
+                Positioned(top: 0, right: 0, child: _iconBadge('🧠', 'Activities\n& Polls', _DT.purple)),
+                Positioned(bottom: 10, left: 10, child: _iconBadge('👥', 'Community', _DT.pink)),
+                Positioned(bottom: 10, right: 10, child: _iconBadge('🚶', 'Walking', const Color(0xFF3FA35E))),
+              ]),
+            ),
             const SizedBox(height: 18),
             Container(
               width: double.infinity,
@@ -229,7 +232,7 @@ class _SafetyPage extends StatelessWidget {
             const SizedBox(height: 18),
             ClipRRect(
               borderRadius: BorderRadius.circular(24),
-              child: Image.asset('assets/images/onboarding_man.png', height: 170, fit: BoxFit.cover),
+              child: Image.asset('assets/images/home_header_photo_v3.jpg', width: double.infinity, height: 170, fit: BoxFit.cover),
             ),
           ]),
         ),
