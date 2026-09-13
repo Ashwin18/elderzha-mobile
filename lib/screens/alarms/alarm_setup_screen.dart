@@ -1770,6 +1770,7 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
                 children: [
                   Expanded(
                     child: SingleChildScrollView(
+                      key: ValueKey(_step),
                       padding: const EdgeInsets.all(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,

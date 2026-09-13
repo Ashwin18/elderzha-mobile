@@ -29,25 +29,43 @@ class AuthProvider extends ChangeNotifier {
   String get userGender => _firstText(['gender', 'sex']) ?? '';
 
   Future<void> checkAuth() async {
-    // Use same key as original: 'auth_token'
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token') ?? '';
-    _isLoggedIn = token.isNotEmpty;
-    if (_isLoggedIn) {
-      await loadUser();
-      // Confirm the account hasn't been deleted by an admin since
-      // this device last logged in — if it has, cancel every local
-      // alarm/SOS monitor and route back to registration rather
-      // than letting a deleted account keep running in the
-      // background indefinitely.
-      final stillValid = await _authService.isAccountStillValid();
-      if (!stillValid) {
-        _isLoggedIn = false;
-        _user = null;
-        await _authService.forceLogoutDeletedAccount();
+    try {
+      // Use same key as original: 'auth_token'
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token') ?? '';
+      _isLoggedIn = token.isNotEmpty;
+      if (_isLoggedIn) {
+        await loadUser();
+        // Confirm the account hasn't been deleted by an admin since
+        // this device last logged in — if it has, cancel every local
+        // alarm/SOS monitor and route back to registration rather
+        // than letting a deleted account keep running in the
+        // background indefinitely. Hard-timeout + broad catch here
+        // (not just DioException) so a slow/odd network condition
+        // can never leave this whole method hanging and silently
+        // block the finally below from running.
+        bool stillValid = true;
+        try {
+          stillValid = await _authService
+              .isAccountStillValid()
+              .timeout(const Duration(seconds: 8), onTimeout: () => true);
+        } catch (_) {
+          stillValid = true;
+        }
+        if (!stillValid) {
+          _isLoggedIn = false;
+          _user = null;
+          try {
+            await _authService.forceLogoutDeletedAccount();
+          } catch (_) {}
+        }
       }
+    } catch (_) {
+      // Never let an unexpected error here leave the app stuck —
+      // fall through to notifyListeners() below regardless.
+    } finally {
+      notifyListeners();
     }
-    notifyListeners();
   }
 
   // POST /user/phone-login

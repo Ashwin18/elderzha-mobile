@@ -287,6 +287,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: Container(
+                          width: 36, height: 36,
+                          decoration: const BoxDecoration(color: C.white, shape: BoxShape.circle),
+                          child: const Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: C.ink),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
                       Text('Almost there! 🎉',
                           style:
                               poppins(13, w: FontWeight.w600, c: C.yellowDeep)),
