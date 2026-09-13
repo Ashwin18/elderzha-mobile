@@ -272,155 +272,88 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
   }
 
   Widget _buildTree() {
-    final byRow = <int, List>{};
-    for (final m in _members) {
-      final row = _infoFor(_relationOf(m)).$1;
-      byRow.putIfAbsent(row, () => []).add(m);
-    }
-    final rows = byRow.keys.toList()..sort();
-    // "You" sits at row 0 alongside Spouse — if there's no explicit
-    // row 0 member, still reserve that row so "You" has a home.
-    if (!rows.contains(0)) rows.add(0);
-    rows.sort();
+    // The 6 pre-designed circle slots on the tree template image,
+    // measured directly from the actual asset (as x%/y% of its
+    // width/height) — top pair, middle pair, bottom pair.
+    const slots = [
+      Offset(0.306, 0.117), // top-left
+      Offset(0.672, 0.127), // top-right
+      Offset(0.168, 0.291), // middle-left
+      Offset(0.874, 0.285), // middle-right
+      Offset(0.236, 0.464), // bottom-left
+      Offset(0.742, 0.449), // bottom-right
+    ];
 
-    const rowHeight = 130.0;
-    const idealSpacing = 92.0;
-    const minSpacing = 70.0;
-    final minRow = rows.first;
-    final maxRow = rows.last;
-    final treeHeight = (maxRow - minRow + 1) * rowHeight + 60;
+    // Sort members by generation so parents land in the higher
+    // slots and children/grandchildren in the lower ones.
+    final sorted = [..._members]
+      ..sort((a, b) => _infoFor(_relationOf(a)).$1.compareTo(_infoFor(_relationOf(b)).$1));
+    final onTree = sorted.take(slots.length).toList();
+    final overflow = sorted.length > slots.length ? sorted.skip(slots.length).toList() : <dynamic>[];
 
-    // Widest row, in node-count terms (including "You" on row 0).
-    var maxCount = 1;
-    for (final row in rows) {
-      final count = (byRow[row]?.length ?? 0) + (row == 0 ? 1 : 0);
-      if (count > maxCount) maxCount = count;
-    }
-
-    return LayoutBuilder(builder: (context, constraints) {
-      // Never let the tree exceed the actual available width — scale
-      // spacing down (never below minSpacing) rather than growing
-      // wider than the screen, which previously overflowed
-      // horizontally with no way to scroll to the clipped members.
-      final availableWidth = constraints.maxWidth;
-      final idealWidth = maxCount * idealSpacing;
-      final nodeSpacing = idealWidth > availableWidth
-          ? (availableWidth / maxCount).clamp(minSpacing, idealSpacing)
-          : idealSpacing;
-      final treeWidth = idealWidth > availableWidth ? availableWidth : idealWidth;
-
-      Widget positionedNode(double cx, double row, Widget child) {
-        final y = (row - minRow) * rowHeight + 30;
-        return Positioned(
-          left: treeWidth / 2 + cx - 34,
-          top: y,
-          child: SizedBox(width: 68, child: child),
-        );
-      }
-
-      final children = <Widget>[];
-      // Branch lines first, so nodes render on top of them.
-      final youY = (0 - minRow) * rowHeight + 30 + 34;
-      for (final row in rows) {
-        final members = byRow[row] ?? [];
-        if (row == 0) continue; // spouse sits beside You, no branch needed
-        final count = members.length;
-        for (var i = 0; i < count; i++) {
-          final cx = (i - (count - 1) / 2) * nodeSpacing;
-          final endY = (row - minRow) * rowHeight + 30 + 34;
-          children.add(CustomPaint(
-            size: Size(treeWidth, treeHeight),
-            painter: _BranchPainter(
-              start: Offset(treeWidth / 2, youY),
-              end: Offset(treeWidth / 2 + cx, endY),
-              bow: (i.isEven ? 1 : -1) * 24.0,
-            ),
-          ));
-        }
-      }
-
-      // "You" node, row 0.
-      final spouseCount = (byRow[0] ?? []).length;
-      final youCx = spouseCount > 0 ? -nodeSpacing / 2 : 0.0;
-      children.add(positionedNode(youCx, 0, _treeNode({'name': 'You', 'relation': '__you__'}, isYou: true)));
-
-      // Everyone else.
-      for (final row in rows) {
-        final members = byRow[row] ?? [];
-        if (row == 0) {
-          // Spouse(s) sit right beside "You".
-          for (var i = 0; i < members.length; i++) {
-            final cx = nodeSpacing / 2 + i * nodeSpacing;
-            children.add(positionedNode(cx, 0, _treeNode(members[i])));
-          }
-          continue;
-        }
-        final count = members.length;
-        for (var i = 0; i < count; i++) {
-          final cx = (i - (count - 1) / 2) * nodeSpacing;
-          children.add(positionedNode(cx, row.toDouble(), _treeNode(members[i])));
-        }
-      }
-
-      return SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(vertical: 24),
-        child: SizedBox(
-          width: treeWidth,
-          height: treeHeight,
-          child: Stack(children: children),
-        ),
-      );
-    });
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+      child: Column(children: [
+        LayoutBuilder(builder: (context, constraints) {
+          final treeWidth = constraints.maxWidth;
+          const aspect = 1600 / 900; // the image's real height/width ratio
+          final treeHeight = treeWidth * aspect;
+          return SizedBox(
+            width: treeWidth,
+            height: treeHeight,
+            child: Stack(children: [
+              Positioned.fill(
+                child: Image.asset('assets/images/Family tree.jpeg', fit: BoxFit.contain),
+              ),
+              for (var i = 0; i < onTree.length; i++)
+                Positioned(
+                  left: slots[i].dx * treeWidth - 30,
+                  top: slots[i].dy * treeHeight - 30,
+                  child: SizedBox(width: 60, child: _treeAvatar(onTree[i])),
+                ),
+            ]),
+          );
+        }),
+        if (overflow.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Text('Also in your family', style: GoogleFonts.poppins(fontSize: 12.5, fontWeight: FontWeight.w700, color: const Color(0xFF8A8878))),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 14, runSpacing: 10,
+            alignment: WrapAlignment.center,
+            children: overflow.map((m) => _treeAvatar(m)).toList(),
+          ),
+        ],
+      ]),
+    );
   }
 
-  Widget _treeNode(dynamic m, {bool isYou = false}) {
-    final info = isYou ? (0, '😊') : _infoFor(_relationOf(m));
+  Widget _treeAvatar(dynamic m) {
+    final info = _infoFor(_relationOf(m));
     return GestureDetector(
-      onTap: isYou ? null : () => _openDetail(m),
+      onTap: () => _openDetail(m),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Container(
-          width: isYou ? 68 : 60,
-          height: isYou ? 68 : 60,
+          width: 50, height: 50,
           decoration: BoxDecoration(
-            color: isYou ? const Color(0xFFFFB800) : Colors.white,
+            color: Colors.white,
             shape: BoxShape.circle,
-            border: Border.all(color: const Color(0xFFE8C766), width: isYou ? 3 : 2),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(.08), blurRadius: 10, offset: const Offset(0, 3))],
+            border: Border.all(color: const Color(0xFFE8C766), width: 2),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(.1), blurRadius: 6, offset: const Offset(0, 2))],
           ),
-          child: Center(child: Text(info.$2, style: TextStyle(fontSize: isYou ? 30 : 28))),
+          child: Center(child: Text(info.$2, style: const TextStyle(fontSize: 22))),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 3),
         SizedBox(
-          width: 74,
+          width: 62,
           child: Text(_nameOf(m),
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF1A1726))),
+              style: GoogleFonts.poppins(fontSize: 9.5, fontWeight: FontWeight.w700, color: const Color(0xFF1A1726))),
         ),
       ]),
     );
   }
 }
 
-class _BranchPainter extends CustomPainter {
-  _BranchPainter({required this.start, required this.end, required this.bow});
-  final Offset start, end;
-  final double bow;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFFE8C766)
-      ..strokeWidth = 2.5
-      ..style = PaintingStyle.stroke;
-    final midY = (start.dy + end.dy) / 2;
-    final path = Path()
-      ..moveTo(start.dx, start.dy)
-      ..quadraticBezierTo(start.dx + bow, midY, end.dx, end.dy);
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _BranchPainter oldDelegate) => true;
-}
