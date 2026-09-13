@@ -224,18 +224,21 @@ class _FeaturesPage extends StatelessWidget {
   const _FeaturesPage({required this.onSkip});
   final VoidCallback onSkip;
 
+  // (emoji, title, subtitle, color)
   static const _items = [
-    ('⏰', 'Reminders\n& Alarms', _DT.yellowDark),
-    ('🗳️', 'Activities\n& Polls', _DT.purple),
-    ('💬', 'Community', _DT.pink),
-    ('📖', 'Daily Diary', Color(0xFFD9713F)),
+    ('⏰', 'Alarm', 'Meal & Medicine, on time', _DT.yellowDark),
+    ('📅', 'Reminder', 'Never miss the Special days & Appointments', _DT.purple),
+    ('🎯', 'Daily Engagement', 'Move, think, play & enjoy.', _DT.pink),
+    ('📖', 'Daily Diary', 'Thoughts, feelings, memories and moments', Color(0xFFD9713F)),
+    ('📸', 'Memories', 'Revisit moments that matter', Color(0xFF4A90D9)),
+    ('🌳', 'Family Tree', 'Keep your loved ones close', _DT.green),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Stack(children: [
       _glow(top: -20, left: -40, size: 150, color: _DT.purple),
-      _glow(top: 300, right: -50, size: 160, color: _DT.pink),
+      _glow(top: 400, right: -50, size: 160, color: _DT.pink),
       Column(children: [
         _skipButton(onSkip),
         Expanded(
@@ -244,46 +247,12 @@ class _FeaturesPage extends StatelessWidget {
             child: Column(children: [
               Text('Everything you need', textAlign: TextAlign.center, style: _heading(21)),
               const SizedBox(height: 4),
-              Text('5 features, all included', style: _body(12)),
-              const SizedBox(height: 18),
-              GridView.count(
-                crossAxisCount: 2,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 1.15,
-                children: _items.map((i) => _featureBadge(i.$1, i.$2, i.$3)).toList(),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                decoration: _glassPanel(radius: 16),
-                child: Row(children: [
-                  Container(
-                    width: 36, height: 36,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [Color(0xFF7BC26B), _DT.green]),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(Icons.park_rounded, color: Colors.white, size: 17),
-                  ),
-                  const SizedBox(width: 10),
-                  Text('Family Tree', style: GoogleFonts.nunito(fontSize: 12.5, fontWeight: FontWeight.w700, color: _DT.ink)),
-                ]),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: _glassPanel(radius: 16),
-                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  const Icon(Icons.calendar_month_rounded, color: _DT.ink, size: 17),
-                  const SizedBox(width: 8),
-                  Text('Never miss what matters.', style: _body(12.5, w: FontWeight.w700)),
-                ]),
-              ),
+              Text('6 features, all included', style: _body(12)),
+              const SizedBox(height: 16),
+              ..._items.map((i) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _featureRow(i.$1, i.$2, i.$3, i.$4),
+                  )),
             ]),
           ),
         ),
@@ -291,11 +260,12 @@ class _FeaturesPage extends StatelessWidget {
     ]);
   }
 
-  Widget _featureBadge(String emoji, String label, Color color) {
+  Widget _featureRow(String emoji, String title, String subtitle, Color color) {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(12),
-      decoration: _glassPanel(radius: 18),
-      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+      decoration: _glassPanel(radius: 16),
+      child: Row(children: [
         Container(
           width: 44, height: 44,
           decoration: BoxDecoration(
@@ -306,8 +276,14 @@ class _FeaturesPage extends StatelessWidget {
           ),
           child: Center(child: Text(emoji, style: const TextStyle(fontSize: 20))),
         ),
-        const SizedBox(height: 8),
-        Text(label, textAlign: TextAlign.center, style: GoogleFonts.nunito(fontSize: 11, fontWeight: FontWeight.w700, color: _DT.ink)),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, style: GoogleFonts.nunito(fontSize: 13, fontWeight: FontWeight.w800, color: _DT.ink)),
+            const SizedBox(height: 2),
+            Text(subtitle, style: _body(11)),
+          ]),
+        ),
       ]),
     );
   }
