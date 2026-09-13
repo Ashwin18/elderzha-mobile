@@ -157,9 +157,25 @@ class _HomeScreenState extends State<HomeScreen> {
     if (res == null || res['status'] == false || res['data'] == false) {
       return null;
     }
-    final data = res['data'];
-    if (data is Map<String, dynamic>) return data;
-    if (data is Map) return Map<String, dynamic>.from(data);
+    const keys = ['data', 'record', 'records', 'medical', 'result'];
+    for (final key in keys) {
+      final value = res[key];
+      if (value is Map<String, dynamic>) return value;
+      if (value is Map) return Map<String, dynamic>.from(value);
+    }
+    // Fall back to the raw response itself — some endpoints return
+    // their fields directly at the top level rather than nested
+    // under one of the keys above. Only do this when at least one
+    // non-status/message field actually holds real content, so a
+    // legitimate "no data" response (e.g. {status: true, data:
+    // null}) still correctly resolves to null rather than
+    // returning the bare envelope as if it were valid data.
+    final hasRealContent = res.entries.any((e) =>
+        e.key != 'status' &&
+        e.key != 'message' &&
+        e.value != null &&
+        e.value != '');
+    if (hasRealContent) return res;
     return null;
   }
 
