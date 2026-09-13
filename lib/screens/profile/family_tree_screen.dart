@@ -31,6 +31,11 @@ const Map<String, (int, String)> _relInfo = {
   'Daughter': (1, '👧'),
   'Son in law': (1, '👨'),
   'Daughter in law': (1, '👩'),
+  // Backend stores these with hyphens (family_member_table), while
+  // the UI chip list uses spaces — alias both spellings so this
+  // lookup matches regardless of which one the API actually returns.
+  'Son-in-law': (1, '👨'),
+  'Daughter-in-law': (1, '👩'),
   'Grand Son': (2, '👦'),
   'Grand Daughter': (2, '👧'),
 };
@@ -279,82 +284,93 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
     rows.sort();
 
     const rowHeight = 130.0;
-    const nodeSpacing = 92.0;
+    const idealSpacing = 92.0;
+    const minSpacing = 70.0;
     final minRow = rows.first;
     final maxRow = rows.last;
     final treeHeight = (maxRow - minRow + 1) * rowHeight + 60;
 
-    // Precompute each member's absolute position.
-    final positions = <dynamic, Offset>{};
-    double maxWidth = 320;
+    // Widest row, in node-count terms (including "You" on row 0).
+    var maxCount = 1;
     for (final row in rows) {
-      final members = byRow[row] ?? [];
-      final count = members.length + (row == 0 ? 1 : 0); // +1 for "You" on row 0
-      final rowWidth = count * nodeSpacing;
-      maxWidth = rowWidth > maxWidth ? rowWidth : maxWidth;
+      final count = (byRow[row]?.length ?? 0) + (row == 0 ? 1 : 0);
+      if (count > maxCount) maxCount = count;
     }
 
-    Widget positionedNode(double cx, double row, Widget child) {
-      final y = (row - minRow) * rowHeight + 30;
-      return Positioned(
-        left: maxWidth / 2 + cx - 34,
-        top: y,
-        child: SizedBox(width: 68, child: child),
-      );
-    }
+    return LayoutBuilder(builder: (context, constraints) {
+      // Never let the tree exceed the actual available width — scale
+      // spacing down (never below minSpacing) rather than growing
+      // wider than the screen, which previously overflowed
+      // horizontally with no way to scroll to the clipped members.
+      final availableWidth = constraints.maxWidth;
+      final idealWidth = maxCount * idealSpacing;
+      final nodeSpacing = idealWidth > availableWidth
+          ? (availableWidth / maxCount).clamp(minSpacing, idealSpacing)
+          : idealSpacing;
+      final treeWidth = idealWidth > availableWidth ? availableWidth : idealWidth;
 
-    final children = <Widget>[];
-    // Branch lines first, so nodes render on top of them.
-    final youY = (0 - minRow) * rowHeight + 30 + 34;
-    for (final row in rows) {
-      final members = byRow[row] ?? [];
-      if (row == 0) continue; // spouse sits beside You, no branch needed
-      final count = members.length;
-      for (var i = 0; i < count; i++) {
-        final cx = (i - (count - 1) / 2) * nodeSpacing;
-        final endY = (row - minRow) * rowHeight + 30 + 34;
-        children.add(CustomPaint(
-          size: Size(maxWidth, treeHeight),
-          painter: _BranchPainter(
-            start: Offset(maxWidth / 2, youY),
-            end: Offset(maxWidth / 2 + cx, endY),
-            bow: (i.isEven ? 1 : -1) * 24.0,
-          ),
-        ));
+      Widget positionedNode(double cx, double row, Widget child) {
+        final y = (row - minRow) * rowHeight + 30;
+        return Positioned(
+          left: treeWidth / 2 + cx - 34,
+          top: y,
+          child: SizedBox(width: 68, child: child),
+        );
       }
-    }
 
-    // "You" node, row 0.
-    final spouseCount = (byRow[0] ?? []).length;
-    final youCx = spouseCount > 0 ? -nodeSpacing / 2 : 0.0;
-    children.add(positionedNode(youCx, 0, _treeNode({'name': 'You', 'relation': '__you__'}, isYou: true)));
-
-    // Everyone else.
-    for (final row in rows) {
-      final members = byRow[row] ?? [];
-      if (row == 0) {
-        // Spouse(s) sit right beside "You".
-        for (var i = 0; i < members.length; i++) {
-          final cx = nodeSpacing / 2 + i * nodeSpacing;
-          children.add(positionedNode(cx, 0, _treeNode(members[i])));
+      final children = <Widget>[];
+      // Branch lines first, so nodes render on top of them.
+      final youY = (0 - minRow) * rowHeight + 30 + 34;
+      for (final row in rows) {
+        final members = byRow[row] ?? [];
+        if (row == 0) continue; // spouse sits beside You, no branch needed
+        final count = members.length;
+        for (var i = 0; i < count; i++) {
+          final cx = (i - (count - 1) / 2) * nodeSpacing;
+          final endY = (row - minRow) * rowHeight + 30 + 34;
+          children.add(CustomPaint(
+            size: Size(treeWidth, treeHeight),
+            painter: _BranchPainter(
+              start: Offset(treeWidth / 2, youY),
+              end: Offset(treeWidth / 2 + cx, endY),
+              bow: (i.isEven ? 1 : -1) * 24.0,
+            ),
+          ));
         }
-        continue;
       }
-      final count = members.length;
-      for (var i = 0; i < count; i++) {
-        final cx = (i - (count - 1) / 2) * nodeSpacing;
-        children.add(positionedNode(cx, row.toDouble(), _treeNode(members[i])));
-      }
-    }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(vertical: 24),
-      child: SizedBox(
-        width: maxWidth,
-        height: treeHeight,
-        child: Stack(children: children),
-      ),
-    );
+      // "You" node, row 0.
+      final spouseCount = (byRow[0] ?? []).length;
+      final youCx = spouseCount > 0 ? -nodeSpacing / 2 : 0.0;
+      children.add(positionedNode(youCx, 0, _treeNode({'name': 'You', 'relation': '__you__'}, isYou: true)));
+
+      // Everyone else.
+      for (final row in rows) {
+        final members = byRow[row] ?? [];
+        if (row == 0) {
+          // Spouse(s) sit right beside "You".
+          for (var i = 0; i < members.length; i++) {
+            final cx = nodeSpacing / 2 + i * nodeSpacing;
+            children.add(positionedNode(cx, 0, _treeNode(members[i])));
+          }
+          continue;
+        }
+        final count = members.length;
+        for (var i = 0; i < count; i++) {
+          final cx = (i - (count - 1) / 2) * nodeSpacing;
+          children.add(positionedNode(cx, row.toDouble(), _treeNode(members[i])));
+        }
+      }
+
+      return SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: SizedBox(
+          width: treeWidth,
+          height: treeHeight,
+          child: Stack(children: children),
+        ),
+      );
+    });
   }
 
   Widget _treeNode(dynamic m, {bool isYou = false}) {

@@ -22,6 +22,10 @@ const Map<String, _RelInfo> _relInfo = {
   'Daughter': _RelInfo(1, '👧', 'Children'),
   'Son in law': _RelInfo(1, '👨', 'Children'),
   'Daughter in law': _RelInfo(1, '👩', 'Children'),
+  // Backend stores these with hyphens (family_member_table), while
+  // the UI chip list uses spaces — alias both spellings.
+  'Son-in-law': _RelInfo(1, '👨', 'Children'),
+  'Daughter-in-law': _RelInfo(1, '👩', 'Children'),
   'Grand Son': _RelInfo(2, '👦', 'Grandchildren'),
   'Grand Daughter': _RelInfo(2, '👧', 'Grandchildren'),
 };
