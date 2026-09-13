@@ -146,62 +146,61 @@ class _CoreFeaturesGridPage extends StatelessWidget {
       // Soft organic blob shapes behind the heading, approximating
       // the reference's wavy background accent.
       Positioned(
-        top: 110, left: -60,
+        top: 80, left: -60,
         child: Container(
-          width: 180, height: 180,
+          width: 160, height: 160,
           decoration: BoxDecoration(color: _DT.brightYellow.withOpacity(0.25), shape: BoxShape.circle),
         ),
       ),
       Positioned(
-        top: 160, right: -70,
+        top: 120, right: -70,
         child: Container(
-          width: 160, height: 160,
+          width: 140, height: 140,
           decoration: BoxDecoration(color: _DT.primaryYellow.withOpacity(0.2), shape: BoxShape.circle),
         ),
       ),
-      SingleChildScrollView(
-        child: Column(
-          children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(32),
-                bottomRight: Radius.circular(32),
-              ),
-              child: Image.asset(
-                'assets/images/home_header_photo_v3.jpg',
-                height: 150,
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
+      Column(
+        children: [
+          ClipRRect(
+            borderRadius: const BorderRadius.only(
+              bottomLeft: Radius.circular(28),
+              bottomRight: Radius.circular(28),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Image.asset(
+              'assets/images/home_header_photo_v3.jpg',
+              height: 95,
+              width: double.infinity,
+              fit: BoxFit.cover,
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 22),
               child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const SizedBox(height: 18),
-                  Text('Everything you need', textAlign: TextAlign.center, style: _heading(26)),
-                  const SizedBox(height: 4),
-                  Text('5 features, all included', style: _body(14, color: _DT.navy.withOpacity(0.7))),
-                  const SizedBox(height: 4),
-                  Container(width: 90, height: 3, decoration: BoxDecoration(color: _DT.primaryYellow, borderRadius: BorderRadius.circular(2))),
-                  const SizedBox(height: 20),
+                  Text('Everything you need', textAlign: TextAlign.center, style: _heading(22)),
+                  const SizedBox(height: 3),
+                  Text('5 features, all included', style: _body(12.5, color: _DT.navy.withOpacity(0.7))),
+                  const SizedBox(height: 3),
+                  Container(width: 80, height: 3, decoration: BoxDecoration(color: _DT.primaryYellow, borderRadius: BorderRadius.circular(2))),
+                  const SizedBox(height: 14),
                   GridView.count(
                     crossAxisCount: 2,
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: 0.95,
+                    mainAxisSpacing: 10,
+                    crossAxisSpacing: 10,
+                    childAspectRatio: 1.5,
                     children: _items.map((item) => _FeatureCard(emoji: item.$1, title: item.$2, subtitle: item.$3)).toList(),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   _FamilyTreeCard(),
-                  const SizedBox(height: 12),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     ]);
   }
@@ -214,26 +213,21 @@ class _FeatureCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: _DT.softCard, borderRadius: BorderRadius.circular(20)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: _DT.softCard, borderRadius: BorderRadius.circular(18)),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
         Container(
-          width: 46, height: 46,
+          width: 38, height: 38,
           decoration: const BoxDecoration(color: _DT.white, shape: BoxShape.circle),
-          child: Center(child: Text(emoji, style: const TextStyle(fontSize: 22))),
+          child: Center(child: Text(emoji, style: const TextStyle(fontSize: 18))),
         ),
-        const Spacer(),
-        Text(title, style: _heading(15)),
-        const SizedBox(height: 3),
-        Text(subtitle, style: _body(11.5, color: _DT.navy.withOpacity(0.65))),
-        const SizedBox(height: 8),
-        Align(
-          alignment: Alignment.centerRight,
-          child: Container(
-            width: 30, height: 30,
-            decoration: const BoxDecoration(color: _DT.brightYellow, shape: BoxShape.circle),
-            child: const Icon(Icons.arrow_forward_rounded, size: 15, color: _DT.navy),
-          ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            Text(title, style: _heading(12.5)),
+            const SizedBox(height: 2),
+            Text(subtitle, style: _body(10, color: _DT.navy.withOpacity(0.65))),
+          ]),
         ),
       ]),
     );
@@ -247,26 +241,21 @@ class _FamilyTreeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: _DT.softCard, borderRadius: BorderRadius.circular(20)),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: _DT.softCard, borderRadius: BorderRadius.circular(18)),
       child: Row(children: [
         Container(
-          width: 50, height: 50,
+          width: 42, height: 42,
           decoration: const BoxDecoration(color: _DT.white, shape: BoxShape.circle),
-          child: const Center(child: Text('🌳', style: TextStyle(fontSize: 24))),
+          child: const Center(child: Text('🌳', style: TextStyle(fontSize: 20))),
         ),
-        const SizedBox(width: 14),
+        const SizedBox(width: 12),
         Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Family tree', style: _heading(16)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            Text('Family tree', style: _heading(14)),
             const SizedBox(height: 2),
-            Text('Keep your loved ones close', style: _body(11.5, color: _DT.navy.withOpacity(0.65))),
+            Text('Keep your loved ones close', style: _body(10.5, color: _DT.navy.withOpacity(0.65))),
           ]),
-        ),
-        Container(
-          width: 32, height: 32,
-          decoration: const BoxDecoration(color: _DT.brightYellow, shape: BoxShape.circle),
-          child: const Icon(Icons.arrow_forward_rounded, size: 16, color: _DT.navy),
         ),
       ]),
     );

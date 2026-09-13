@@ -273,37 +273,105 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
       byRow.putIfAbsent(row, () => []).add(m);
     }
     final rows = byRow.keys.toList()..sort();
+    // "You" sits at row 0 alongside Spouse — if there's no explicit
+    // row 0 member, still reserve that row so "You" has a home.
+    if (!rows.contains(0)) rows.add(0);
+    rows.sort();
+
+    const rowHeight = 130.0;
+    const nodeSpacing = 92.0;
+    final minRow = rows.first;
+    final maxRow = rows.last;
+    final treeHeight = (maxRow - minRow + 1) * rowHeight + 60;
+
+    // Precompute each member's absolute position.
+    final positions = <dynamic, Offset>{};
+    double maxWidth = 320;
+    for (final row in rows) {
+      final members = byRow[row] ?? [];
+      final count = members.length + (row == 0 ? 1 : 0); // +1 for "You" on row 0
+      final rowWidth = count * nodeSpacing;
+      maxWidth = rowWidth > maxWidth ? rowWidth : maxWidth;
+    }
+
+    Widget positionedNode(double cx, double row, Widget child) {
+      final y = (row - minRow) * rowHeight + 30;
+      return Positioned(
+        left: maxWidth / 2 + cx - 34,
+        top: y,
+        child: SizedBox(width: 68, child: child),
+      );
+    }
+
+    final children = <Widget>[];
+    // Branch lines first, so nodes render on top of them.
+    final youY = (0 - minRow) * rowHeight + 30 + 34;
+    for (final row in rows) {
+      final members = byRow[row] ?? [];
+      if (row == 0) continue; // spouse sits beside You, no branch needed
+      final count = members.length;
+      for (var i = 0; i < count; i++) {
+        final cx = (i - (count - 1) / 2) * nodeSpacing;
+        final endY = (row - minRow) * rowHeight + 30 + 34;
+        children.add(CustomPaint(
+          size: Size(maxWidth, treeHeight),
+          painter: _BranchPainter(
+            start: Offset(maxWidth / 2, youY),
+            end: Offset(maxWidth / 2 + cx, endY),
+            bow: (i.isEven ? 1 : -1) * 24.0,
+          ),
+        ));
+      }
+    }
+
+    // "You" node, row 0.
+    final spouseCount = (byRow[0] ?? []).length;
+    final youCx = spouseCount > 0 ? -nodeSpacing / 2 : 0.0;
+    children.add(positionedNode(youCx, 0, _treeNode({'name': 'You', 'relation': '__you__'}, isYou: true)));
+
+    // Everyone else.
+    for (final row in rows) {
+      final members = byRow[row] ?? [];
+      if (row == 0) {
+        // Spouse(s) sit right beside "You".
+        for (var i = 0; i < members.length; i++) {
+          final cx = nodeSpacing / 2 + i * nodeSpacing;
+          children.add(positionedNode(cx, 0, _treeNode(members[i])));
+        }
+        continue;
+      }
+      final count = members.length;
+      for (var i = 0; i < count; i++) {
+        final cx = (i - (count - 1) / 2) * nodeSpacing;
+        children.add(positionedNode(cx, row.toDouble(), _treeNode(members[i])));
+      }
+    }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-      child: Column(children: [
-        for (final row in rows) ...[
-          Wrap(
-            spacing: 18,
-            runSpacing: 14,
-            alignment: WrapAlignment.center,
-            children: byRow[row]!.map((m) => _treeNode(m)).toList(),
-          ),
-          if (row != rows.last) Container(width: 2, height: 28, color: const Color(0xFFE8C766)),
-        ],
-      ]),
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      child: SizedBox(
+        width: maxWidth,
+        height: treeHeight,
+        child: Stack(children: children),
+      ),
     );
   }
 
-  Widget _treeNode(dynamic m) {
-    final info = _infoFor(_relationOf(m));
+  Widget _treeNode(dynamic m, {bool isYou = false}) {
+    final info = isYou ? (0, '😊') : _infoFor(_relationOf(m));
     return GestureDetector(
-      onTap: () => _openDetail(m),
+      onTap: isYou ? null : () => _openDetail(m),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Container(
-          width: 60, height: 60,
+          width: isYou ? 68 : 60,
+          height: isYou ? 68 : 60,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: isYou ? const Color(0xFFFFB800) : Colors.white,
             shape: BoxShape.circle,
-            border: Border.all(color: const Color(0xFFE8C766), width: 2),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(.06), blurRadius: 8, offset: const Offset(0, 3))],
+            border: Border.all(color: const Color(0xFFE8C766), width: isYou ? 3 : 2),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(.08), blurRadius: 10, offset: const Offset(0, 3))],
           ),
-          child: Center(child: Text(info.$2, style: const TextStyle(fontSize: 28))),
+          child: Center(child: Text(info.$2, style: TextStyle(fontSize: isYou ? 30 : 28))),
         ),
         const SizedBox(height: 6),
         SizedBox(
@@ -317,4 +385,26 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
       ]),
     );
   }
+}
+
+class _BranchPainter extends CustomPainter {
+  _BranchPainter({required this.start, required this.end, required this.bow});
+  final Offset start, end;
+  final double bow;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFFE8C766)
+      ..strokeWidth = 2.5
+      ..style = PaintingStyle.stroke;
+    final midY = (start.dy + end.dy) / 2;
+    final path = Path()
+      ..moveTo(start.dx, start.dy)
+      ..quadraticBezierTo(start.dx + bow, midY, end.dx, end.dy);
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _BranchPainter oldDelegate) => true;
 }
