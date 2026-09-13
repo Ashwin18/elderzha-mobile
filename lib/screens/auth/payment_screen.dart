@@ -288,7 +288,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       GestureDetector(
-                        onTap: () => Navigator.pop(context),
+                        onTap: () => Navigator.pushReplacementNamed(context, AppRoutes.alarmSetup),
                         child: Container(
                           width: 36, height: 36,
                           decoration: const BoxDecoration(color: C.white, shape: BoxShape.circle),

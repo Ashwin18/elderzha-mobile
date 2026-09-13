@@ -147,122 +147,139 @@ class _OtpScreenState extends State<OtpScreen> with CodeAutoFill {
     if (_otp.length < 4 || _loading) return;
     setState(() => _loading = true);
 
-    final auth = context.read<AuthProvider>();
-    final res = await auth.verifyOtp(_phone, _otp);
-    final ok = res['status'] == true;
-    if (!mounted) return;
+    try {
+      final auth = context.read<AuthProvider>();
+      final res = await auth.verifyOtp(_phone, _otp);
+      final ok = res['status'] == true;
+      if (!mounted) return;
 
-    if (!ok) {
-      setState(() => _loading = false);
-      for (final c in _ctrls) c.clear();
-      _focusNodes[0].requestFocus();
-      await showDialog<void>(
-        context: context,
-        builder: (_) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
-          title: Text(
-            'OTP wrongly entered',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w800),
-          ),
-          content: Text(
-            'Please check the 4-digit code and try again.',
-            style: GoogleFonts.poppins(fontSize: 13, color: C.txm),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(
-                'Try again',
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w700,
-                  color: C.ink,
+      if (!ok) {
+        setState(() => _loading = false);
+        for (final c in _ctrls) c.clear();
+        _focusNodes[0].requestFocus();
+        await showDialog<void>(
+          context: context,
+          builder: (_) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+            title: Text(
+              'OTP wrongly entered',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w800),
+            ),
+            content: Text(
+              'Please check the 4-digit code and try again.',
+              style: GoogleFonts.poppins(fontSize: 13, color: C.txm),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  'Try again',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w700,
+                    color: C.ink,
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              auth.error ?? 'OTP wrongly entered',
-              style: GoogleFonts.poppins(),
-            ),
-            backgroundColor: C.red,
+            ],
           ),
         );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                auth.error ?? 'OTP wrongly entered',
+                style: GoogleFonts.poppins(),
+              ),
+              backgroundColor: C.red,
+            ),
+          );
+        }
+        return;
       }
-      return;
-    }
 
-    // ── Flow based on user type ─────────────────────────────────────────────
-    //
-    // EXISTING SUBSCRIBED USER → Home directly (never show setup screens again)
-    // NEW USER → Profile → Alarm Setup → Payment → Home
-    // EXISTING USER (expired) → Subscription Gate
-    //
-    final isProfileUpdated = _truthy(res['is_profile_updated'] ?? res['isProfileUpdate']);
-    final isAlarmSet       = _truthy(res['daily_alarm_set']);
-    final isPlanActive     = _truthy(res['is_plan_active']);
+      // ── Flow based on user type ─────────────────────────────────────────────
+      //
+      // EXISTING SUBSCRIBED USER → Home directly (never show setup screens again)
+      // NEW USER → Profile → Alarm Setup → Payment → Home
+      // EXISTING USER (expired) → Subscription Gate
+      //
+      final isProfileUpdated = _truthy(res['is_profile_updated'] ?? res['isProfileUpdate']);
+      final isAlarmSet       = _truthy(res['daily_alarm_set']);
+      final isPlanActive     = _truthy(res['is_plan_active']);
 
-    // Save plan status to local cache
-    if (isPlanActive) {
-      await SubscriptionService.markSubscriptionActiveLocal();
-    } else {
-      await SubscriptionService.clearSubscriptionActiveLocal();
-    }
+      // Save plan status to local cache
+      if (isPlanActive) {
+        await SubscriptionService.markSubscriptionActiveLocal();
+      } else {
+        await SubscriptionService.clearSubscriptionActiveLocal();
+      }
 
-    await auth.loadUser();
-    if (!mounted) return;
+      await auth.loadUser();
+      if (!mounted) return;
 
-    // ── EXISTING SUBSCRIBED USER ─────────────────────────────────────────────
-    // Plan is active → go straight to Home. Never show alarm/payment again.
-    if (isPlanActive) {
-      _scheduleAlarmsAfterLogin();
-      Navigator.pushReplacementNamed(context, AppRoutes.home);
-      return;
-    }
+      // ── EXISTING SUBSCRIBED USER ─────────────────────────────────────────────
+      // Plan is active → go straight to Home. Never show alarm/payment again.
+      if (isPlanActive) {
+        _scheduleAlarmsAfterLogin();
+        Navigator.pushReplacementNamed(context, AppRoutes.home);
+        return;
+      }
 
-    // ── EXISTING USER — SUBSCRIPTION EXPIRED ────────────────────────────────
-    // Had profile + alarm set up before, just plan expired → renew only
-    if (isProfileUpdated && isAlarmSet && !isPlanActive) {
-      Navigator.pushReplacementNamed(context, AppRoutes.subscriptionGate);
-      return;
-    }
+      // ── EXISTING USER — SUBSCRIPTION EXPIRED ────────────────────────────────
+      // Had profile + alarm set up before, just plan expired → renew only
+      if (isProfileUpdated && isAlarmSet && !isPlanActive) {
+        Navigator.pushReplacementNamed(context, AppRoutes.subscriptionGate);
+        return;
+      }
 
-    // ── NEW USER — go through setup steps ───────────────────────────────────
-    // Step 1 — Profile complete? Show the feature showcase first — this is
-    // the very first thing a brand new user sees, right after OTP succeeds.
-    if (!isProfileUpdated) {
-      final profile = auth.user;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => BenefitsShowcaseScreen(
-            userName: profile?['name']?.toString() ?? profile?['first_name']?.toString(),
-            profileArgs: {
-              ..._profileArgs,
-              if (profile?['name'] != null) 'name': profile?['name'],
-              if (profile?['gender'] != null) 'gender': profile?['gender'],
-            },
+      // ── NEW USER — go through setup steps ───────────────────────────────────
+      // Step 1 — Profile complete? Show the feature showcase first — this is
+      // the very first thing a brand new user sees, right after OTP succeeds.
+      if (!isProfileUpdated) {
+        final profile = auth.user;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => BenefitsShowcaseScreen(
+              userName: profile?['name']?.toString() ?? profile?['first_name']?.toString(),
+              profileArgs: {
+                ..._profileArgs,
+                if (profile?['name'] != null) 'name': profile?['name'],
+                if (profile?['gender'] != null) 'gender': profile?['gender'],
+              },
+            ),
           ),
+        );
+        return;
+      }
+
+      // Step 2 — Alarm set up?
+      if (!isAlarmSet) {
+        Navigator.pushReplacementNamed(context, AppRoutes.alarmSetup);
+        return;
+      }
+
+      // Step 3 — Profile + alarm both done, feature showcase already shown
+      // earlier in this flow — go straight to payment.
+      Navigator.pushReplacementNamed(context, AppRoutes.payment);
+    } catch (e) {
+      // Never leave the screen stuck on "loading" forever — reset
+      // and let the user retry rather than hanging indefinitely on
+      // an unexpected error (a genuine "stuck loading" report was
+      // traced to exactly this gap: nothing here previously reset
+      // _loading except the explicit "OTP wrong" branch).
+      if (!mounted) return;
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Something went wrong. Please try again.',
+              style: GoogleFonts.poppins()),
+          backgroundColor: C.red,
         ),
       );
-      return;
     }
-
-    // Step 2 — Alarm set up?
-    if (!isAlarmSet) {
-      Navigator.pushReplacementNamed(context, AppRoutes.alarmSetup);
-      return;
-    }
-
-    // Step 3 — Profile + alarm both done, feature showcase already shown
-    // earlier in this flow — go straight to payment.
-    Navigator.pushReplacementNamed(context, AppRoutes.payment);
   }
 
   Map<String, dynamic>? _extractUser(Map<String, dynamic>? res) {

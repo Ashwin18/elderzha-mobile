@@ -82,13 +82,23 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     // Phase 2 — secondary (home activities, reminders, notifications, alarms)
-    // Load in background — UI already showing from Phase 1
+    // Load in background — UI already showing from Phase 1. Each call
+    // gets its OWN timeout rather than one shared timeout across all
+    // four — previously a single slow endpoint (e.g. medical records)
+    // could exceed the shared timeout and wipe out all four results
+    // to null, including ones that had already loaded successfully,
+    // making genuinely-set alarms/reminders show as empty on Home
+    // with no visible error.
     final secondary = await Future.wait([
-      _actSvc.getHomeActivities(),        // home activity cards
-      AlarmService().listReminders(),     // reminder list
-      AlarmService().getMedicalRecords(), // alarm status
-      NotificationService().getNotifications(), // notification badge
-    ]).timeout(const Duration(seconds: 10), onTimeout: () => [null, null, null, null]);
+      _actSvc.getHomeActivities()
+          .timeout(const Duration(seconds: 10), onTimeout: () => null),
+      AlarmService().listReminders()
+          .timeout(const Duration(seconds: 10), onTimeout: () => null),
+      AlarmService().getMedicalRecords()
+          .timeout(const Duration(seconds: 10), onTimeout: () => null),
+      NotificationService().getNotifications()
+          .timeout(const Duration(seconds: 10), onTimeout: () => null),
+    ]);
     if (!mounted) return;
     setState(() {
       _homeActivities    = _extractList(secondary[0]);

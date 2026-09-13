@@ -272,13 +272,21 @@ class FallMonitorService : Service(), SensorEventListener {
                     // sound (DEFAULT_ALL below only plays whatever sound
                     // the channel is configured with). This is on top of,
                     // not instead of, the louder MediaPlayer siren below.
-                    setSound(
-                        Uri.parse("android.resource://$packageName/raw/sos_alarm"),
-                        AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_ALARM)
-                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                            .build()
-                    )
+                    // Wrapped in its own try-catch: if this call throws for
+                    // any reason, it must never crash channel creation
+                    // itself, which would otherwise prevent execution from
+                    // ever reaching manager.notify()/playSosSiren() below —
+                    // exactly the kind of regression that could silently
+                    // turn "custom siren" into "default sound only."
+                    try {
+                        setSound(
+                            Uri.parse("android.resource://$packageName/raw/sos_alarm"),
+                            AudioAttributes.Builder()
+                                .setUsage(AudioAttributes.USAGE_ALARM)
+                                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                                .build()
+                        )
+                    } catch (_: Exception) {}
                 }
             )
         }
@@ -406,7 +414,7 @@ class FallMonitorService : Service(), SensorEventListener {
 
     companion object {
         const val CHANNEL_ID = "elderzha_fall_monitor_channel"
-        const val ALERT_CHANNEL_ID = "elderzha_fall_sos_alert_channel_v2"
+        const val ALERT_CHANNEL_ID = "elderzha_fall_sos_alert_channel_v3"
         const val NOTIF_ID = 7777
         const val FALL_ALARM_SOUND_ID = 7779 // distinct from real scheduled alarms
         const val ALERT_NOTIF_ID = 7778
