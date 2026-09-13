@@ -165,7 +165,7 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: C.yellow,
+      backgroundColor: C.white,
       body: Center(
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           ScaleTransition(
@@ -182,13 +182,16 @@ class _SplashScreenState extends State<SplashScreen>
             child: SlideTransition(
               position: _textSlide
                   .drive(Tween(begin: const Offset(0, 1), end: Offset.zero)),
-              child: Column(children: [
-                Text('Your daily wellness companion',
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 36),
+                child: Text(
+                    'Your everyday companion for a happier, healthier and more connected life.',
+                    textAlign: TextAlign.center,
                     style: GoogleFonts.poppins(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
-                        color: C.yellowDeep)),
-              ]),
+                        color: C.txm)),
+              ),
             ),
           ),
         ]),
