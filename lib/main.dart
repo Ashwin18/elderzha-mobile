@@ -16,6 +16,7 @@ import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
 
 import 'firebase_options.dart';
+import 'navigation_key.dart';
 import 'network/connectivity_wrapper.dart';
 import 'providers/auth_provider.dart';
 import 'services/api_client.dart';
@@ -59,9 +60,7 @@ import 'screens/profile/support_screen.dart';
 //  FCM + local notifications globals
 // ─────────────────────────────────────────────────────────────────────────────
 final FlutterLocalNotificationsPlugin _localNotifs =
-    FlutterLocalNotificationsPlugin();
-final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
-Timer? _notificationHistoryTimer;
+    FlutterLocalNotificationsPlugin();Timer? _notificationHistoryTimer;
 bool _notificationHistoryLoading = false;
 
 const AndroidNotificationChannel _channel = AndroidNotificationChannel(

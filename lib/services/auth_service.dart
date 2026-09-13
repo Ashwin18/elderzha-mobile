@@ -14,6 +14,29 @@ import 'package:dio/dio.dart';
 class AuthService {
   final _api = ApiClient();
 
+  // Checks whether the currently logged-in account still exists on
+  // the server. Only ever returns false on a clear 401/403/404
+  // signal (account deleted or session explicitly invalidated) —
+  // any other failure (timeout, no connection, 500, etc.) returns
+  // true, so a temporary network issue can never be mistaken for a
+  // deleted account and force someone out of the app incorrectly.
+  Future<bool> isAccountStillValid() async {
+    try {
+      await _api.get('/user/get/user/details');
+      return true;
+    } on DioException catch (e) {
+      final code = e.response?.statusCode;
+      if (code == 401 || code == 403 || code == 404) return false;
+      return true;
+    }
+  }
+
+  // Called once isAccountStillValid() has confirmed the account is
+  // actually gone. Delegates to ApiClient's shared implementation
+  // (also used automatically by the network interceptor on any
+  // 401/403), so there's a single source of truth for this logic.
+  Future<void> forceLogoutDeletedAccount() => _api.forceLogoutDeletedAccount();
+
   // ── POST /user/phone-login ────────────────────────────────
   // Sends OTP to phone number
   Future<Map<String, dynamic>> phoneLogin(String phone) async {

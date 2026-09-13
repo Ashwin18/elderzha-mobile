@@ -69,7 +69,38 @@ class MainActivity : FlutterActivity() {
                         } catch (_: Exception) {}
                         result.success(true)
                     }
-                    "canUseFullScreenIntent" -> result.success(canUseFullScreenIntent())
+                    "cancelAllAlarmsAndMonitoring" -> {
+                        // Used when an account is confirmed deleted server-side —
+                        // a deleted account should never keep ringing alarms or
+                        // running fall/SOS monitoring in the background.
+                        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                        try {
+                            val prefs = getSharedPreferences("${packageName}_preferences", Context.MODE_PRIVATE)
+                            val stored = prefs.getStringSet("flutter.scheduled_alarms", emptySet()) ?: emptySet()
+                            for (alarmStr in stored) {
+                                try {
+                                    val obj = org.json.JSONObject(alarmStr)
+                                    val id = obj.optInt("id", 0).takeIf { it != 0 }
+                                             ?: (obj.optLong("triggerAt", 0L) and 0x7FFFFFFF).toInt()
+                                    if (id != 0) {
+                                        val pi = PendingIntent.getBroadcast(
+                                            this, id,
+                                            Intent(this, AlarmReceiver::class.java),
+                                            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+                                        )
+                                        if (pi != null) alarmManager.cancel(pi)
+                                    }
+                                } catch (_: Exception) {}
+                            }
+                            // Stop fall/SOS monitoring right now, and clear the
+                            // flag BootReceiver checks — otherwise a future
+                            // reboot would restart monitoring for this deleted
+                            // account from local storage alone.
+                            stopService(Intent(this, FallMonitorService::class.java))
+                            prefs.edit().putBoolean("flutter.fall_monitor_enabled", false).apply()
+                        } catch (_: Exception) {}
+                        result.success(true)
+                    }
                     "requestFullScreenIntentPermission" -> {
                         requestFullScreenIntentPermission()
                         result.success(true)

@@ -22,6 +22,58 @@ class BootReceiver : BroadcastReceiver() {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED &&
             intent.action != "android.intent.action.QUICKBOOT_POWERON") return
 
+        // This now needs a network call before deciding whether to
+        // reschedule anything, which can't finish within onReceive's
+        // normal synchronous window — goAsync() extends that window
+        // long enough for a short, timeout-bounded HTTP check.
+        val pendingResult = goAsync()
+        Thread {
+            try {
+                val stillValid = checkAccountStillValid(context)
+                if (stillValid) {
+                    rescheduleEverything(context)
+                } else {
+                    // Confirmed deleted — wipe local alarm/monitoring
+                    // data too, so a later manual app open doesn't
+                    // find stale scheduled-alarm entries either.
+                    val prefs = context.getSharedPreferences(
+                        "${context.packageName}_preferences", Context.MODE_PRIVATE)
+                    prefs.edit()
+                        .remove("flutter.scheduled_alarms")
+                        .putBoolean("flutter.fall_monitor_enabled", false)
+                        .apply()
+                }
+            } finally {
+                pendingResult.finish()
+            }
+        }.start()
+    }
+
+    // Any ambiguous outcome (no cached token, network error, timeout)
+    // returns true — never treat "couldn't check" as "account
+    // deleted", since a temporary connectivity issue at boot should
+    // not silently disable a legitimate user's reminders.
+    private fun checkAccountStillValid(context: Context): Boolean {
+        val nativePrefs = context.getSharedPreferences("elderzha_native_cache", Context.MODE_PRIVATE)
+        val token = nativePrefs.getString("auth_token", null)
+        if (token.isNullOrBlank()) return true
+        return try {
+            val url = java.net.URL("https://elderzhacopy.elderzha.online/api/user/get/user/details")
+            val conn = url.openConnection() as java.net.HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.setRequestProperty("Authorization", "Bearer $token")
+            conn.setRequestProperty("Accept", "application/json")
+            conn.connectTimeout = 6000
+            conn.readTimeout = 6000
+            val code = conn.responseCode
+            conn.disconnect()
+            code != 401 && code != 403 && code != 404
+        } catch (_: Exception) {
+            true
+        }
+    }
+
+    private fun rescheduleEverything(context: Context) {
         // Flutter SharedPreferences stores data in:
         // <packageName>_preferences (Flutter SDK default)
         val packageName = context.packageName

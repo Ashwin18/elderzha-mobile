@@ -33,7 +33,20 @@ class AuthProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token') ?? '';
     _isLoggedIn = token.isNotEmpty;
-    if (_isLoggedIn) await loadUser();
+    if (_isLoggedIn) {
+      await loadUser();
+      // Confirm the account hasn't been deleted by an admin since
+      // this device last logged in — if it has, cancel every local
+      // alarm/SOS monitor and route back to registration rather
+      // than letting a deleted account keep running in the
+      // background indefinitely.
+      final stillValid = await _authService.isAccountStillValid();
+      if (!stillValid) {
+        _isLoggedIn = false;
+        _user = null;
+        await _authService.forceLogoutDeletedAccount();
+      }
+    }
     notifyListeners();
   }
 

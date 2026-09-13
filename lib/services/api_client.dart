@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../navigation_key.dart';
 
 /// ─────────────────────────────────────────────────────────────────────────────
 ///  ElderZha API Client
@@ -58,6 +59,20 @@ class ApiClient {
           debugPrint(
             '✗ ${e.response?.statusCode} ${e.requestOptions.path}: ${e.message}',
           );
+          // A 401/403 on ANY authenticated call (not just the
+          // dedicated startup check) is a strong signal the
+          // account was deleted or the session was explicitly
+          // invalidated server-side — catch it here too, so this
+          // isn't only detected once at app launch. Only acts when
+          // the failed request itself carried an Authorization
+          // header, so a 401 during login/OTP (before any session
+          // exists) is never mistaken for a deleted account.
+          final code = e.response?.statusCode;
+          final hadAuthHeader =
+              e.requestOptions.headers.containsKey('Authorization');
+          if ((code == 401 || code == 403) && hadAuthHeader) {
+            forceLogoutDeletedAccount();
+          }
           return handler.next(e);
         },
       ),
@@ -80,6 +95,31 @@ class ApiClient {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     await _syncTokenToNative(null);
+  }
+
+  // Guards against the interceptor firing this more than once in a
+  // burst — several in-flight requests can all 401 around the same
+  // moment right after an account is deleted.
+  bool _loggingOutDeletedAccount = false;
+
+  /// Cancels every local alarm and fall/SOS monitor, clears all
+  /// local session data, and routes back to the registration
+  /// screen. Called either automatically (any 401/403 on an
+  /// authenticated request, via the interceptor above) or
+  /// explicitly (AuthService's dedicated startup validity check) —
+  /// kept here rather than in AuthService so the interceptor can
+  /// call it directly without AuthService importing ApiClient
+  /// creating a circular dependency the other way around.
+  Future<void> forceLogoutDeletedAccount() async {
+    if (_loggingOutDeletedAccount) return;
+    _loggingOutDeletedAccount = true;
+    try {
+      await _nativeChannel.invokeMethod('cancelAllAlarmsAndMonitoring');
+    } catch (_) {}
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+    appNavigatorKey.currentState
+        ?.pushNamedAndRemoveUntil('/register', (route) => false);
   }
 
   /// Mirrors the current token into native storage. Safe to call anytime —
