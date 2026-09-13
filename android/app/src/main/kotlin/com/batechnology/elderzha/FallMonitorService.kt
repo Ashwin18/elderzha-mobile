@@ -266,6 +266,19 @@ class FallMonitorService : Service(), SensorEventListener {
                     description = "Urgent fall detection and SOS alerts"
                     enableVibration(true)
                     lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                    // Explicit custom alarm sound on the channel itself —
+                    // previously this channel had no sound set at all, so
+                    // it fell back to the plain system default notification
+                    // sound (DEFAULT_ALL below only plays whatever sound
+                    // the channel is configured with). This is on top of,
+                    // not instead of, the louder MediaPlayer siren below.
+                    setSound(
+                        Uri.parse("android.resource://$packageName/raw/sos_alarm"),
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_ALARM)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .build()
+                    )
                 }
             )
         }
@@ -393,7 +406,7 @@ class FallMonitorService : Service(), SensorEventListener {
 
     companion object {
         const val CHANNEL_ID = "elderzha_fall_monitor_channel"
-        const val ALERT_CHANNEL_ID = "elderzha_fall_sos_alert_channel"
+        const val ALERT_CHANNEL_ID = "elderzha_fall_sos_alert_channel_v2"
         const val NOTIF_ID = 7777
         const val FALL_ALARM_SOUND_ID = 7779 // distinct from real scheduled alarms
         const val ALERT_NOTIF_ID = 7778

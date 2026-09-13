@@ -44,6 +44,7 @@ import 'screens/profile/subscription_screen.dart';
 import 'screens/auth/subscription_gate_screen.dart';
 import 'screens/profile/autopay_settings_screen.dart';
 import 'screens/profile/family_members_screen.dart';
+import 'screens/profile/family_tree_screen.dart';
 import 'screens/profile/add_member_screen.dart';
 import 'screens/profile/polls_screen.dart';
 import 'screens/offers/offers_screen.dart';
@@ -743,6 +744,7 @@ class _ElderZhaAppState extends State<ElderZhaApp> {
         AppRoutes.subscription: (_) => const SubscriptionScreen(),
         AppRoutes.autopaySettings: (_) => const AutoPaySettingsScreen(),
         AppRoutes.familyMembers: (_) => const FamilyMembersScreen(),
+        AppRoutes.familyTree: (_) => const FamilyTreeScreen(),
         AppRoutes.addMember: (_) => const AddMemberScreen(),
         AppRoutes.editProfile: (_) => const EditProfileScreen(),
         AppRoutes.polls: (_) => const PollsScreen(),

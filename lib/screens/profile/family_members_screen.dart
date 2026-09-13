@@ -9,6 +9,7 @@ import '../../alaram/family_event_scheduler.dart';
 import '../../api/models/fetch_profile_model.dart' show FamilyMember, Event;
 import '../../widgets/yellow_header_scaffold.dart';
 import '../../widgets/family_tree_widget.dart';
+import '../../utils/app_routes.dart';
 
 class FamilyMembersScreen extends StatefulWidget {
   const FamilyMembersScreen({super.key});
@@ -222,6 +223,24 @@ class _FamilyMembersScreenState extends State<FamilyMembersScreen> {
 
                     if (_members.isNotEmpty) ...[
                       FamilyTreeWidget(members: _members),
+                      const SizedBox(height: 10),
+                      GestureDetector(
+                        onTap: () => Navigator.pushNamed(context, AppRoutes.familyTree),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF3C4),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: const Color(0xFFE8C766)),
+                          ),
+                          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                            const Text('🌳', style: TextStyle(fontSize: 15)),
+                            const SizedBox(width: 8),
+                            Text('View full tree', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF7A5800))),
+                          ]),
+                        ),
+                      ),
                       const SizedBox(height: 16),
                       _secHeader(Icons.people_rounded,
                           'Family members (${_members.length})'),
