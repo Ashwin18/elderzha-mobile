@@ -100,24 +100,12 @@ class _HomeScreenState extends State<HomeScreen> {
           .timeout(const Duration(seconds: 10), onTimeout: () => null),
     ]);
     if (!mounted) return;
-    // TEMP DIAGNOSTIC — remove once the Next Alarm/Alarms Today/Next
-    // Reminder empty-data issue is confirmed fixed. Two rounds of
-    // fixes based on reasonable theories (shared timeout, then
-    // _extractMap's key coverage) did not resolve this, so this
-    // prints the actual raw response shapes rather than guessing a
-    // third time. Capture via `flutter run --release` (or plain
-    // `flutter run`) with the device connected over USB, then share
-    // this exact console output.
-    debugPrint('🔍 DIAGNOSTIC listReminders() raw: ${secondary[1]}');
-    debugPrint('🔍 DIAGNOSTIC getMedicalRecords() raw: ${secondary[2]}');
     setState(() {
       _homeActivities    = _extractList(secondary[0]);
       _reminders         = _extractList(secondary[1]);
       _medicalRecord     = _extractMap(secondary[2]);
       _notificationCount = _extractNotificationCount(secondary[3]);
     });
-    debugPrint('🔍 DIAGNOSTIC _reminders after extract: $_reminders');
-    debugPrint('🔍 DIAGNOSTIC _medicalRecord after extract: $_medicalRecord');
     } catch (_) {
       if (mounted) setState(() => _loadError = true);
     }

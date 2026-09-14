@@ -1381,7 +1381,7 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
     // backing fields directly rather than through _tonePath/_toneUrl
     // (which dispatch based on _step and would incorrectly resolve to
     // Medical only at this point in the flow).
-    await _alarmService.saveMedicalSettingsMultipart(
+    final medicalSaveRes = await _alarmService.saveMedicalSettingsMultipart(
       payload: payload,
       medicalFile: _medImage,
       foodFile: _foodImage,
@@ -1392,6 +1392,23 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
           ? File(_foodTonePath!)
           : null,
     );
+    // Previously this response was never captured or checked at all —
+    // a backend rejection (validation error, etc.) would silently
+    // proceed as if the alarm had saved, letting the user continue
+    // through the rest of the wizard while the server never actually
+    // persisted anything. Surface the real failure instead, matching
+    // the same pattern already used for addFamily() below.
+    if (medicalSaveRes['status'] != true) {
+      setState(() => _saving = false);
+      if (!mounted) return;
+      final err = medicalSaveRes['message']?.toString() ??
+          medicalSaveRes['errors']?.toString() ??
+          'Could not save your alarm settings. Please try again.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(err), backgroundColor: C.red),
+      );
+      return;
+    }
     await _saveLocalAlarmConfig(payload);
     await _saveSetupFamilyFallback();
     final familySaveErrors = <String>[];
