@@ -396,16 +396,6 @@ class FallMonitorService : Service(), SensorEventListener {
                 }
                 start()
             }
-            // Safety net: if playback somehow didn't actually start
-            // despite no error being reported, don't risk silence.
-            android.os.Handler(mainLooper).postDelayed({
-                val stillNeedsFallback = try {
-                    sosPlayer?.isPlaying != true
-                } catch (_: Exception) {
-                    true
-                }
-                if (stillNeedsFallback) playFallbackAlarmSound()
-            }, 3_000)
         } catch (e: Exception) {
             Log.e("FallMonitorService", "Bundled siren failed, using system fallback", e)
             playFallbackAlarmSound()
@@ -413,12 +403,18 @@ class FallMonitorService : Service(), SensorEventListener {
     }
 
     private fun playFallbackAlarmSound() {
-        // Avoid double-playback if the primary siren actually did
-        // start successfully right around the same moment this gets
-        // called (e.g. the 3s safety-net firing just as start()
-        // genuinely succeeds).
-        val alreadyPlaying = try { sosPlayer?.isPlaying == true } catch (_: Exception) { false }
-        if (alreadyPlaying) return
+        // Unconditionally tear down any existing player first — never
+        // rely on an isPlaying() check to decide this, since that can
+        // report incorrectly for a transient reason even while genuine
+        // playback is underway, which was confirmed to cause both the
+        // real siren and this fallback to play simultaneously. This is
+        // a minimal stop+release only (not the full stopSosSiren()),
+        // since that would also restore the pre-boost alarm volume —
+        // we're still mid-alert here, just switching sounds, and want
+        // to keep the volume boost active throughout.
+        try { sosPlayer?.stop() } catch (_: Exception) {}
+        try { sosPlayer?.release() } catch (_: Exception) {}
+        sosPlayer = null
         try {
             // Same fix as the primary siren above — the AudioAttributes-
             // aware create() overload, so this fallback sound is also
