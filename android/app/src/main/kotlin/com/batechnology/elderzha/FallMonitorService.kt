@@ -341,45 +341,56 @@ class FallMonitorService : Service(), SensorEventListener {
             } catch (_: Exception) {}
 
             val uri = Uri.parse("android.resource://$packageName/raw/sos_alarm")
-            sosPlayer = MediaPlayer().apply {
-                setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ALARM)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                        .build()
-                )
-                setDataSource(this@FallMonitorService, uri)
+            // Switched from the manual setDataSource()+prepareAsync()
+            // chain to MediaPlayer.create() — device logs confirmed the
+            // manual approach was hitting a low-level media-framework
+            // error (what=1/MEDIA_ERROR_UNKNOWN, extra=-2147483648/
+            // MEDIA_ERROR_SYSTEM) specifically on this device.
+            //
+            // Using the AudioAttributes-aware overload of create() (API
+            // 26+), NOT the plain create(context, uri) version — that
+            // version prepares the player internally with default
+            // attributes (which route to the MEDIA stream) before a
+            // later setAudioAttributes() call can take effect, and on
+            // many Android versions stream routing is fixed at
+            // prepare-time and doesn't change afterward. This is why a
+            // low media volume was affecting the siren — it must be on
+            // the ALARM stream and stay independent of media volume,
+            // established BEFORE preparation happens.
+            val alarmAttrs = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ALARM)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build()
+            val player = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                MediaPlayer.create(this, uri, alarmAttrs, 0)
+            } else {
+                // Pre-API-26 fallback: the classic pattern for routing to
+                // the alarm stream before AudioAttributes existed — must
+                // still be set before the player prepares internally.
+                @Suppress("DEPRECATION")
+                MediaPlayer().apply {
+                    setAudioStreamType(AudioManager.STREAM_ALARM)
+                    setDataSource(this@FallMonitorService, uri)
+                    prepare()
+                }
+            }
+            if (player == null) {
+                Log.e("FallMonitorService", "MediaPlayer.create() returned null for bundled siren")
+                playFallbackAlarmSound()
+                return
+            }
+            sosPlayer = player.apply {
                 isLooping = true
                 setVolume(1f, 1f)
-                // Async, not sync — confirmed via device logs that the
-                // blocking prepare() call was throwing "Prepare failed:
-                // status=0x1" on this device, a well-known Android issue
-                // where a synchronous prepare() on the main thread right
-                // after startForeground() in a freshly-launched service
-                // can fail because the audio system isn't always ready
-                // for a blocking call at that exact moment. This was
-                // silently causing every real/test alert to fall through
-                // to the default system alarm sound instead of the real
-                // siren. prepareAsync() + this listener avoids blocking
-                // the main thread and only starts playback once the
-                // system confirms it's genuinely ready.
-                setOnPreparedListener { it.start() }
                 setOnErrorListener { _, what, extra ->
-                    Log.e("FallMonitorService", "Async siren prepare error: what=$what extra=$extra")
-                    // Async errors don't throw synchronously, so the
-                    // outer catch block below never sees them — without
-                    // explicitly falling back here too, a failure at
-                    // this async stage would previously result in
-                    // complete silence (no siren AND no default sound),
-                    // a regression from the fallback the outer catch
-                    // used to reliably provide.
+                    Log.e("FallMonitorService", "Siren playback error: what=$what extra=$extra")
                     playFallbackAlarmSound()
                     true
                 }
-                prepareAsync()
+                start()
             }
-            // Safety net: if neither callback above fires within 3s
-            // for any reason, don't risk silence — fall back anyway.
+            // Safety net: if playback somehow didn't actually start
+            // despite no error being reported, don't risk silence.
             android.os.Handler(mainLooper).postDelayed({
                 val stillNeedsFallback = try {
                     sosPlayer?.isPlaying != true
@@ -397,14 +408,31 @@ class FallMonitorService : Service(), SensorEventListener {
     private fun playFallbackAlarmSound() {
         // Avoid double-playback if the primary siren actually did
         // start successfully right around the same moment this gets
-        // called (e.g. the 3s safety-net firing just as prepareAsync
-        // genuinely completes).
+        // called (e.g. the 3s safety-net firing just as start()
+        // genuinely succeeds).
         val alreadyPlaying = try { sosPlayer?.isPlaying == true } catch (_: Exception) { false }
         if (alreadyPlaying) return
         try {
-            sosPlayer = MediaPlayer.create(
-                this, android.provider.Settings.System.DEFAULT_ALARM_ALERT_URI
-            )?.apply {
+            // Same fix as the primary siren above — the AudioAttributes-
+            // aware create() overload, so this fallback sound is also
+            // established on the ALARM stream before preparation, not
+            // left to default to MEDIA (which was previously the case
+            // here, since no audio attributes were set at all).
+            val alarmAttrs = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ALARM)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build()
+            val fallbackUri = android.provider.Settings.System.DEFAULT_ALARM_ALERT_URI
+            sosPlayer = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                MediaPlayer.create(this, fallbackUri, alarmAttrs, 0)
+            } else {
+                @Suppress("DEPRECATION")
+                MediaPlayer().apply {
+                    setAudioStreamType(AudioManager.STREAM_ALARM)
+                    setDataSource(this@FallMonitorService, fallbackUri)
+                    prepare()
+                }
+            }?.apply {
                 isLooping = true
                 setVolume(1f, 1f)
                 start()
