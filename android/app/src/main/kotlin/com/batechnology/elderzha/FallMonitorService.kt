@@ -366,23 +366,51 @@ class FallMonitorService : Service(), SensorEventListener {
                 setOnPreparedListener { it.start() }
                 setOnErrorListener { _, what, extra ->
                     Log.e("FallMonitorService", "Async siren prepare error: what=$what extra=$extra")
+                    // Async errors don't throw synchronously, so the
+                    // outer catch block below never sees them — without
+                    // explicitly falling back here too, a failure at
+                    // this async stage would previously result in
+                    // complete silence (no siren AND no default sound),
+                    // a regression from the fallback the outer catch
+                    // used to reliably provide.
+                    playFallbackAlarmSound()
                     true
                 }
                 prepareAsync()
             }
+            // Safety net: if neither callback above fires within 3s
+            // for any reason, don't risk silence — fall back anyway.
+            android.os.Handler(mainLooper).postDelayed({
+                val stillNeedsFallback = try {
+                    sosPlayer?.isPlaying != true
+                } catch (_: Exception) {
+                    true
+                }
+                if (stillNeedsFallback) playFallbackAlarmSound()
+            }, 3_000)
         } catch (e: Exception) {
             Log.e("FallMonitorService", "Bundled siren failed, using system fallback", e)
-            try {
-                sosPlayer = MediaPlayer.create(
-                    this, android.provider.Settings.System.DEFAULT_ALARM_ALERT_URI
-                )?.apply {
-                    isLooping = true
-                    setVolume(1f, 1f)
-                    start()
-                }
-            } catch (e2: Exception) {
-                Log.e("FallMonitorService", "System fallback siren also failed", e2)
+            playFallbackAlarmSound()
+        }
+    }
+
+    private fun playFallbackAlarmSound() {
+        // Avoid double-playback if the primary siren actually did
+        // start successfully right around the same moment this gets
+        // called (e.g. the 3s safety-net firing just as prepareAsync
+        // genuinely completes).
+        val alreadyPlaying = try { sosPlayer?.isPlaying == true } catch (_: Exception) { false }
+        if (alreadyPlaying) return
+        try {
+            sosPlayer = MediaPlayer.create(
+                this, android.provider.Settings.System.DEFAULT_ALARM_ALERT_URI
+            )?.apply {
+                isLooping = true
+                setVolume(1f, 1f)
+                start()
             }
+        } catch (e2: Exception) {
+            Log.e("FallMonitorService", "System fallback siren also failed", e2)
         }
     }
 
