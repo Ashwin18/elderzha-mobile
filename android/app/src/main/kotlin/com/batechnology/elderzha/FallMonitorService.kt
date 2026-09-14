@@ -351,8 +351,24 @@ class FallMonitorService : Service(), SensorEventListener {
                 setDataSource(this@FallMonitorService, uri)
                 isLooping = true
                 setVolume(1f, 1f)
-                prepare()
-                start()
+                // Async, not sync — confirmed via device logs that the
+                // blocking prepare() call was throwing "Prepare failed:
+                // status=0x1" on this device, a well-known Android issue
+                // where a synchronous prepare() on the main thread right
+                // after startForeground() in a freshly-launched service
+                // can fail because the audio system isn't always ready
+                // for a blocking call at that exact moment. This was
+                // silently causing every real/test alert to fall through
+                // to the default system alarm sound instead of the real
+                // siren. prepareAsync() + this listener avoids blocking
+                // the main thread and only starts playback once the
+                // system confirms it's genuinely ready.
+                setOnPreparedListener { it.start() }
+                setOnErrorListener { _, what, extra ->
+                    Log.e("FallMonitorService", "Async siren prepare error: what=$what extra=$extra")
+                    true
+                }
+                prepareAsync()
             }
         } catch (e: Exception) {
             Log.e("FallMonitorService", "Bundled siren failed, using system fallback", e)
