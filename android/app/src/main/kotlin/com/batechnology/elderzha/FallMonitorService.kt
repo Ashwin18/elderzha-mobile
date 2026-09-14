@@ -357,12 +357,19 @@ class FallMonitorService : Service(), SensorEventListener {
             // low media volume was affecting the siren — it must be on
             // the ALARM stream and stay independent of media volume,
             // established BEFORE preparation happens.
+            //
+            // NOTE: there is no create(Context, Uri, AudioAttributes,
+            // Int) overload — the Uri version requires a SurfaceHolder
+            // parameter in between (for video use), and the version
+            // without one takes an Int resource ID instead of a Uri.
+            // Since this is a bundled raw resource, using the resource-
+            // ID overload directly is the correct, cleaner fix here.
             val alarmAttrs = AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_ALARM)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .build()
             val player = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                MediaPlayer.create(this, uri, alarmAttrs, 0)
+                MediaPlayer.create(this, R.raw.sos_alarm, alarmAttrs, 0)
             } else {
                 // Pre-API-26 fallback: the classic pattern for routing to
                 // the alarm stream before AudioAttributes existed — must
@@ -424,7 +431,12 @@ class FallMonitorService : Service(), SensorEventListener {
                 .build()
             val fallbackUri = android.provider.Settings.System.DEFAULT_ALARM_ALERT_URI
             sosPlayer = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                MediaPlayer.create(this, fallbackUri, alarmAttrs, 0)
+                // This is a system Uri, not a local resource, so the
+                // resource-ID overload used for the primary siren above
+                // doesn't apply here — using the Uri-accepting overload
+                // instead, which requires a SurfaceHolder parameter
+                // (null is fine — audio only, no video surface needed).
+                MediaPlayer.create(this, fallbackUri, null, alarmAttrs, 0)
             } else {
                 @Suppress("DEPRECATION")
                 MediaPlayer().apply {
