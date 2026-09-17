@@ -158,6 +158,58 @@ class MainActivity : FlutterActivity() {
                         } catch (_: Exception) {}
                         result.success(true)
                     }
+                    // "Alarms & reminders" — required on Android 12+ (API 31+)
+                    // for setExactAndAllowWhileIdle() to actually fire on
+                    // time. Without it, MainActivity.scheduleAlarm() silently
+                    // falls back to setAndAllowWhileIdle() (inexact — the OS
+                    // can defer it by many minutes, or drop it under Doze on
+                    // some OEMs). canScheduleExactAlarms() was already being
+                    // checked at schedule time, but nothing ever asked the
+                    // user to grant the permission in the first place — the
+                    // Dart side (AlarmScheduler.requestExactAlarmPermission)
+                    // called a method name with no case here, so every call
+                    // hit result.notImplemented() and was silently swallowed.
+                    "canScheduleExactAlarms" -> {
+                        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                        val allowed = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+                                alarmManager.canScheduleExactAlarms()
+                        result.success(allowed)
+                    }
+                    "requestExactAlarmPermission" -> {
+                        try {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                startActivity(Intent(
+                                    Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                                    Uri.parse("package:$packageName")
+                                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                            }
+                        } catch (_: Exception) {}
+                        result.success(true)
+                    }
+                    // Battery optimization can pause the app's process
+                    // entirely on some OEMs (Xiaomi/Vivo/Oppo/OnePlus/
+                    // Samsung), which can prevent AlarmReceiver's own
+                    // work (sound + notification) from completing even
+                    // when AlarmManager itself fires correctly. This was
+                    // also dead — only openBatterySettings (a generic
+                    // app-info screen) existed, never the direct
+                    // "ignore battery optimizations" system dialog.
+                    "isIgnoringBatteryOptimizations" -> {
+                        val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+                        result.success(pm.isIgnoringBatteryOptimizations(packageName))
+                    }
+                    "requestBatteryOptimization" -> {
+                        try {
+                            val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+                            if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+                                startActivity(Intent(
+                                    Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                                    Uri.parse("package:$packageName")
+                                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                            }
+                        } catch (_: Exception) {}
+                        result.success(true)
+                    }
                     // These two functions already existed fully
                     // implemented below, but were never actually wired
                     // into this handler — meaning every Flutter call to

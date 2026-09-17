@@ -17,6 +17,7 @@ class AlarmScheduler {
 
     try {
       await AlarmPermissionService.ensureFullScreenIntentPermission();
+      await AlarmPermissionService.ensureExactAlarmPermission();
 
       final dateParts = reminder.date.split('-');
       final timeParts = reminder.time.split(':');

@@ -70,6 +70,7 @@ class DailyScheduler {
   }) async {
     try {
       await AlarmPermissionService.ensureFullScreenIntentPermission();
+      await AlarmPermissionService.ensureExactAlarmPermission();
 
       final dateParts = date.split('-');
       final timeParts = time.split(':');

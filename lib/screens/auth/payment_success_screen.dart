@@ -35,6 +35,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
     // meaning a brand-new user's very first alarms could silently
     // degrade to normal notifications until their next login (if ever).
     await AlarmPermissionService.ensureFullScreenIntentPermission();
+    await AlarmPermissionService.ensureExactAlarmPermission();
     await _scheduleSetupAlarmsAfterPayment();
   }
 
