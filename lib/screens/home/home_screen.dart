@@ -667,38 +667,17 @@ class _HomeScreenState extends State<HomeScreen> {
                   // under the header — visible the instant the screen
                   // opens, instead of requiring a scroll past the
                   // wellbeing + steps cards to reach it.
+                  //
+                  // Tapping a past date on the strip no longer inserts
+                  // its entry into this scrollable list at all — on a
+                  // real device the strip isn't always near the top of
+                  // the screen, so "insert the card right below it"
+                  // could still land below the fold. Instead the tap
+                  // opens a bottom sheet (see _openDayDetailSheet,
+                  // wired into _weekStrip's date onTap) — an overlay on
+                  // top of the whole screen, visible immediately no
+                  // matter where the strip is scrolled to.
                   _weekStrip(),
-                  // Tapping a date on the strip used to show its entry
-                  // far below — after the wellbeing card, steps, and
-                  // activity/poll strip — so a past date's check-in
-                  // needed a scroll to see, right after the tap that
-                  // asked for it. Now a non-today selection surfaces
-                  // its detail card immediately under the strip, where
-                  // the tap happened. Today keeps no extra card here —
-                  // its own permanent "A day in my life" card already
-                  // covers it just below, so nothing is duplicated for
-                  // the default (nothing tapped) view.
-                  if (!_isToday(_selectedDay)) ...[
-                    const SizedBox(height: 12),
-                    _secLabel(Icons.timeline_rounded, _detailLabel()),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 280),
-                      transitionBuilder: (child, animation) => FadeTransition(
-                        opacity: animation,
-                        child: SlideTransition(
-                          position: Tween<Offset>(
-                            begin: const Offset(0, 0.06),
-                            end: Offset.zero,
-                          ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
-                          child: child,
-                        ),
-                      ),
-                      child: Container(
-                        key: ValueKey(_fmtDateKey(_selectedDay)),
-                        child: _detailCard(),
-                      ),
-                    ),
-                  ],
                   const SizedBox(height: 12),
                   _todayWellbeingCard(auth.userName),
                   const SizedBox(height: 10),
@@ -1368,7 +1347,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   padding: EdgeInsets.only(right: i != 6 ? 4 : 0),
                   child: GestureDetector(
                     onTap: type != 'future'
-                        ? () => setState(() => _selectedDay = cellDate)
+                        ? () {
+                            setState(() => _selectedDay = cellDate);
+                            // Today's own status already has a
+                            // permanent card just below — only past
+                            // dates need the pop-up.
+                            if (!_isToday(cellDate)) {
+                              _openDayDetailSheet(cellDate);
+                            }
+                          }
                         : null,
                     child: Container(
                       height: 62,
@@ -1537,11 +1524,75 @@ class _HomeScreenState extends State<HomeScreen> {
     return 'Reminders & Events';
   }
 
+  // Opens the tapped date's entry as a bottom sheet — an overlay on
+  // top of the whole screen rather than a card inserted into the
+  // scrollable list, so it's visible the instant you tap regardless
+  // of where the calendar strip is scrolled to. _selectedDay is
+  // already set by the caller before this runs, so _detailCard()
+  // (which reads _selectedDay directly) renders the right day.
+  void _openDayDetailSheet(DateTime day) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Padding(
+        padding: EdgeInsets.only(
+          left: 14,
+          right: 14,
+          top: 8,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+        ),
+        child: SafeArea(
+          top: false,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.75,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Drag handle — signals this is a dismissible
+                  // pop-up (swipe down, tap the dimmed backdrop, or
+                  // the card's own close button all dismiss it).
+                  Container(
+                    width: 36,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 10),
+                    decoration: BoxDecoration(
+                      color: C.bd,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8, left: 2),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        _detailLabel(),
+                        style: poppins(11, w: FontWeight.w700, c: C.txl),
+                      ),
+                    ),
+                  ),
+                  _detailCard(),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _detailCard() {
     final t = _dayType(_selectedDay);
     final d = _selectedDay.day;
     final m = _monthShort(_selectedDay);
-    void close() => setState(() => _selectedDay = DateTime.now());
+    void close() {
+      setState(() => _selectedDay = DateTime.now());
+      Navigator.of(context).maybePop();
+    }
+
     final dayReminders = _datedRemindersForDay(_selectedDay);
     final checkIn = _checkInForSelectedDay();
     debugPrint('=== _detailCard: selectedDay=$_selectedDay, dayType=$t ===');
@@ -1633,7 +1684,13 @@ class _HomeScreenState extends State<HomeScreen> {
               _activityPollStatusSection(_selectedDay),
               if (_checkInEmojiSequence(checkIn).isNotEmpty) ...[
                 const SizedBox(height: 12),
-                _StaggeredEmojiRow(items: _checkInEmojiSequence(checkIn)),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: _checkInEmojiSequence(checkIn)
+                      .map((e) => _colorChip(e.key, e.value))
+                      .toList(),
+                ),
               ],
               if (notes.isNotEmpty) ...[
                 const SizedBox(height: 10),
@@ -2203,6 +2260,54 @@ class _HomeScreenState extends State<HomeScreen> {
       chips.add(_checkInChip('${f['icon']} ${f['label']}: $val'));
     }
     return chips;
+  }
+
+  // Colour-coded chip (icon-in-dot + label) for a single check-in
+  // field — mood, activity, people met, places, weather each get
+  // their own tint so the set reads at a glance instead of everything
+  // being the same colour. `label` comes from _checkInEmojiSequence,
+  // e.g. "Mood", "Activity: Walked", "People met: John" — the part
+  // before ':' (or the whole label for single-value fields) picks
+  // the category.
+  (Color, Color) _chipColorsForLabel(String label) {
+    final category = label.split(':').first.trim().toLowerCase();
+    if (category.startsWith('mood')) return (C.purpleLight, C.purple);
+    if (category.startsWith('activity')) return (C.greenLight, C.green);
+    const pink = Color(0xFFEE6B9E);
+    const pinkLight = Color(0xFFFDEAF1);
+    if (category.startsWith('people')) return (pinkLight, pink);
+    if (category.startsWith('places')) return (pinkLight, pink);
+    if (category.startsWith('weather')) return (C.yellowMid, C.yellowDeep);
+    return (C.bg2, C.txm);
+  }
+
+  Widget _colorChip(String emoji, String label) {
+    final (bg, iconBg) = _chipColorsForLabel(label);
+    // Multi-value labels arrive as "Category: Value" (e.g. "Activity:
+    // Walked") — show just the value, since the coloured dot already
+    // signals the category.
+    final text = label.contains(':') ? label.split(':').last.trim() : label;
+    return Container(
+      padding: const EdgeInsets.only(left: 4, right: 10, top: 4, bottom: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 22,
+            height: 22,
+            decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
+            alignment: Alignment.center,
+            child: Text(emoji, style: const TextStyle(fontSize: 11, height: 1)),
+          ),
+          const SizedBox(width: 6),
+          Text(text, style: poppins(11, w: FontWeight.w700, c: C.ink)),
+        ],
+      ),
+    );
   }
 
   Widget _checkInChip(String label) => Container(
