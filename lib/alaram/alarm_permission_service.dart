@@ -1,8 +1,41 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 
 const MethodChannel _alarmPermissionChannel = MethodChannel('alarm_service');
+
+// Watches for the app coming back to the foreground — used to detect
+// the user returning from the system "Alarms & reminders" Settings
+// screen, since MainActivity.requestExactAlarmPermission() resolves
+// the moment it *launches* that screen, not when the user finishes
+// with it (see the wait in ensureExactAlarmPermission() below for why
+// that gap matters).
+class _ResumeWatcher with WidgetsBindingObserver {
+  final Completer<void> _completer = Completer<void>();
+  bool _disposed = false;
+
+  _ResumeWatcher() {
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  Future<void> get resumed => _completer.future;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !_completer.isCompleted) {
+      _completer.complete();
+      dispose();
+    }
+  }
+
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    WidgetsBinding.instance.removeObserver(this);
+  }
+}
 
 class AlarmPermissionService {
   static bool _hasCheckedFullScreenPermission = false;
@@ -40,10 +73,25 @@ class AlarmPermissionService {
   // at all (see MainActivity.kt), so this previously no-op'd silently.
   // Only prompts once per app session — repeatedly bouncing the user
   // to Settings on every alarm save would be worse than not asking.
+  //
+  // Bug fixed here: MainActivity's "requestExactAlarmPermission" just
+  // *launches* the system Settings screen and returns immediately —
+  // it doesn't wait for the user to actually flip the toggle. Callers
+  // used to proceed straight to scheduling the moment that call
+  // returned, so the very first (default) alarms always got scheduled
+  // in the split-second window before the user had touched Settings,
+  // permanently registering them as inexact even if the user granted
+  // the permission a second later. Now this waits for the app to come
+  // back to the foreground (i.e. the user finished with that Settings
+  // screen, granted or not) before returning, capped at 90s in case
+  // they back out of the flow entirely — so by the time a caller
+  // schedules alarms, canScheduleExactAlarms() reflects what the user
+  // actually just did.
   static Future<void> ensureExactAlarmPermission() async {
     if (!Platform.isAndroid || _hasCheckedExactAlarmPermission) {
       return;
     }
+    _hasCheckedExactAlarmPermission = true;
 
     try {
       final allowed =
@@ -51,16 +99,19 @@ class AlarmPermissionService {
             'canScheduleExactAlarms',
           ) ??
           true;
+      if (allowed) return;
 
-      if (!allowed) {
-        await _alarmPermissionChannel.invokeMethod(
-          'requestExactAlarmPermission',
-        );
-      }
+      final watcher = _ResumeWatcher();
+      await _alarmPermissionChannel.invokeMethod(
+        'requestExactAlarmPermission',
+      );
+      await watcher.resumed.timeout(
+        const Duration(seconds: 90),
+        onTimeout: () {},
+      );
+      watcher.dispose();
     } catch (_) {
       // Ignore permission bridge failures and keep alarm scheduling functional.
-    } finally {
-      _hasCheckedExactAlarmPermission = true;
     }
   }
 }
