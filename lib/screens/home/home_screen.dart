@@ -7,6 +7,8 @@ import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../alaram/daily_scheduler.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_routes.dart';
 import '../../providers/auth_provider.dart';
@@ -110,6 +112,18 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) setState(() => _loadError = true);
     }
 
+    // Safety net — a brand-new user's default wizard alarms are only
+    // ever scheduled once, right after payment (payment_success_screen).
+    // If that attempt silently failed (see the try/catch it's now
+    // wrapped in), this is the first place afterwards that both (a)
+    // already has the authoritative medical-record data fetched above
+    // and (b) reliably runs on every Home visit. Only fires once per
+    // install — reschedule is itself somewhat expensive (cancels and
+    // re-adds every alarm) and the flag flips true as soon as it runs,
+    // successful or not, so a genuinely alarm-free account isn't
+    // retried forever.
+    unawaited(_retryUnscheduledSetupAlarmsIfNeeded());
+
     // Phase 3 — Today at a Glance counts. Deliberately outside the
     // try/catch above so a failure here never marks the whole Home
     // load as failed — this is a nice-to-have strip, not critical.
@@ -139,6 +153,26 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     } catch (_) {
       // Silently leave counts at 0 — strip just won't show.
+    }
+  }
+
+  Future<void> _retryUnscheduledSetupAlarmsIfNeeded() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      // Missing (never ran) or explicitly false (ran and failed) both
+      // need a retry — only a recorded `true` means it already
+      // succeeded and this should be left alone.
+      final alreadyOk = prefs.getBool('setup_alarms_scheduled_ok') ?? false;
+      if (alreadyOk) return;
+      if (_medicalRecord == null || _medicalRecord!.isEmpty) return;
+
+      await DailyScheduler.rescheduleFromMedicalRecordsApi(_medicalRecord!);
+      await prefs.setBool('setup_alarms_scheduled_ok', true);
+    } catch (e) {
+      debugPrint('HomeScreen: setup-alarm retry failed: $e');
+      // Leave the flag unset (or false) so the next Home visit tries
+      // again rather than a transient failure here permanently
+      // masking a real, fixable problem.
     }
   }
 
@@ -720,6 +754,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('A day in my life',
                   style: poppins(17, w: FontWeight.w900, c: C.ink)),
+              const SizedBox(height: 2),
+              // This card is always about today specifically — never
+              // the day selected in the calendar strip below. Without
+              // an explicit label here, "Diary opens at 8PM" (shown
+              // before today's check-in window opens) reads as if it
+              // applies to whichever day the user just tapped in the
+              // calendar, including past days — it doesn't; the
+              // per-day card below already shows the correct
+              // "No check-in on [date]" for those.
+              Text('Today · ${_monthShort(DateTime.now())} ${DateTime.now().day}',
+                  style: poppins(10.5, w: FontWeight.w700, c: C.txl)),
               if (checkInSummary.isNotEmpty) ...[
                 const SizedBox(height: 3),
                 Text(checkInSummary,

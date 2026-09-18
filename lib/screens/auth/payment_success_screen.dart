@@ -36,7 +36,23 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
     // degrade to normal notifications until their next login (if ever).
     await AlarmPermissionService.ensureFullScreenIntentPermission();
     await AlarmPermissionService.ensureExactAlarmPermission();
-    await _scheduleSetupAlarmsAfterPayment();
+    // This is the ONLY place a brand-new user's default wizard alarms
+    // ever get scheduled — there's no retry if it fails here, and until
+    // now nothing marked whether it actually succeeded. If anything
+    // threw partway through (a slow tone download, a MethodChannel
+    // hiccup), the user landed on this "all set!" screen with zero
+    // alarms actually scheduled, and no way to know. Record success/
+    // failure so otp_screen.dart can retry on the next login as a
+    // safety net rather than leaving it permanently unscheduled.
+    try {
+      await _scheduleSetupAlarmsAfterPayment();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('setup_alarms_scheduled_ok', true);
+    } catch (e) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('setup_alarms_scheduled_ok', false);
+      debugPrint('PaymentSuccessScreen: alarm scheduling failed: $e');
+    }
   }
 
   @override

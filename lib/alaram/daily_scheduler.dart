@@ -299,4 +299,130 @@ class DailyScheduler {
       return AlarmType.medical;
     }
   }
+
+  /* -----------------------------------------------------------
+     RESCHEDULE FROM BACKEND — SAFETY NET
+     The only place a brand-new user's default wizard alarms get
+     scheduled is payment_success_screen.dart's initState — a single
+     unrepeated attempt. If that ever silently fails (network hiccup,
+     a MethodChannel error, anything), the user is left with zero
+     scheduled alarms and no way to know. This pulls the same
+     medical/food alarm fields straight from GET /user/get/medical/
+     records (the authoritative backend copy) and reschedules
+     everything fresh — safe to call repeatedly since it cancels
+     existing alarms first. Deliberately independent of otp_screen's
+     own _scheduleAlarmsAfterLogin (which already works for returning
+     users) rather than refactoring it, to avoid touching a working
+     path.
+  ------------------------------------------------------------ */
+  static Future<void> rescheduleFromMedicalRecordsApi(
+    Map<String, dynamic> d,
+  ) async {
+    bool truthy(dynamic v) {
+      if (v == null) return false;
+      if (v == true) return true;
+      if (v is num) return v != 0;
+      final t = v.toString().toLowerCase().trim();
+      return t == '1' || t == 'true' || t == 'yes' || t == 'active';
+    }
+
+    List<int>? toHm(dynamic raw) {
+      if (raw == null) return null;
+      final parts = raw.toString().split(':');
+      if (parts.length < 2) return null;
+      final h = int.tryParse(parts[0]);
+      final m = int.tryParse(parts[1]);
+      if (h == null || m == null) return null;
+      return [h, m];
+    }
+
+    String schedDate(List<int> hm) {
+      final now = DateTime.now();
+      var dt = DateTime(now.year, now.month, now.day, hm[0], hm[1]);
+      if (dt.isBefore(now)) dt = dt.add(const Duration(days: 1));
+      return '${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+    }
+
+    String toStr(List<int> hm) =>
+        '${hm[0].toString().padLeft(2, '0')}:${hm[1].toString().padLeft(2, '0')}:00';
+
+    final prefs = await SharedPreferences.getInstance();
+    final legacyTone = prefs.getString('alarm_tone');
+    final medicalTone = (d['medical_tone']?.toString().trim().isNotEmpty == true
+            ? d['medical_tone'].toString()
+            : null) ??
+        prefs.getString('medical_alarm_tone') ??
+        legacyTone;
+    final foodTone = (d['food_tone']?.toString().trim().isNotEmpty == true
+            ? d['food_tone'].toString()
+            : null) ??
+        prefs.getString('food_alarm_tone') ??
+        legacyTone;
+
+    await cancelAllAlarms();
+    await clearStoredAlarms();
+
+    if (truthy(d['food_alarm'] ?? d['food_alaram'])) {
+      final foodImg = d['food_file']?.toString();
+      final foodSlots = {
+        '🍳 Elderzha • Breakfast Time': [
+          d['breakfast_status'],
+          d['breakfast_time'] ?? d['bf_time'],
+        ],
+        '🍽 Elderzha • Lunch Reminder': [
+          d['lunch_status'],
+          d['lunch_time'] ?? d['l_time'],
+        ],
+        '🍽 Elderzha • Dinner Reminder': [
+          d['dinner_status'],
+          d['dinner_time'] ?? d['d_time'],
+        ],
+      };
+      for (final e in foodSlots.entries) {
+        if (!truthy(e.value[0])) continue;
+        final hm = toHm(e.value[1]);
+        if (hm == null) continue;
+        await scheduleReminder(
+          AlarmType.food,
+          schedDate(hm),
+          toStr(hm),
+          e.key,
+          'daily',
+          soundUrl: foodTone,
+          imageUrl: foodImg,
+        );
+      }
+    }
+
+    if (truthy(d['medical_alarm'])) {
+      final medImg = d['medical_file']?.toString();
+      final medSlots = {
+        '💊 Elderzha • Morning Before Food':
+            d['morning_before_food'] ?? d['m_before_food'],
+        '💊 Elderzha • Morning After Food':
+            d['morning_after_food'] ?? d['m_after_food'],
+        '💊 Elderzha • Noon Before Food':
+            d['afternoon_before_food'] ?? d['af_before_food'],
+        '💊 Elderzha • Noon After Food':
+            d['afternoon_after_food'] ?? d['af_after_food'],
+        '🌙 Elderzha • Night Before Food':
+            d['night_before_food'] ?? d['n_before_food'],
+        '🌙 Elderzha • Night After Food':
+            d['night_after_food'] ?? d['n_after_food'],
+      };
+      for (final e in medSlots.entries) {
+        final hm = toHm(e.value);
+        if (hm == null) continue;
+        await scheduleReminder(
+          AlarmType.medical,
+          schedDate(hm),
+          toStr(hm),
+          e.key,
+          'daily',
+          soundUrl: medicalTone,
+          imageUrl: medImg,
+        );
+      }
+    }
+  }
 }
