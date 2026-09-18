@@ -57,7 +57,16 @@ class DailyScheduler {
      SCHEDULE SINGLE REMINDER
   ------------------------------------------------------------ */
 
-  static Future<void> scheduleReminder(
+  // Returns whether the alarm was actually registered with the OS —
+  // callers that need to know their scheduling really succeeded (e.g.
+  // payment_success_screen's "were the new account's default alarms
+  // actually scheduled?" check) should check this rather than assume
+  // success just because the call didn't throw. Everything inside
+  // still fails soft (caught and logged, never thrown) so existing
+  // callers that don't check the return value keep behaving exactly
+  // as before — they just silently get `false` instead of an
+  // indistinguishable silent success.
+  static Future<bool> scheduleReminder(
     AlarmType alarmType,
     String date, // 🔥 IMPORTANT: pass actual date
     String time,
@@ -75,7 +84,7 @@ class DailyScheduler {
       final dateParts = date.split('-');
       final timeParts = time.split(':');
 
-      if (dateParts.length < 3 || timeParts.length < 2) return;
+      if (dateParts.length < 3 || timeParts.length < 2) return false;
 
       DateTime scheduleDateTime = DateTime(
         int.parse(dateParts[0]),
@@ -91,7 +100,7 @@ class DailyScheduler {
         if (scheduleType.toLowerCase() == 'daily') {
           scheduleDateTime = scheduleDateTime.add(const Duration(days: 1));
         } else {
-          return; // 'once' past alarms are truly expired
+          return false; // 'once' past alarms are truly expired
         }
       }
 
@@ -176,8 +185,10 @@ class DailyScheduler {
         'notes': notes ?? '',
         'triggerAt': triggerAt,
       });
+      return true;
     } catch (e) {
       print("DailyScheduler Error: $e");
+      return false;
     }
   }
 
@@ -362,6 +373,14 @@ class DailyScheduler {
     await cancelAllAlarms();
     await clearStoredAlarms();
 
+    // Same "don't lie about success" fix as payment_success_screen's
+    // scheduling — scheduleReminder() fails soft (returns false rather
+    // than throwing), so without checking its result here this whole
+    // retry could silently fail to register an alarm yet still report
+    // success to home_screen, which would then never try again.
+    var attempted = 0;
+    var failed = 0;
+
     if (truthy(d['food_alarm'] ?? d['food_alaram'])) {
       final foodImg = d['food_file']?.toString();
       final foodSlots = {
@@ -382,7 +401,8 @@ class DailyScheduler {
         if (!truthy(e.value[0])) continue;
         final hm = toHm(e.value[1]);
         if (hm == null) continue;
-        await scheduleReminder(
+        attempted++;
+        final ok = await scheduleReminder(
           AlarmType.food,
           schedDate(hm),
           toStr(hm),
@@ -391,6 +411,7 @@ class DailyScheduler {
           soundUrl: foodTone,
           imageUrl: foodImg,
         );
+        if (!ok) failed++;
       }
     }
 
@@ -413,7 +434,8 @@ class DailyScheduler {
       for (final e in medSlots.entries) {
         final hm = toHm(e.value);
         if (hm == null) continue;
-        await scheduleReminder(
+        attempted++;
+        final ok = await scheduleReminder(
           AlarmType.medical,
           schedDate(hm),
           toStr(hm),
@@ -422,7 +444,12 @@ class DailyScheduler {
           soundUrl: medicalTone,
           imageUrl: medImg,
         );
+        if (!ok) failed++;
       }
+    }
+
+    if (attempted > 0 && failed > 0) {
+      throw Exception('$failed of $attempted alarm(s) failed to reschedule');
     }
   }
 }

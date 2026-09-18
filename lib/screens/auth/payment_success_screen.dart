@@ -180,16 +180,39 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
     final medicalImage = _firstText(config, ['medical_file', 'medical_image']);
     final foodImage = _firstText(config, ['food_file', 'food_image']);
 
+    // scheduleReminder() fails soft internally (logs and returns false
+    // rather than throwing) so it never crashes this screen — but that
+    // also meant a real failure (a MethodChannel hiccup, a slow tone
+    // download, etc.) was completely invisible to the caller: this
+    // function would finish "successfully" either way, the try/catch
+    // in _activateAndScheduleAlarms would mark setup_alarms_scheduled_ok
+    // = true, and home_screen's safety-net retry — which only runs
+    // when that flag is false — would never fire to try again. A
+    // brand-new account's default alarms could end up silently never
+    // actually registered with the OS. Now every attempted alarm's
+    // real success/failure is counted, and a failure here is rethrown
+    // so the flag (and the retry) reflect what actually happened.
+    var attempted = 0;
+    var failed = 0;
     if (_truthy(config['medical_alarm'])) {
-      await _scheduleMedical(config, tone: medicalTone, imageUrl: medicalImage);
+      final r = await _scheduleMedical(config, tone: medicalTone, imageUrl: medicalImage);
+      attempted += r.$1;
+      failed += r.$2;
     }
     if (_truthy(config['food_alarm'] ?? config['food_alaram'])) {
-      await _scheduleFood(config, tone: foodTone, imageUrl: foodImage);
+      final r = await _scheduleFood(config, tone: foodTone, imageUrl: foodImage);
+      attempted += r.$1;
+      failed += r.$2;
     }
     await _scheduleSetupFamilyEvents();
+    if (attempted > 0 && failed > 0) {
+      throw Exception('$failed of $attempted default alarm(s) failed to schedule');
+    }
   }
 
-  Future<void> _scheduleMedical(
+  // Returns (attempted, failed) so the caller can tell a real failure
+  // apart from "nothing was enabled" — see note above.
+  Future<(int, int)> _scheduleMedical(
     Map<String, dynamic> config, {
     required String? tone,
     required String? imageUrl,
@@ -202,10 +225,13 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
       ['night_before_food', 'n_before_food', 'Night medication before food'],
       ['night_after_food', 'n_after_food', 'Night medication after food'],
     ];
+    var attempted = 0;
+    var failed = 0;
     for (final item in items) {
       final time = (config[item[0]] ?? config[item[1]])?.toString().trim() ?? '';
       if (!_filled(time)) continue;
-      await DailyScheduler.scheduleReminder(
+      attempted++;
+      final ok = await DailyScheduler.scheduleReminder(
         AlarmType.medical,
         _schedDate(time),
         time,
@@ -214,10 +240,12 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
         soundUrl: tone,
         imageUrl: imageUrl,
       );
+      if (!ok) failed++;
     }
+    return (attempted, failed);
   }
 
-  Future<void> _scheduleFood(
+  Future<(int, int)> _scheduleFood(
     Map<String, dynamic> config, {
     required String? tone,
     required String? imageUrl,
@@ -227,10 +255,13 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
       ['lunch_time', 'l_time', 'Lunch reminder'],
       ['dinner_time', 'd_time', 'Dinner reminder'],
     ];
+    var attempted = 0;
+    var failed = 0;
     for (final item in items) {
       final time = (config[item[0]] ?? config[item[1]])?.toString().trim() ?? '';
       if (!_filled(time)) continue;
-      await DailyScheduler.scheduleReminder(
+      attempted++;
+      final ok = await DailyScheduler.scheduleReminder(
         AlarmType.food,
         _schedDate(time),
         time,
@@ -239,7 +270,9 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
         soundUrl: tone,
         imageUrl: imageUrl,
       );
+      if (!ok) failed++;
     }
+    return (attempted, failed);
   }
 
   Future<void> _scheduleSetupFamilyEvents() async {
