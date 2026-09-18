@@ -2,15 +2,88 @@
 //
 // Dedicated, full-screen home for the family tree — reached from
 // a "View full tree" entry point on the Family Members screen.
-// Tapping any member opens a detail sheet showing their relation,
-// birthday/anniversary with a "days until" countdown, and a
-// "Send wishes" button that opens the phone's share sheet with a
-// pre-filled message (WhatsApp among the options) — no WhatsApp
-// API integration needed, just a standard OS share intent.
+//
+// Rebuilt (Sep 2026) as a proper top-down hierarchical tree, native
+// widgets + CustomPainter only, no background image: You & your
+// Spouse on top, your Children below them, your Grandchildren below
+// that — with connecting lines showing marriage (a horizontal line
+// between spouses) and parent-child descent (a trunk-and-branch line
+// dropping from each row's center down into the row below). Parents
+// (Father/Mother), if the user has added them, appear as a smaller
+// row above "You" specifically. Tapping any member still opens the
+// same detail sheet as before (relation, birthday/anniversary
+// countdown, "Send wishes").
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../providers/auth_provider.dart';
 import '../../services/services.dart';
+
+// ── Theme (matches the rest of the app — gold/navy/cream, not the
+// green tones from an earlier one-off client reference) ───────────
+abstract final class _T {
+  static const gold = Color(0xFFFFB800);
+  static const goldDeep = Color(0xFFB8860B);
+  static const ink = Color(0xFF1A1726);
+  static const txm = Color(0xFF8A8878);
+  static const cream1 = Color(0xFFFFFBEA);
+  static const cream2 = Color(0xFFFFF3C4);
+  static const purple = Color(0xFF8B6FE8);
+  static const pink = Color(0xFFEE6B9E);
+  static const green = Color(0xFF4E9E3C);
+  static const orange = Color(0xFFEF9F27);
+}
+
+// (generation, emoji, accent color) per relation. Generation is
+// relative to "You" at 0: negative = older (parents), positive =
+// younger (children, grandchildren).
+class _RelInfo {
+  final int gen;
+  final String emoji;
+  final Color color;
+  const _RelInfo(this.gen, this.emoji, this.color);
+}
+
+const Map<String, _RelInfo> _relInfo = {
+  'Father': _RelInfo(-1, '👨', _T.orange),
+  'Mother': _RelInfo(-1, '👩', _T.orange),
+  'Spouse': _RelInfo(0, '❤️', _T.gold),
+  'Son': _RelInfo(1, '👦', _T.purple),
+  'Daughter': _RelInfo(1, '👧', _T.purple),
+  'Son in law': _RelInfo(1, '👨', _T.purple),
+  'Daughter in law': _RelInfo(1, '👩', _T.purple),
+  // Backend stores these with hyphens (family_member_table), while
+  // the UI chip list uses spaces — alias both spellings so this
+  // lookup matches regardless of which one the API actually returns.
+  'Son-in-law': _RelInfo(1, '👨', _T.purple),
+  'Daughter-in-law': _RelInfo(1, '👩', _T.purple),
+  'Grand Son': _RelInfo(2, '👦', _T.pink),
+  'Grand Daughter': _RelInfo(2, '👧', _T.pink),
+};
+
+_RelInfo _infoFor(String relation) => _relInfo[relation] ?? const _RelInfo(1, '🧑', _T.purple);
+
+// One node on the tree — either a real family member or the
+// synthetic "You" node representing the logged-in user.
+class _Node {
+  final String name;
+  final String relationLabel;
+  final String emoji;
+  final Color color;
+  final int gen;
+  final bool isYou;
+  final dynamic raw;
+  const _Node({
+    required this.name,
+    required this.relationLabel,
+    required this.emoji,
+    required this.color,
+    required this.gen,
+    this.isYou = false,
+    this.raw,
+  });
+}
 
 class FamilyTreeScreen extends StatefulWidget {
   const FamilyTreeScreen({super.key});
@@ -18,29 +91,6 @@ class FamilyTreeScreen extends StatefulWidget {
   @override
   State<FamilyTreeScreen> createState() => _FamilyTreeScreenState();
 }
-
-// (row, emoji) per relation — same mapping used by the compact tree
-// widget elsewhere, duplicated here since that file's helpers are
-// library-private and this screen doesn't share a widget instance
-// with it.
-const Map<String, (int, String)> _relInfo = {
-  'Father': (-1, '👨'),
-  'Mother': (-1, '👩'),
-  'Spouse': (0, '❤️'),
-  'Son': (1, '👦'),
-  'Daughter': (1, '👧'),
-  'Son in law': (1, '👨'),
-  'Daughter in law': (1, '👩'),
-  // Backend stores these with hyphens (family_member_table), while
-  // the UI chip list uses spaces — alias both spellings so this
-  // lookup matches regardless of which one the API actually returns.
-  'Son-in-law': (1, '👨'),
-  'Daughter-in-law': (1, '👩'),
-  'Grand Son': (2, '👦'),
-  'Grand Daughter': (2, '👧'),
-};
-
-(int, String) _infoFor(String relation) => _relInfo[relation] ?? (0, '🧑');
 
 class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
   final _authService = AuthService();
@@ -118,16 +168,15 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
     return next.difference(DateTime(now.year, now.month, now.day)).inDays;
   }
 
-  void _openDetail(dynamic m) {
-    final name = _nameOf(m);
-    final relation = _relationOf(m);
+  void _openDetail(_Node node) {
+    if (node.isYou) return; // nothing to show for the user's own node
+    final m = node.raw;
     final birthday = _parseDate(
         (m['birthday_date'] ?? m['birthday'] ?? m['dob'])?.toString());
     final anniversary =
         _parseDate((m['anniversary_date'] ?? m['anniversary'])?.toString());
     final birthdayDays = _daysUntil(birthday);
     final anniversaryDays = _daysUntil(anniversary);
-    final info = _infoFor(relation);
 
     showModalBottomSheet(
       context: context,
@@ -143,13 +192,13 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
           const SizedBox(height: 20),
           Container(
             width: 76, height: 76,
-            decoration: BoxDecoration(color: const Color(0xFFFFF3C4), shape: BoxShape.circle),
-            child: Center(child: Text(info.$2, style: const TextStyle(fontSize: 36))),
+            decoration: BoxDecoration(color: node.color.withOpacity(.18), shape: BoxShape.circle),
+            child: Center(child: Text(node.emoji, style: const TextStyle(fontSize: 36))),
           ),
           const SizedBox(height: 14),
-          Text(name, style: GoogleFonts.poppins(fontSize: 19, fontWeight: FontWeight.w800, color: const Color(0xFF1A1726))),
+          Text(node.name, style: GoogleFonts.poppins(fontSize: 19, fontWeight: FontWeight.w800, color: _T.ink)),
           const SizedBox(height: 3),
-          Text(relation, style: GoogleFonts.poppins(fontSize: 13, color: const Color(0xFF8A8878))),
+          Text(node.relationLabel, style: GoogleFonts.poppins(fontSize: 13, color: _T.txm)),
           const SizedBox(height: 20),
           if (birthday != null)
             _dateRow('🎂', 'Birthday', birthday, birthdayDays),
@@ -159,11 +208,11 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
           if (birthday == null && anniversary == null)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text('No dates added yet', style: GoogleFonts.poppins(fontSize: 12.5, color: const Color(0xFF8A8878))),
+              child: Text('No dates added yet', style: GoogleFonts.poppins(fontSize: 12.5, color: _T.txm)),
             ),
           const SizedBox(height: 22),
           GestureDetector(
-            onTap: () => _sendWishes(name, birthdayDays, anniversaryDays),
+            onTap: () => _sendWishes(node.name, birthdayDays, anniversaryDays),
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 15),
@@ -204,7 +253,7 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
         if (countdown.isNotEmpty)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(color: const Color(0xFFFFB800), borderRadius: BorderRadius.circular(999)),
+            decoration: BoxDecoration(color: _T.gold, borderRadius: BorderRadius.circular(999)),
             child: Text(countdown, style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF102A56))),
           ),
       ]),
@@ -223,137 +272,304 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final userName = context.watch<AuthProvider>().userName;
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFFFFBEA), Color(0xFFFFF3C4)],
+            colors: [_T.cream1, _T.cream2],
           ),
         ),
         child: SafeArea(
-          child: Stack(children: [
-            // Soft decorative accents for a more premium feel
-            const Positioned(top: 20, left: 24, child: Text('🍃', style: TextStyle(fontSize: 22))),
-            const Positioned(top: 60, right: 30, child: Text('✦', style: TextStyle(fontSize: 16, color: Color(0xFFFFB800)))),
-            const Positioned(bottom: 40, left: 30, child: Text('🍃', style: TextStyle(fontSize: 18))),
-            Column(children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 4, 20, 0),
-                child: Row(children: [
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1A1726), size: 20),
-                  ),
-                  Expanded(
-                    child: Text('Our Family Tree',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w800, color: const Color(0xFF1A1726))),
-                  ),
-                  const SizedBox(width: 40),
-                ]),
-              ),
-              Expanded(
-                child: _loading
-                    ? const Center(child: CircularProgressIndicator())
-                    : _members.isEmpty
-                        ? Center(
-                            child: Text('No family members added yet',
-                                style: GoogleFonts.poppins(fontSize: 13.5, color: const Color(0xFF8A8878))),
-                          )
-                        : _buildTree(),
-              ),
-            ]),
+          child: Column(children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 4, 20, 0),
+              child: Row(children: [
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.arrow_back_ios_new_rounded, color: _T.ink, size: 20),
+                ),
+                Expanded(
+                  child: Text('Our Family Tree',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w800, color: _T.ink)),
+                ),
+                const SizedBox(width: 40),
+              ]),
+            ),
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator(color: _T.gold))
+                  : _buildTree(userName),
+            ),
           ]),
         ),
       ),
     );
   }
 
-  Widget _buildTree() {
-    // The 6 pre-designed circle slots on the tree template image,
-    // measured directly from the actual asset (as x%/y% of its
-    // width/height) — top pair, middle pair, bottom pair.
-    const slots = [
-      Offset(0.306, 0.117), // top-left
-      Offset(0.672, 0.127), // top-right
-      Offset(0.168, 0.291), // middle-left
-      Offset(0.874, 0.285), // middle-right
-      Offset(0.236, 0.464), // bottom-left
-      Offset(0.742, 0.449), // bottom-right
-    ];
+  Widget _buildTree(String userName) {
+    // Build the "You" node plus every real member, then bucket by
+    // generation so each row of the tree is easy to lay out.
+    final you = _Node(
+      name: userName,
+      relationLabel: 'You',
+      emoji: '😊',
+      color: _T.gold,
+      gen: 0,
+      isYou: true,
+    );
+    final memberNodes = _members.map((m) {
+      final relation = _relationOf(m);
+      final info = _infoFor(relation);
+      return _Node(
+        name: _nameOf(m),
+        relationLabel: relation,
+        emoji: info.emoji,
+        color: info.color,
+        gen: info.gen,
+        raw: m,
+      );
+    }).toList();
 
-    // Sort members by generation so parents land in the higher
-    // slots and children/grandchildren in the lower ones.
-    final sorted = [..._members]
-      ..sort((a, b) => _infoFor(_relationOf(a)).$1.compareTo(_infoFor(_relationOf(b)).$1));
-    final onTree = sorted.take(slots.length).toList();
-    final overflow = sorted.length > slots.length ? sorted.skip(slots.length).toList() : <dynamic>[];
+    final byGen = <int, List<_Node>>{};
+    byGen.putIfAbsent(0, () => []).add(you);
+    for (final n in memberNodes) {
+      byGen.putIfAbsent(n.gen, () => []).add(n);
+    }
+    // "You" always first in its row, so the marriage line reliably
+    // connects to the very first node.
+    byGen[0]!.sort((a, b) => a.isYou ? -1 : (b.isYou ? 1 : 0));
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
-      child: Column(children: [
-        LayoutBuilder(builder: (context, constraints) {
-          final treeWidth = constraints.maxWidth;
-          const aspect = 1600 / 900; // the image's real height/width ratio
-          final treeHeight = treeWidth * aspect;
-          return SizedBox(
-            width: treeWidth,
-            height: treeHeight,
-            child: Stack(children: [
-              Positioned.fill(
-                child: Image.asset('assets/images/Family tree.jpeg', fit: BoxFit.contain),
-              ),
-              for (var i = 0; i < onTree.length; i++)
-                Positioned(
-                  left: slots[i].dx * treeWidth - 30,
-                  top: slots[i].dy * treeHeight - 30,
-                  child: SizedBox(width: 60, child: _treeAvatar(onTree[i])),
-                ),
-            ]),
-          );
-        }),
-        if (overflow.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Text('Also in your family', style: GoogleFonts.poppins(fontSize: 12.5, fontWeight: FontWeight.w700, color: const Color(0xFF8A8878))),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 14, runSpacing: 10,
-            alignment: WrapAlignment.center,
-            children: overflow.map((m) => _treeAvatar(m)).toList(),
-          ),
-        ],
-      ]),
+    final gensPresent = byGen.keys.toList()..sort();
+
+    return _TreeCanvas(
+      rows: [for (final g in gensPresent) byGen[g]!],
+      onTapNode: _openDetail,
     );
   }
+}
 
-  Widget _treeAvatar(dynamic m) {
-    final info = _infoFor(_relationOf(m));
+// Lays out each generation as a horizontally-centered row of nodes
+// and paints the connecting lines between rows itself, using the
+// exact same coordinate math it uses to position the node widgets —
+// so the lines always meet the avatars precisely without needing
+// runtime widget measurement.
+class _TreeCanvas extends StatelessWidget {
+  const _TreeCanvas({required this.rows, required this.onTapNode});
+  final List<List<_Node>> rows;
+  final void Function(_Node) onTapNode;
+
+  static const double _avatarSize = 62;
+  static const double _nodeWidth = 78;
+  static const double _nodeGap = 14;
+  static const double _rowHeight = 128;
+  static const double _topPad = 26;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, constraints) {
+      final width = constraints.maxWidth;
+      final rowWidths = rows
+          .map((r) => r.length * _nodeWidth + (r.length - 1) * _nodeGap)
+          .toList();
+      final maxRowWidth = rowWidths.isEmpty
+          ? width
+          : rowWidths.reduce((a, b) => a > b ? a : b).clamp(width, double.infinity);
+      final canvasWidth = maxRowWidth < width ? width : maxRowWidth;
+      final canvasHeight = _topPad * 2 + rows.length * _rowHeight;
+
+      // Precompute each node's center point (x, y) for line-drawing.
+      final centers = <List<Offset>>[];
+      for (var ri = 0; ri < rows.length; ri++) {
+        final row = rows[ri];
+        final rowWidth = rowWidths[ri];
+        final startX = (canvasWidth - rowWidth) / 2 + _nodeWidth / 2;
+        final y = _topPad + ri * _rowHeight + _avatarSize / 2;
+        centers.add([
+          for (var i = 0; i < row.length; i++)
+            Offset(startX + i * (_nodeWidth + _nodeGap), y),
+        ]);
+      }
+
+      return SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: SizedBox(
+            width: canvasWidth,
+            height: canvasHeight,
+            child: Stack(children: [
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: _TreeLinesPainter(rows: rows, centers: centers),
+                ),
+              ),
+              for (var ri = 0; ri < rows.length; ri++)
+                for (var i = 0; i < rows[ri].length; i++)
+                  Positioned(
+                    left: centers[ri][i].dx - _nodeWidth / 2,
+                    top: centers[ri][i].dy - _avatarSize / 2,
+                    width: _nodeWidth,
+                    child: _TreeAvatar(
+                      node: rows[ri][i],
+                      size: _avatarSize,
+                      onTap: () => onTapNode(rows[ri][i]),
+                    ),
+                  ),
+            ]),
+          ),
+        ),
+      );
+    });
+  }
+}
+
+class _TreeAvatar extends StatelessWidget {
+  const _TreeAvatar({required this.node, required this.size, required this.onTap});
+  final _Node node;
+  final double size;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => _openDetail(m),
+      onTap: onTap,
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Container(
-          width: 50, height: 50,
+          width: size,
+          height: size,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: node.color.withOpacity(node.isYou ? 1 : .16),
             shape: BoxShape.circle,
-            border: Border.all(color: const Color(0xFFE8C766), width: 2),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(.1), blurRadius: 6, offset: const Offset(0, 2))],
+            border: Border.all(
+              color: node.isYou ? _T.goldDeep : node.color,
+              width: node.isYou ? 3 : 2,
+            ),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(.10), blurRadius: 8, offset: const Offset(0, 3)),
+            ],
           ),
-          child: Center(child: Text(info.$2, style: const TextStyle(fontSize: 22))),
+          child: Center(
+            child: Text(node.emoji, style: TextStyle(fontSize: size * 0.42)),
+          ),
         ),
-        const SizedBox(height: 3),
+        const SizedBox(height: 4),
         SizedBox(
-          width: 62,
-          child: Text(_nameOf(m),
+          width: 76,
+          child: Text(node.name.isEmpty ? node.relationLabel : node.name,
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.poppins(fontSize: 9.5, fontWeight: FontWeight.w700, color: const Color(0xFF1A1726))),
+              style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w800, color: _T.ink)),
+        ),
+        SizedBox(
+          width: 76,
+          child: Text(node.relationLabel,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.poppins(fontSize: 9, fontWeight: FontWeight.w600, color: _T.txm)),
         ),
       ]),
     );
   }
 }
 
+// Draws: a horizontal "marriage" line between You and Spouse when
+// both are in the same (generation-0) row, and a trunk-and-branch
+// connector — vertical stem down from a row's center, a horizontal
+// bar, then vertical drops into each node of the row below — between
+// every pair of adjacent generation rows.
+class _TreeLinesPainter extends CustomPainter {
+  _TreeLinesPainter({required this.rows, required this.centers});
+  final List<List<_Node>> rows;
+  final List<List<Offset>> centers;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final linePaint = Paint()
+      ..color = const Color(0xFFE8C766)
+      ..strokeWidth = 2.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    for (var ri = 0; ri < rows.length; ri++) {
+      final row = rows[ri];
+      final rowCenters = centers[ri];
+
+      // Marriage line — connects "You" and a Spouse sitting in the
+      // same row, with a small heart marker at the midpoint.
+      if (row.length >= 2) {
+        final youIdx = row.indexWhere((n) => n.isYou);
+        final spouseIdx = row.indexWhere((n) => n.relationLabel == 'Spouse');
+        if (youIdx != -1 && spouseIdx != -1) {
+          final a = rowCenters[youIdx];
+          final b = rowCenters[spouseIdx];
+          canvas.drawLine(a, b, linePaint);
+          final mid = Offset((a.dx + b.dx) / 2, (a.dy + b.dy) / 2);
+          _drawHeart(canvas, mid);
+        }
+      }
+
+      // Descent to the next row down, if any.
+      if (ri + 1 >= rows.length) continue;
+      final nextRow = rows[ri + 1];
+      final nextCenters = centers[ri + 1];
+      if (nextCenters.isEmpty) continue;
+
+      // Parents (gen -1) connect only to "You" specifically in the row
+      // below, not to the Spouse sitting next to "You" — every other
+      // pair connects the whole row down to the whole row below, since
+      // the flat member data has no explicit per-child parent linkage
+      // to be more precise than that.
+      final isParentsRow = row.isNotEmpty && row.first.gen < 0;
+      List<Offset> targets = nextCenters;
+      if (isParentsRow) {
+        final youIdxNext = nextRow.indexWhere((n) => n.isYou);
+        if (youIdxNext != -1) targets = [nextCenters[youIdxNext]];
+      }
+      final fromX = rowCenters.map((c) => c.dx).reduce((a, b) => a + b) / rowCenters.length;
+      final fromY = rowCenters.first.dy;
+      final toY = nextCenters.first.dy;
+      final stemBottom = fromY + (toY - fromY) * 0.42;
+
+      // Stem down from this row's center.
+      canvas.drawLine(Offset(fromX, fromY + 30), Offset(fromX, stemBottom), linePaint);
+
+      if (targets.length == 1) {
+        // Single target — just continue straight down to it.
+        canvas.drawLine(Offset(fromX, stemBottom), Offset(targets.first.dx, toY - 30), linePaint);
+        continue;
+      }
+
+      final minX = targets.map((c) => c.dx).reduce((a, b) => a < b ? a : b);
+      final maxX = targets.map((c) => c.dx).reduce((a, b) => a > b ? a : b);
+      canvas.drawLine(Offset(minX, stemBottom), Offset(maxX, stemBottom), linePaint);
+      for (final c in targets) {
+        canvas.drawLine(Offset(c.dx, stemBottom), Offset(c.dx, toY - 30), linePaint);
+      }
+    }
+  }
+
+  void _drawHeart(Canvas canvas, Offset center) {
+    final paint = Paint()..color = _T.pink;
+    const s = 7.0;
+    final path = Path()
+      ..moveTo(center.dx, center.dy + s * 0.6)
+      ..cubicTo(center.dx - s * 1.4, center.dy - s * 0.6, center.dx - s * 0.4, center.dy - s * 1.3,
+          center.dx, center.dy - s * 0.4)
+      ..cubicTo(center.dx + s * 0.4, center.dy - s * 1.3, center.dx + s * 1.4, center.dy - s * 0.6,
+          center.dx, center.dy + s * 0.6)
+      ..close();
+    // White backing so the heart reads clearly over the line.
+    canvas.drawCircle(center, s * 1.5, Paint()..color = Colors.white);
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _TreeLinesPainter oldDelegate) => true;
+}
