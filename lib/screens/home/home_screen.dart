@@ -240,6 +240,17 @@ class _HomeScreenState extends State<HomeScreen> {
   // of the entry points shows a friendly message instead.
   bool get _isCheckInWindowOpen => DateTime.now().hour >= 20;
 
+  // Unified three-state status for today's diary, shown consistently
+  // everywhere the app talks about today's check-in timing:
+  //   before 8pm            -> "Diary opens at 8pm"
+  //   8pm, not submitted    -> "Diary opened"
+  //   after submitting      -> "Diary Submitted"
+  String get _diaryStatusLabel {
+    if (_checkInDone) return 'Diary Submitted';
+    if (_isCheckInWindowOpen) return 'Diary opened';
+    return 'Diary opens at 8pm';
+  }
+
   Future<void> _openCheckIn() async {
     if (!_isCheckInWindowOpen) {
       showDialog(
@@ -285,7 +296,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: const Icon(Icons.lock_clock_rounded, size: 30, color: C.ink),
                 ),
                 const SizedBox(height: 18),
-                Text('Diary opens at 8PM',
+                Text(_diaryStatusLabel,
                     textAlign: TextAlign.center,
                     style: poppins(16, w: FontWeight.w800, c: C.ink)),
                 const SizedBox(height: 8),
@@ -757,7 +768,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 2),
               // This card is always about today specifically — never
               // the day selected in the calendar strip below. Without
-              // an explicit label here, "Diary opens at 8PM" (shown
+              // an explicit label here, "Diary opens at 8pm" (shown
               // before today's check-in window opens) reads as if it
               // applies to whichever day the user just tapped in the
               // calendar, including past days — it doesn't; the
@@ -793,7 +804,14 @@ class _HomeScreenState extends State<HomeScreen> {
         ]),
         // Show all submitted check-in data as chips
         if (_checkInDone && _todayActivity != null) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
+          Row(children: [
+            Icon(Icons.check_circle_rounded, size: 14, color: C.green),
+            const SizedBox(width: 5),
+            Text(_diaryStatusLabel,
+                style: poppins(11, w: FontWeight.w800, c: C.green)),
+          ]),
+          const SizedBox(height: 8),
           Wrap(spacing: 6, runSpacing: 6, children: [
             ..._buildCheckInChips(_todayActivity!),
           ]),
@@ -803,6 +821,17 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
         if (!_checkInDone) ...[
           const SizedBox(height: 11),
+          Row(children: [
+            Icon(
+              _isCheckInWindowOpen ? Icons.lock_open_rounded : Icons.lock_clock_rounded,
+              size: 13,
+              color: C.txm,
+            ),
+            const SizedBox(width: 5),
+            Text(_diaryStatusLabel,
+                style: poppins(11, w: FontWeight.w700, c: C.txm)),
+          ]),
+          const SizedBox(height: 6),
           GestureDetector(
             onTap: _openCheckIn,
             child: Container(
@@ -834,7 +863,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     : Row(mainAxisSize: MainAxisSize.min, children: [
                         const Icon(Icons.lock_clock_rounded, size: 15, color: C.txm),
                         const SizedBox(width: 6),
-                        Text('Diary opens at 8PM',
+                        Text(_diaryStatusLabel,
                             style: poppins(12.5, w: FontWeight.w700, c: C.txm)),
                       ]),
               ),
@@ -1286,11 +1315,11 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 8),
           Row(
             children: [
-              _leg(C.green, 'Check-in'),
+              _leg(C.green, 'Memories'),
               const SizedBox(width: 12),
-              _leg(C.orange, 'Event'),
+              _leg(C.orange, 'Bookmarks'),
               const SizedBox(width: 12),
-              _leg(C.txl.withOpacity(0.4), 'Missed'),
+              _leg(C.txl.withOpacity(0.4), 'Empty pages'),
             ],
           ),
         ],
@@ -1429,6 +1458,18 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ],
               ),
+              if (_isToday(_selectedDay)) ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: C.greenLight,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(_diaryStatusLabel,
+                      style: poppins(10.5, w: FontWeight.w800, c: C.green)),
+                ),
+              ],
               _activityPollStatusSection(_selectedDay),
               if (_checkInEmojiSequence(checkIn).isNotEmpty) ...[
                 const SizedBox(height: 12),
@@ -1586,8 +1627,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      "You haven't submitted today's check-in yet",
-                      style: poppins(12, c: C.txl),
+                      _diaryStatusLabel,
+                      style: poppins(12, w: FontWeight.w700, c: C.txl),
                     ),
                     const SizedBox(height: 12),
                     GestureDetector(
@@ -1601,7 +1642,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         alignment: Alignment.center,
                         child: Text(
-                          _isCheckInWindowOpen ? 'Do check-in now →' : 'Diary Opens at 8PM',
+                          _isCheckInWindowOpen ? 'Do check-in now →' : _diaryStatusLabel,
                           style: poppins(13, w: FontWeight.w700, c: C.ink),
                         ),
                       ),
