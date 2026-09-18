@@ -668,6 +668,37 @@ class _HomeScreenState extends State<HomeScreen> {
                   // opens, instead of requiring a scroll past the
                   // wellbeing + steps cards to reach it.
                   _weekStrip(),
+                  // Tapping a date on the strip used to show its entry
+                  // far below — after the wellbeing card, steps, and
+                  // activity/poll strip — so a past date's check-in
+                  // needed a scroll to see, right after the tap that
+                  // asked for it. Now a non-today selection surfaces
+                  // its detail card immediately under the strip, where
+                  // the tap happened. Today keeps no extra card here —
+                  // its own permanent "A day in my life" card already
+                  // covers it just below, so nothing is duplicated for
+                  // the default (nothing tapped) view.
+                  if (!_isToday(_selectedDay)) ...[
+                    const SizedBox(height: 12),
+                    _secLabel(Icons.timeline_rounded, _detailLabel()),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 280),
+                      transitionBuilder: (child, animation) => FadeTransition(
+                        opacity: animation,
+                        child: SlideTransition(
+                          position: Tween<Offset>(
+                            begin: const Offset(0, 0.06),
+                            end: Offset.zero,
+                          ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
+                          child: child,
+                        ),
+                      ),
+                      child: Container(
+                        key: ValueKey(_fmtDateKey(_selectedDay)),
+                        child: _detailCard(),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   _todayWellbeingCard(auth.userName),
                   const SizedBox(height: 10),
@@ -677,25 +708,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     _todayAtGlanceStrip(),
                   ],
                   const SizedBox(height: 14),
-                  _secLabel(Icons.timeline_rounded, _detailLabel()),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 280),
-                    transitionBuilder: (child, animation) => FadeTransition(
-                      opacity: animation,
-                      child: SlideTransition(
-                        position: Tween<Offset>(
-                          begin: const Offset(0, 0.06),
-                          end: Offset.zero,
-                        ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
-                        child: child,
-                      ),
-                    ),
-                    child: Container(
-                      key: ValueKey(_fmtDateKey(_selectedDay)),
-                      child: _detailCard(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
                   _quickActions(),
                   if (_homeActivities.isNotEmpty) ...[
                     const SizedBox(height: 14),
@@ -1591,6 +1603,19 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                   ),
+                  // Only shown when viewing a past date (this card is
+                  // promoted right under the calendar strip for that
+                  // case) — an easy way back to today's own card,
+                  // matching the close affordance already on the
+                  // 'event'/'miss' cards below.
+                  if (!_isToday(_selectedDay))
+                    GestureDetector(
+                      onTap: close,
+                      child: const Padding(
+                        padding: EdgeInsets.only(left: 6, top: 2),
+                        child: Icon(Icons.close, size: 16, color: C.txl),
+                      ),
+                    ),
                 ],
               ),
               if (_isToday(_selectedDay)) ...[
