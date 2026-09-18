@@ -500,23 +500,27 @@ class _HomeScreenState extends State<HomeScreen> {
         color: C.yellowDark,
         child: CustomScrollView(
           slivers: [
-            // Header with photo background
+            // Header with photo background — shown at the photo's own
+            // aspect ratio (1600:717) via AspectRatio + BoxFit.contain,
+            // so the full image displays with nothing cropped off,
+            // unlike the previous fixed-190px BoxFit.cover box which
+            // zoomed in and cut off most of the frame. The greeting is
+            // a small pill tucked into the top-left corner, over the
+            // window/curtain — confirmed clear of every head in the
+            // photo — instead of a full-width row that used to land on
+            // a face once the crop changed.
             SliverToBoxAdapter(
-              child: SizedBox(
-                height: 190,
+              child: AspectRatio(
+                aspectRatio: 1600 / 717,
                 child: Stack(
                   children: [
                     Positioned.fill(
                       child: Container(color: C.yellow),
                     ),
-                    // Newest header photo (2.28:1) — has a clear plain
-                    // area (window light, blank wall) in its upper
-                    // portion for text overlay, with people positioned
-                    // with margin on both sides rather than at the edges.
                     Positioned.fill(
                       child: Image.asset(
                         'assets/images/home_header_photo_v3.jpg',
-                        fit: BoxFit.cover,
+                        fit: BoxFit.contain,
                       ),
                     ),
                     // Fades the photo into the page's own background
@@ -528,133 +532,123 @@ class _HomeScreenState extends State<HomeScreen> {
                           gradient: LinearGradient(
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
-                            stops: const [0.0, 0.75, 1.0],
+                            stops: const [0.0, 0.78, 1.0],
                             colors: [
                               Colors.transparent,
-                              C.yellow.withOpacity(.25),
+                              C.yellow.withOpacity(.18),
                               const Color(0xFFFFF3D0),
                             ],
                           ),
                         ),
                       ),
                     ),
-                    // Extra dark scrim right at the very top, purely
-                    // for text legibility insurance.
+                    // Greeting pill — top-left, over the window/curtain,
+                    // well above where anyone's hair or face starts.
                     Positioned(
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      height: 70,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.black.withOpacity(.12),
-                              Colors.transparent,
+                      top: 8,
+                      left: 12,
+                      child: SafeArea(
+                        bottom: false,
+                        child: Container(
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: C.white.withOpacity(.88),
+                            borderRadius: BorderRadius.circular(999),
+                            boxShadow: [
+                              BoxShadow(
+                                color: C.ink.withOpacity(.12),
+                                blurRadius: 10,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Text(
+                                '${_timeBasedGreeting()} 👋',
+                                style: poppins(9.5, w: FontWeight.w500, c: C.txm),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                auth.userName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: poppins(11, w: FontWeight.w700, c: C.ink),
+                              ),
                             ],
                           ),
                         ),
                       ),
                     ),
-                    // Greeting + notification icon — positioned at a
-                    // fixed top offset, confirmed via direct
-                    // measurement of the photo to sit above where
-                    // faces begin (may lightly touch hair, which is
-                    // visually fine).
+                    // Notification bell — top-right.
                     Positioned(
-                      top: 0,
-                      left: 0,
-                      right: 0,
+                      top: 8,
+                      right: 12,
                       child: SafeArea(
                         bottom: false,
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                        child: GestureDetector(
+                          onTap: () => Navigator.pushNamed(
+                            context,
+                            AppRoutes.notifications,
+                          ),
+                          child: Stack(
                             children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '${_timeBasedGreeting()} 👋',
-                                      style: poppins(
-                                        13,
-                                        w: FontWeight.w600,
-                                        c: C.ink,
-                                      ),
-                                    ),
-                                    Text(
-                                      auth.userName,
-                                      style: poppins(
-                                        19,
-                                        w: FontWeight.w700,
-                                        c: C.ink,
-                                      ),
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: C.white.withOpacity(.88),
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: C.ink.withOpacity(.12),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 3),
                                     ),
                                   ],
                                 ),
-                              ),
-                              // Only the notification icon — no
-                              // profile icon, per request.
-                              GestureDetector(
-                                onTap: () => Navigator.pushNamed(
-                                  context,
-                                  AppRoutes.notifications,
+                                child: const Icon(
+                                  Icons.notifications_outlined,
+                                  size: 20,
+                                  color: C.ink,
                                 ),
-                                child: Stack(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: const BoxDecoration(
+                              ),
+                              if (_notificationCount > 0)
+                                Positioned(
+                                  top: 2,
+                                  right: 2,
+                                  child: Container(
+                                    constraints: const BoxConstraints(
+                                      minWidth: 16,
+                                      minHeight: 16,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: C.red,
+                                      borderRadius: BorderRadius.circular(999),
+                                      border: Border.all(
                                         color: C.white,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                        Icons.notifications_outlined,
-                                        size: 22,
-                                        color: C.ink,
+                                        width: 2,
                                       ),
                                     ),
-                                    if (_notificationCount > 0)
-                                      Positioned(
-                                        top: 4,
-                                        right: 4,
-                                        child: Container(
-                                          constraints: const BoxConstraints(
-                                            minWidth: 16,
-                                            minHeight: 16,
-                                          ),
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 3,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: C.red,
-                                            borderRadius: BorderRadius.circular(999),
-                                            border: Border.all(
-                                              color: C.white,
-                                              width: 2,
-                                            ),
-                                          ),
-                                          child: Center(
-                                            child: Text(
-                                              _notificationCount > 99
-                                                  ? '99+'
-                                                  : '$_notificationCount',
-                                              style: poppins(
-                                                8,
-                                                w: FontWeight.w700,
-                                                c: Colors.white,
-                                              ),
-                                            ),
-                                          ),
+                                    child: Center(
+                                      child: Text(
+                                        _notificationCount > 99
+                                            ? '99+'
+                                            : '$_notificationCount',
+                                        style: poppins(
+                                          8,
+                                          w: FontWeight.w700,
+                                          c: Colors.white,
                                         ),
                                       ),
-                                  ],
+                                    ),
+                                  ),
                                 ),
-                              ),
                             ],
                           ),
                         ),
@@ -669,16 +663,20 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.fromLTRB(14, 14, 14, 90),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
-                  _todayWellbeingCard(auth.userName),
+                  // Weekly strip promoted to the very first card, right
+                  // under the header — visible the instant the screen
+                  // opens, instead of requiring a scroll past the
+                  // wellbeing + steps cards to reach it.
+                  _weekStrip(),
                   const SizedBox(height: 12),
+                  _todayWellbeingCard(auth.userName),
+                  const SizedBox(height: 10),
                   _stepsSection(),
                   if (_todayPollCount > 0 || _todayActivityCount > 0) ...[
                     const SizedBox(height: 12),
                     _todayAtGlanceStrip(),
                   ],
                   const SizedBox(height: 14),
-                  _weekStrip(),
-                  const SizedBox(height: 12),
                   _secLabel(Icons.timeline_rounded, _detailLabel()),
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 280),
@@ -810,21 +808,26 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ]),
         const SizedBox(height: 11),
+        // Two colour-coded icon tiles — the earlier three-chip row also
+        // carried a "Next reminder" chip, dropped per request so each
+        // tile has room to breathe instead of squeezing into a third.
         Row(children: [
-          _todayMetric(
+          _metricTile(
+            Icons.access_time_rounded,
+            C.purple,
+            C.purpleLight,
             nextReminder == null
                 ? '--'
                 : (nextReminder['time'] ?? '--').toString(),
             'Next alarm',
           ),
-          const SizedBox(width: 7),
-          _todayMetric('$todayCount', 'Alarms today'),
-          const SizedBox(width: 7),
-          _todayMetric(
-            nextReminder == null
-                ? '--'
-                : _field(nextReminder, ['title', 'name', 'reminder_title', 'event_name']),
-            todayCount > 0 ? "Today's reminder" : 'Next reminder',
+          const SizedBox(width: 8),
+          _metricTile(
+            Icons.notifications_active_rounded,
+            C.yellowDark,
+            C.yellow.withOpacity(.16),
+            '$todayCount',
+            'Alarms today',
           ),
         ]),
         // Show all submitted check-in data as chips
@@ -902,11 +905,14 @@ class _HomeScreenState extends State<HomeScreen> {
   // Small standalone "today's steps" section — count comes from
   // StepService, which reads the phone's own hardware step counter,
   // so it's accurate even if the app was killed/closed earlier today.
+  // Slim full-width strip, sitting right under the "A day in my life"
+  // card — deliberately lower-profile than that card so the two
+  // together take less vertical space than the old stacked layout did.
   Widget _stepsSection() => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
         decoration: BoxDecoration(
           color: C.white,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
               color: C.ink.withOpacity(.06),
@@ -917,13 +923,13 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         child: Row(children: [
           Container(
-            width: 42,
-            height: 42,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
-              color: C.purple.withOpacity(.12),
-              borderRadius: BorderRadius.circular(13),
+              color: C.green.withOpacity(.14),
+              borderRadius: BorderRadius.circular(11),
             ),
-            child: Icon(Icons.directions_walk_rounded, color: C.purple, size: 23),
+            child: Icon(Icons.directions_walk_rounded, color: C.green, size: 19),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -955,6 +961,53 @@ class _HomeScreenState extends State<HomeScreen> {
   void _shareStepsViaWhatsApp() {
     Share.share("I've walked $_todaySteps steps today on ElderZha! 🚶");
   }
+
+  // Colour-coded icon tile used for the "Next alarm" / "Alarms today"
+  // pair in the "A day in my life" card — replaces the old plain
+  // 3-up _todayMetric row for these two (still used elsewhere).
+  Widget _metricTile(
+    IconData icon,
+    Color accent,
+    Color bg,
+    String value,
+    String label,
+  ) =>
+      Expanded(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(children: [
+            Container(
+              width: 26,
+              height: 26,
+              decoration: BoxDecoration(
+                color: accent,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, size: 14, color: C.white),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: poppins(14, w: FontWeight.w800, c: C.ink)),
+                  Text(label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: poppins(8.5, w: FontWeight.w700, c: C.txm)),
+                ],
+              ),
+            ),
+          ]),
+        ),
+      );
 
   Widget _todayMetric(String value, String label) => Expanded(
         child: Container(
