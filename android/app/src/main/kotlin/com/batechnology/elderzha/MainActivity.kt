@@ -5,11 +5,17 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -245,6 +251,21 @@ class MainActivity : FlutterActivity() {
                         }
                         result.success(true)
                     }
+                    // Reads the phone's own hardware step-counter sensor
+                    // directly, instead of going through the `pedometer`
+                    // plugin's stream — that stream can stay silent for a
+                    // while after the app is killed and reopened (Android
+                    // batches TYPE_STEP_COUNTER delivery and, on some
+                    // OEMs, only flushes it on the next physical step),
+                    // which made the Home screen's step count look frozen
+                    // right after a kill. Registering our own listener
+                    // here gets the sensor's current cumulative reading
+                    // (steps since last reboot) as soon as it's available,
+                    // so Dart can compute today's steps immediately on
+                    // every app launch rather than waiting on the stream.
+                    "getStepCounterReading" -> {
+                        readStepCounterOnce(result)
+                    }
                     else -> result.notImplemented()
                 }
             }
@@ -371,5 +392,40 @@ class MainActivity : FlutterActivity() {
         } catch (_: Exception) {
         }
         previewPlayer = null
+    }
+
+    // Registers a short-lived listener on Sensor.TYPE_STEP_COUNTER — the
+    // hardware sensor that keeps counting steps since the device last
+    // rebooted, regardless of whether this app's process is alive. The
+    // very first callback after registering carries that current
+    // cumulative total, so a single reading here is enough; it's
+    // unregistered immediately after (or after a 5s timeout if the
+    // sensor never reports, e.g. no such sensor on this device).
+    private fun readStepCounterOnce(result: MethodChannel.Result) {
+        val sensorManager = getSystemService(Context.SENSOR_SERVICE) as? SensorManager
+        val stepSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
+        if (sensorManager == null || stepSensor == null) {
+            result.success(-1)
+            return
+        }
+
+        var responded = false
+        val handler = Handler(Looper.getMainLooper())
+        lateinit var listener: SensorEventListener
+        val finish: (Int) -> Unit = { value ->
+            if (!responded) {
+                responded = true
+                try { sensorManager.unregisterListener(listener) } catch (_: Exception) {}
+                result.success(value)
+            }
+        }
+        listener = object : SensorEventListener {
+            override fun onSensorChanged(event: SensorEvent) {
+                finish(event.values[0].toInt())
+            }
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+        }
+        sensorManager.registerListener(listener, stepSensor, SensorManager.SENSOR_DELAY_NORMAL)
+        handler.postDelayed({ finish(-1) }, 5000)
     }
 }
