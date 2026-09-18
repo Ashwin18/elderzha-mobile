@@ -58,10 +58,33 @@ class _HomeScreenState extends State<HomeScreen> {
   List _pollDays = [];
   List _activityDays = [];
 
+  int _todaySteps = 0;
+  StreamSubscription<int>? _stepsSub;
+
   @override
   void initState() {
     super.initState();
     _loadAll();
+    _initSteps();
+  }
+
+  Future<void> _initSteps() async {
+    // Show whatever was last cached instantly, then start listening
+    // for live sensor updates — the step-counter sensor itself keeps
+    // counting even while the app was killed/closed, so this just
+    // needs to read it, not "catch up" on anything.
+    _todaySteps = await StepService.instance.cachedTodaySteps();
+    if (mounted) setState(() {});
+    unawaited(StepService.instance.start());
+    _stepsSub = StepService.instance.todayStepsStream.listen((steps) {
+      if (mounted) setState(() => _todaySteps = steps);
+    });
+  }
+
+  @override
+  void dispose() {
+    _stepsSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadAll() async {
@@ -647,6 +670,8 @@ class _HomeScreenState extends State<HomeScreen> {
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
                   _todayWellbeingCard(auth.userName),
+                  const SizedBox(height: 12),
+                  _stepsSection(),
                   if (_todayPollCount > 0 || _todayActivityCount > 0) ...[
                     const SizedBox(height: 12),
                     _todayAtGlanceStrip(),
@@ -872,6 +897,63 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ]),
     );
+  }
+
+  // Small standalone "today's steps" section — count comes from
+  // StepService, which reads the phone's own hardware step counter,
+  // so it's accurate even if the app was killed/closed earlier today.
+  Widget _stepsSection() => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: C.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: C.ink.withOpacity(.06),
+              blurRadius: 16,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Row(children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: C.purple.withOpacity(.12),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: Icon(Icons.directions_walk_rounded, color: C.purple, size: 23),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('$_todaySteps steps today',
+                    style: poppins(14, w: FontWeight.w800, c: C.ink)),
+                const SizedBox(height: 2),
+                Text('Tracked automatically, all day',
+                    style: poppins(10.5, w: FontWeight.w600, c: C.txl)),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: _shareStepsViaWhatsApp,
+            child: Container(
+              padding: const EdgeInsets.all(9),
+              decoration: BoxDecoration(
+                color: const Color(0xFF25D366).withOpacity(.12),
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: const Icon(Icons.share_rounded, size: 17, color: Color(0xFF128C7E)),
+            ),
+          ),
+        ]),
+      );
+
+  void _shareStepsViaWhatsApp() {
+    Share.share("I've walked $_todaySteps steps today on ElderZha! 🚶");
   }
 
   Widget _todayMetric(String value, String label) => Expanded(

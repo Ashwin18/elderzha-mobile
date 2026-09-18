@@ -49,6 +49,7 @@ dependencies:
   permission_handler: ^11.0.1
   sensors_plus: ^4.0.2
   geolocator: ^13.0.2
+  pedometer: ^4.0.2
 
   # Network
   connectivity_plus: ^7.0.0
