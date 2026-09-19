@@ -201,7 +201,11 @@ class _FamilyMembersScreenState extends State<FamilyMembersScreen> {
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Add button
+                    // Add button — solid ink fill with a gold icon/label,
+                    // matching the app's other primary-action buttons (e.g.
+                    // the reply-send button). A flat AppColors.yellow fill
+                    // here used to sit almost indistinguishable from the
+                    // page's own gold header gradient right behind it.
                     GestureDetector(
                       onTap: () => Navigator.pushNamed(context, '/add-member')
                           .then((_) => _silentReload()),
@@ -210,14 +214,27 @@ class _FamilyMembersScreenState extends State<FamilyMembersScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 13),
                         margin: const EdgeInsets.only(bottom: 14),
                         decoration: BoxDecoration(
-                            color: AppColors.yellow,
-                            borderRadius: BorderRadius.circular(14)),
-                        child: Center(
-                            child: Text('+ Add family member',
+                            color: AppColors.ink,
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                  color: AppColors.ink.withOpacity(0.18),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4)),
+                            ]),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.add_rounded,
+                                size: 18, color: AppColors.yellow),
+                            const SizedBox(width: 6),
+                            Text('Add family member',
                                 style: GoogleFonts.poppins(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w700,
-                                    color: AppColors.ink))),
+                                    color: AppColors.yellow)),
+                          ],
+                        ),
                       ),
                     ),
 
