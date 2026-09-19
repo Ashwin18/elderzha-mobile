@@ -275,11 +275,25 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
     final userName = context.watch<AuthProvider>().userName;
     return Scaffold(
       body: Container(
+        // A soft gold-to-white wash instead of the old flat pale-yellow
+        // fill — the flat version sat so close in tone to the gold
+        // avatar rings and "You" node that everything on the page read
+        // as one undifferentiated yellow. This keeps the gold accent up
+        // top (matching the app's own header gradient elsewhere) and
+        // eases into a calm off-white lower down, so the tree itself —
+        // avatars, cards, connecting lines — has a bit of contrast to
+        // sit on.
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [_T.cream1, _T.cream2],
+            stops: [0.0, 0.32, 0.6, 1.0],
+            colors: [
+              Color(0xFFFFE7A0),
+              Color(0xFFFFF3D0),
+              Color(0xFFFBFAF6),
+              Color(0xFFFAFAF8),
+            ],
           ),
         ),
         child: SafeArea(
@@ -321,7 +335,14 @@ class _FamilyTreeScreenState extends State<FamilyTreeScreen> {
       gen: 0,
       isYou: true,
     );
-    final memberNodes = _members.map((m) {
+    // The backend's own member list can include the logged-in user
+    // themselves (relation "Self") alongside their actual relatives —
+    // without filtering that out here, it renders as a second circle
+    // for the same person right next to the "You" node built above,
+    // both saying the same thing. "You" already covers it.
+    final memberNodes = _members
+        .where((m) => _relationOf(m).trim().toLowerCase() != 'self')
+        .map((m) {
       final relation = _relationOf(m);
       final info = _infoFor(relation);
       return _Node(
