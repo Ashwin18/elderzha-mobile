@@ -4,6 +4,7 @@ import '../../theme/app_theme.dart';
 import '../../services/services.dart';
 import '../../widgets/community_media.dart';
 import '../../widgets/content_share_card.dart';
+import '../../widgets/coach_mark.dart';
 import 'activity_calendar_tab.dart';
 import 'poll_calendar_tab.dart';
 import 'activity_detail_screen.dart';
@@ -28,6 +29,9 @@ class _CommunityScreenState extends State<CommunityScreen> {
   bool _showTabHint = false;
   static const _tabHintPrefKey = 'spike_tab_hint_seen';
 
+  // Target for the one-off tab-bar spotlight (see _maybeShowSpikeTour).
+  final _tabBarKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
@@ -35,6 +39,30 @@ class _CommunityScreenState extends State<CommunityScreen> {
     _load();
     _checkForNewItems();
     _loadTabHintState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowSpikeTour());
+  }
+
+  // A single spotlight on the Updates/Polls/Activities tab bar, shown
+  // once. The inline hint banner above already explains these tabs in
+  // text the very first time someone opens Spike, so this only fires
+  // once that banner has already been shown/dismissed — never both at
+  // once in the same visit.
+  Future<void> _maybeShowSpikeTour() async {
+    if (!mounted) return;
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (!mounted || _showTabHint) return;
+    CoachMarkTour.maybeShow(
+      context: context,
+      prefsKey: 'has_seen_spike_tour',
+      steps: [
+        CoachMarkStep(
+          targetKey: _tabBarKey,
+          title: 'Spark, your community hub',
+          message:
+              'Switch between Updates, Polls and Activities here, any time.',
+        ),
+      ],
+    );
   }
 
   Future<void> _loadTabHintState() async {
@@ -391,7 +419,9 @@ class _CommunityScreenState extends State<CommunityScreen> {
                   ]),
                 ),
                 // Underline tab bar
-                Container(
+                KeyedSubtree(
+                  key: _tabBarKey,
+                  child: Container(
                   decoration: BoxDecoration(
                       border: Border(
                           bottom: BorderSide(
@@ -458,6 +488,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                       ),
                     ));
                   })),
+                ),
                 ),
               ])),
         ),

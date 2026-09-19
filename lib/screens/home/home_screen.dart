@@ -13,6 +13,7 @@ import '../../theme/app_theme.dart';
 import '../../utils/app_routes.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/services.dart';
+import '../../widgets/coach_mark.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
@@ -62,6 +63,12 @@ class _HomeScreenState extends State<HomeScreen>
   int _todaySteps = 0;
   StreamSubscription<int>? _stepsSub;
 
+  // Targets for the first-time guided tour (see _maybeShowHomeTour below).
+  final _weekStripKey = GlobalKey();
+  final _wellbeingCardKey = GlobalKey();
+  final _stepsSectionKey = GlobalKey();
+  final _quickActionsKey = GlobalKey();
+
   // Gentle looping walk-cycle for the steps icon — a small side-to-side
   // rock plus a soft glow pulse, so the steps strip reads as "live"
   // instead of a static icon, without being distracting for a
@@ -77,6 +84,40 @@ class _HomeScreenState extends State<HomeScreen>
     super.initState();
     _loadAll();
     _initSteps();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowHomeTour());
+  }
+
+  // First-time-only guided tour of the Home screen's four main areas.
+  // Gated by SharedPreferences (via CoachMarkTour.maybeShow) so it only
+  // ever shows once per device — safe to call unconditionally here.
+  void _maybeShowHomeTour() {
+    if (!mounted) return;
+    CoachMarkTour.maybeShow(
+      context: context,
+      prefsKey: 'has_seen_home_tour',
+      steps: [
+        CoachMarkStep(
+          targetKey: _weekStripKey,
+          title: 'Your week at a glance',
+          message: 'Tap any day here to see your check-in for that day.',
+        ),
+        CoachMarkStep(
+          targetKey: _wellbeingCardKey,
+          title: 'A day in my life',
+          message: 'Your next alarm and how many alarms are set for today.',
+        ),
+        CoachMarkStep(
+          targetKey: _stepsSectionKey,
+          title: 'Steps, tracked automatically',
+          message: "No setup needed — we count your steps in the background, all day.",
+        ),
+        CoachMarkStep(
+          targetKey: _quickActionsKey,
+          title: 'Quick actions',
+          message: 'Check in, connect with family and more — right from here.',
+        ),
+      ],
+    );
   }
 
   Future<void> _initSteps() async {
@@ -689,17 +730,20 @@ class _HomeScreenState extends State<HomeScreen>
                   // wired into _weekStrip's date onTap) — an overlay on
                   // top of the whole screen, visible immediately no
                   // matter where the strip is scrolled to.
-                  _weekStrip(),
+                  KeyedSubtree(key: _weekStripKey, child: _weekStrip()),
                   const SizedBox(height: 12),
-                  _todayWellbeingCard(auth.userName),
+                  KeyedSubtree(
+                    key: _wellbeingCardKey,
+                    child: _todayWellbeingCard(auth.userName),
+                  ),
                   const SizedBox(height: 10),
-                  _stepsSection(),
+                  KeyedSubtree(key: _stepsSectionKey, child: _stepsSection()),
                   if (_todayPollCount > 0 || _todayActivityCount > 0) ...[
                     const SizedBox(height: 12),
                     _todayAtGlanceStrip(),
                   ],
                   const SizedBox(height: 14),
-                  _quickActions(),
+                  KeyedSubtree(key: _quickActionsKey, child: _quickActions()),
                   if (_homeActivities.isNotEmpty) ...[
                     const SizedBox(height: 14),
                     _secLabel(
