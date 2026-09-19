@@ -28,7 +28,8 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>
+    with SingleTickerProviderStateMixin {
   final _actSvc = ActivityService();
   final _shareCardKey = GlobalKey();
   DateTime? _shareCardDay;
@@ -61,6 +62,16 @@ class _HomeScreenState extends State<HomeScreen> {
   int _todaySteps = 0;
   StreamSubscription<int>? _stepsSub;
 
+  // Gentle looping walk-cycle for the steps icon — a small side-to-side
+  // rock plus a soft glow pulse, so the steps strip reads as "live"
+  // instead of a static icon, without being distracting for a
+  // senior-focused audience (slow, small-amplitude, never stops moving
+  // attention elsewhere on the screen).
+  late final AnimationController _stepsPulseCtrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  )..repeat(reverse: true);
+
   @override
   void initState() {
     super.initState();
@@ -84,6 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _stepsSub?.cancel();
+    _stepsPulseCtrl.dispose();
     super.dispose();
   }
 
@@ -913,14 +925,38 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         child: Row(children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: C.green.withOpacity(.14),
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: Icon(Icons.directions_walk_rounded, color: C.green, size: 19),
+          AnimatedBuilder(
+            animation: _stepsPulseCtrl,
+            builder: (context, child) {
+              final t = _stepsPulseCtrl.value; // 0 → 1 → 0, looping
+              return Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color.lerp(const Color(0xFF34D399), const Color(0xFF22C55E), t)!,
+                      Color.lerp(const Color(0xFF0EA5A0), const Color(0xFF16A34A), t)!,
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(11),
+                  boxShadow: [
+                    BoxShadow(
+                      color: C.green.withOpacity(.28 + t * .18),
+                      blurRadius: 10 + t * 4,
+                      spreadRadius: t * .5,
+                    ),
+                  ],
+                ),
+                child: Transform.translate(
+                  offset: Offset(-1.4 + t * 2.8, 0),
+                  child: child,
+                ),
+              );
+            },
+            child: const Icon(Icons.directions_walk_rounded, color: Colors.white, size: 20),
           ),
           const SizedBox(width: 10),
           Expanded(
