@@ -27,11 +27,12 @@
 //    trigger it. The native one-shot read above doesn't have that gap.
 import 'dart:async';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:pedometer/pedometer.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class StepService {
+class StepService with WidgetsBindingObserver {
   StepService._();
   static final StepService instance = StepService._();
 
@@ -44,6 +45,18 @@ class StepService {
   StreamSubscription<StepCount>? _sub;
   final _controller = StreamController<int>.broadcast();
   bool _started = false;
+
+  // Extra refresh path, on top of the native one-shot read + pedometer
+  // stream below. Without this, the count only ever updated on a full
+  // app restart (initState → start() → one native read) — simply
+  // backgrounding the app, walking around, and coming back to the
+  // foreground did nothing, since the pedometer stream can stay quiet
+  // for a while (see the file-level note) and nothing else re-reads
+  // the sensor in between. Now: (a) every foreground resume triggers
+  // a fresh native read, and (b) a 25s timer re-reads it periodically
+  // while the app stays open, so the count keeps catching up even if
+  // the stream itself never fires.
+  Timer? _pollTimer;
 
   /// Today's step count. Emits the last cached value immediately (so
   /// the UI has something to show the moment the app opens), then a
@@ -71,6 +84,19 @@ class StepService {
       onError: (_) {},
       cancelOnError: false,
     );
+
+    WidgetsBinding.instance.addObserver(this);
+    _pollTimer = Timer.periodic(
+      const Duration(seconds: 25),
+      (_) => unawaited(_readNativeOnce()),
+    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_readNativeOnce());
+    }
   }
 
   Future<void> _readNativeOnce() async {
@@ -117,6 +143,9 @@ class StepService {
   void dispose() {
     _sub?.cancel();
     _sub = null;
+    _pollTimer?.cancel();
+    _pollTimer = null;
+    WidgetsBinding.instance.removeObserver(this);
     _started = false;
   }
 }

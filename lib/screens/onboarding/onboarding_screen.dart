@@ -121,7 +121,7 @@ class _WelcomePage extends StatelessWidget {
               'ELDERZHA',
               style: TextStyle(
                 color: _OnboardColors.ink,
-                fontSize: 41,
+                fontSize: 35,
                 fontWeight: FontWeight.w900,
                 letterSpacing: .7,
               ),
@@ -131,7 +131,7 @@ class _WelcomePage extends StatelessWidget {
               "Life Doesn't Retire.",
               style: TextStyle(
                 color: _OnboardColors.ink,
-                fontSize: 20,
+                fontSize: 17,
                 fontWeight: FontWeight.w700,
                 fontStyle: FontStyle.italic,
               ),
@@ -297,8 +297,8 @@ class _Heading extends StatelessWidget {
         textAlign: centered ? TextAlign.center : TextAlign.left,
         style: const TextStyle(
           color: _OnboardColors.ink,
-          fontSize: 32,
-          height: 1.08,
+          fontSize: 27,
+          height: 1.12,
           fontWeight: FontWeight.w900,
           letterSpacing: -.6,
         ),
@@ -315,7 +315,7 @@ class _Copy extends StatelessWidget {
         textAlign: centered ? TextAlign.center : TextAlign.left,
         style: const TextStyle(
           color: _OnboardColors.ink,
-          fontSize: 16.5,
+          fontSize: 14.5,
           height: 1.4,
           fontWeight: FontWeight.w500,
         ),
@@ -340,8 +340,8 @@ class _Feature extends StatelessWidget {
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: _OnboardColors.ink,
-              fontSize: 15,
-              height: 1.08,
+              fontSize: 13,
+              height: 1.1,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -377,7 +377,7 @@ class _Reminder extends StatelessWidget {
               'Never miss what matters.',
               style: TextStyle(
                 color: _OnboardColors.ink,
-                fontSize: 20,
+                fontSize: 17,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -407,7 +407,7 @@ class _Premium extends StatelessWidget {
                   title,
                   style: const TextStyle(
                     color: _OnboardColors.ink,
-                    fontSize: 17,
+                    fontSize: 15,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -416,7 +416,7 @@ class _Premium extends StatelessWidget {
                   description,
                   style: const TextStyle(
                     color: _OnboardColors.ink,
-                    fontSize: 12.5,
+                    fontSize: 11.5,
                     height: 1.25,
                     fontWeight: FontWeight.w500,
                   ),

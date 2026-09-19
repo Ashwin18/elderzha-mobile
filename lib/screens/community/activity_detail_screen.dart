@@ -873,16 +873,34 @@ class _DetailSheetState extends State<_DetailSheet> {
                           ],
                         ),
                         const SizedBox(height: 10),
-                        TextField(
-                          controller: _notesCtrl,
-                          maxLines: 3,
-                          style:
-                              GoogleFonts.poppins(fontSize: 13, color: C.ink),
-                          decoration: InputDecoration(
-                            hintText: 'Add notes or reply...',
-                            hintStyle: GoogleFonts.poppins(
-                              fontSize: 13,
-                              color: C.txl,
+                        // Filled + bordered, matching the reply input on
+                        // post_detail_screen.dart — this field used to
+                        // have no background at all (plain underline
+                        // TextField), unlike every other reply/comment
+                        // box in the app.
+                        Container(
+                          decoration: BoxDecoration(
+                            color: C.bg2,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: C.bd),
+                          ),
+                          child: TextField(
+                            controller: _notesCtrl,
+                            maxLines: 3,
+                            style: GoogleFonts.poppins(
+                                fontSize: 13, color: C.ink),
+                            decoration: InputDecoration(
+                              hintText: 'Add notes or reply...',
+                              hintStyle: GoogleFonts.poppins(
+                                fontSize: 13,
+                                color: C.txl,
+                              ),
+                              border: InputBorder.none,
+                              filled: false,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 12,
+                              ),
                             ),
                           ),
                         ),
