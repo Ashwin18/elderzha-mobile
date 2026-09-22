@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../theme/app_theme.dart';
 import '../../services/services.dart';
 import '../../widgets/community_media.dart';
@@ -14,9 +16,15 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   final _actSvc = ActivityService();
   final _commSvc = CommunityService();
   final _replyCtrl = TextEditingController();
+  final _picker = ImagePicker();
   List _replies = [];
   bool _loading = true;
   bool _sending = false;
+  // Replies here used to be text-only — no way to attach an image, and
+  // even a reply that carried one (from elsewhere, e.g. the app's other
+  // reply screen) never rendered it. Both are fixed together: attach
+  // via _replyImage below, render via CommunityMedia in the list.
+  File? _replyImage;
 
   int get _postId => widget.post['id'] ?? 0;
 
@@ -44,15 +52,23 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   }
 
   // ── POST /user/activity/reply ─────────────────────────────
+  // Uses ActivityService (not CommunityService) because only it
+  // supports an image attachment — same underlying endpoint either
+  // way, so this is a drop-in swap, not a behavior change for
+  // text-only replies.
   Future<void> _sendReply() async {
-    if (_replyCtrl.text.trim().isEmpty) return;
+    if (_replyCtrl.text.trim().isEmpty && _replyImage == null) return;
     setState(() => _sending = true);
-    final res = await _commSvc.submitReply(
-        postId: _postId, reply: _replyCtrl.text.trim());
+    final res = await _actSvc.submitReply(
+      postId: _postId,
+      replyText: _replyCtrl.text.trim(),
+      attachment: _replyImage,
+    );
     setState(() => _sending = false);
     if (!mounted) return;
     if (res['status'] == true || res['data'] != null) {
       _replyCtrl.clear();
+      setState(() => _replyImage = null);
       FocusScope.of(context).unfocus();
       _loadReplies();
     } else {
@@ -61,6 +77,11 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               style: poppins(13)),
           backgroundColor: C.red));
     }
+  }
+
+  Future<void> _pickReplyImage() async {
+    final f = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+    if (f != null && mounted) setState(() => _replyImage = File(f.path));
   }
 
   // ── GET /user/post/like/{id} OR /user/adminpost/like/{id} ──
@@ -235,8 +256,14 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                       style: poppins(12,
                                           w: FontWeight.w700, c: C.ink)),
                                   const SizedBox(height: 2),
-                                  Text(rText,
-                                      style: poppins(12, c: C.txm, h: 1.4)),
+                                  if (rText.isNotEmpty)
+                                    Text(rText,
+                                        style: poppins(12, c: C.txm, h: 1.4)),
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: CommunityMedia(
+                                        item: r is Map ? r : {}, height: 140),
+                                  ),
                                   const SizedBox(height: 3),
                                   Text(rTime, style: poppins(10, c: C.txl)),
                                 ])),
@@ -251,43 +278,86 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                 color: C.white,
                 child: SafeArea(
                   top: false,
-                  child: Row(children: [
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                            color: C.bg2,
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(color: C.bd)),
-                        child: TextField(
-                          controller: _replyCtrl,
-                          decoration: InputDecoration(
-                              hintText: 'Write a reply...',
-                              hintStyle: poppins(13, c: C.txl),
-                              border: InputBorder.none,
-                              filled: false,
-                              contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 10)),
-                          style: poppins(13, c: C.ink),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    if (_replyImage != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Stack(children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: Image.file(_replyImage!,
+                                width: 64, height: 64, fit: BoxFit.cover),
+                          ),
+                          Positioned(
+                            top: -6,
+                            right: -6,
+                            child: GestureDetector(
+                              onTap: () => setState(() => _replyImage = null),
+                              child: Container(
+                                width: 20,
+                                height: 20,
+                                decoration: const BoxDecoration(
+                                    color: C.ink, shape: BoxShape.circle),
+                                child: const Icon(Icons.close_rounded,
+                                    size: 12, color: Colors.white),
+                              ),
+                            ),
+                          ),
+                        ]),
+                      ),
+                    Row(children: [
+                      GestureDetector(
+                        onTap: _sending ? null : _pickReplyImage,
+                        child: Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                              color: C.bg2,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: C.bd)),
+                          child: Icon(Icons.image_outlined,
+                              size: 19,
+                              color: _replyImage != null ? C.yellowDeep : C.txm),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: _sending ? null : _sendReply,
-                      child: Container(
-                        width: 42,
-                        height: 42,
-                        decoration: const BoxDecoration(
-                            color: C.ink, shape: BoxShape.circle),
-                        child: _sending
-                            ? const Padding(
-                                padding: EdgeInsets.all(10),
-                                child: CircularProgressIndicator(
-                                    color: C.yellow, strokeWidth: 2))
-                            : const Icon(Icons.send_rounded,
-                                color: C.yellow, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                              color: C.bg2,
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(color: C.bd)),
+                          child: TextField(
+                            controller: _replyCtrl,
+                            decoration: InputDecoration(
+                                hintText: 'Write a reply...',
+                                hintStyle: poppins(13, c: C.txl),
+                                border: InputBorder.none,
+                                filled: false,
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 10)),
+                            style: poppins(13, c: C.ink),
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: _sending ? null : _sendReply,
+                        child: Container(
+                          width: 42,
+                          height: 42,
+                          decoration: const BoxDecoration(
+                              color: C.ink, shape: BoxShape.circle),
+                          child: _sending
+                              ? const Padding(
+                                  padding: EdgeInsets.all(10),
+                                  child: CircularProgressIndicator(
+                                      color: C.yellow, strokeWidth: 2))
+                              : const Icon(Icons.send_rounded,
+                                  color: C.yellow, size: 18),
+                        ),
+                      ),
+                    ]),
                   ]),
                 ),
               ),
