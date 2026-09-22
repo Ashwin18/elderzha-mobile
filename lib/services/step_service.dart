@@ -25,6 +25,20 @@
 //    the Home screen's count look frozen right after the app had been
 //    killed and reopened, since there'd been no new step yet to
 //    trigger it. The native one-shot read above doesn't have that gap.
+//
+// Display responsiveness: TYPE_STEP_COUNTER is an Android "on-change"
+// sensor — it only delivers a fresh reading when the count actually
+// changes, and there's no OS API to synchronously ask "what's the
+// number right now". So a cold app-open right after walking with the
+// app closed can show 0 for a beat: the app is waiting for the next
+// physical step to trigger a delivery, and when it arrives it already
+// carries the full catch-up total (not a per-step increment) — that's
+// the "shows zero, then jumps to 35" behaviour. This can't be forced
+// to "update on every single step" from the app side (no per-step push
+// API for this sensor), but the *wait* can be shortened a lot: a burst
+// of quick re-checks right after opening/resuming the app (below),
+// plus a much shorter steady-state poll than before, so any pending
+// reading gets picked up within a few seconds instead of up to 25.
 import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -53,10 +67,22 @@ class StepService with WidgetsBindingObserver {
   // foreground did nothing, since the pedometer stream can stay quiet
   // for a while (see the file-level note) and nothing else re-reads
   // the sensor in between. Now: (a) every foreground resume triggers
-  // a fresh native read, and (b) a 25s timer re-reads it periodically
-  // while the app stays open, so the count keeps catching up even if
-  // the stream itself never fires.
+  // a fresh native read, and (b) a timer re-reads it periodically while
+  // the app stays open, so the count keeps catching up even if the
+  // stream itself never fires. Shortened from 25s to 6s — cheap (each
+  // tick is just a native listener registration that gives up in
+  // 1.5s if nothing's pending) and cuts the worst-case staleness a lot.
   Timer? _pollTimer;
+  static const _pollInterval = Duration(seconds: 6);
+
+  // Right after opening/resuming the app, also fire a quick burst of
+  // extra re-checks (every 1.5s, six times) instead of waiting for the
+  // first regular poll tick — this is what actually shortens the
+  // "shows 0 for a while after reopening" gap described above, since
+  // it gives the sensor several fast chances to deliver its pending
+  // reading in the first ~9s rather than one long wait.
+  Timer? _burstTimer;
+  int _burstTicksLeft = 0;
 
   /// Today's step count. Emits the last cached value immediately (so
   /// the UI has something to show the moment the app opens), then a
@@ -78,6 +104,7 @@ class StepService with WidgetsBindingObserver {
     // Authoritative catch-up read — covers whatever steps were taken
     // while the app was killed/closed, without waiting on the stream.
     unawaited(_readNativeOnce());
+    _startCatchUpBurst();
 
     _sub = Pedometer.stepCountStream.listen(
       (event) => _applyReading(event.steps),
@@ -87,7 +114,7 @@ class StepService with WidgetsBindingObserver {
 
     WidgetsBinding.instance.addObserver(this);
     _pollTimer = Timer.periodic(
-      const Duration(seconds: 25),
+      _pollInterval,
       (_) => unawaited(_readNativeOnce()),
     );
   }
@@ -96,7 +123,21 @@ class StepService with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(_readNativeOnce());
+      _startCatchUpBurst();
     }
+  }
+
+  void _startCatchUpBurst() {
+    _burstTimer?.cancel();
+    _burstTicksLeft = 6;
+    _burstTimer = Timer.periodic(const Duration(milliseconds: 1500), (t) {
+      if (_burstTicksLeft <= 0) {
+        t.cancel();
+        return;
+      }
+      _burstTicksLeft -= 1;
+      unawaited(_readNativeOnce());
+    });
   }
 
   Future<void> _readNativeOnce() async {
@@ -145,6 +186,8 @@ class StepService with WidgetsBindingObserver {
     _sub = null;
     _pollTimer?.cancel();
     _pollTimer = null;
+    _burstTimer?.cancel();
+    _burstTimer = null;
     WidgetsBinding.instance.removeObserver(this);
     _started = false;
   }

@@ -396,11 +396,18 @@ class MainActivity : FlutterActivity() {
 
     // Registers a short-lived listener on Sensor.TYPE_STEP_COUNTER — the
     // hardware sensor that keeps counting steps since the device last
-    // rebooted, regardless of whether this app's process is alive. The
-    // very first callback after registering carries that current
-    // cumulative total, so a single reading here is enough; it's
-    // unregistered immediately after (or after a 5s timeout if the
-    // sensor never reports, e.g. no such sensor on this device).
+    // rebooted, regardless of whether this app's process is alive.
+    //
+    // TYPE_STEP_COUNTER is an on-change sensor: Android only delivers a
+    // SensorEvent when the step count actually changes, not on-demand.
+    // So this callback fires immediately on some devices (an event
+    // waiting to be delivered), but on others has to wait for the
+    // user's *next* physical step before it gets anything — there's no
+    // OS API to synchronously ask "what's the count right now". A
+    // shorter timeout here (was 5s) means a call that isn't going to
+    // get an immediate answer gives up sooner, so the Dart side's more
+    // frequent re-polling (see step_service.dart) can catch the real
+    // number faster instead of one long wait blocking everything else.
     private fun readStepCounterOnce(result: MethodChannel.Result) {
         val sensorManager = getSystemService(Context.SENSOR_SERVICE) as? SensorManager
         val stepSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
@@ -426,6 +433,6 @@ class MainActivity : FlutterActivity() {
             override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
         }
         sensorManager.registerListener(listener, stepSensor, SensorManager.SENSOR_DELAY_NORMAL)
-        handler.postDelayed({ finish(-1) }, 5000)
+        handler.postDelayed({ finish(-1) }, 1500)
     }
 }
