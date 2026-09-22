@@ -39,7 +39,6 @@ class _ResumeWatcher with WidgetsBindingObserver {
 
 class AlarmPermissionService {
   static bool _hasCheckedFullScreenPermission = false;
-  static bool _hasCheckedExactAlarmPermission = false;
 
   static Future<void> ensureFullScreenIntentPermission() async {
     if (!Platform.isAndroid || _hasCheckedFullScreenPermission) {
@@ -71,8 +70,21 @@ class AlarmPermissionService {
   // Doze on aggressive OEMs), which reads to the user as "the alarm
   // didn't go off". Native side used to have no handler for this call
   // at all (see MainActivity.kt), so this previously no-op'd silently.
-  // Only prompts once per app session — repeatedly bouncing the user
-  // to Settings on every alarm save would be worse than not asking.
+  //
+  // Re-checks the *live* OS permission state on every call (a single
+  // cheap platform-channel round trip) rather than caching "already
+  // asked" for the lifetime of the app — a previous version cached
+  // that as a static flag set true after the very first call, which
+  // meant: if a user backed out of or dismissed the Settings prompt
+  // the first time this ran (typically right after signup, scheduling
+  // the default alarms), every alarm scheduled for the rest of that
+  // app session — including one the user explicitly edited a time for
+  // in Alarms — silently skipped the permission check entirely and
+  // fell back to native's own inexact-alarm fallback, with no further
+  // chance to prompt them until the app was restarted. Now: if the OS
+  // already reports the permission granted, this returns immediately
+  // without bothering the user again; only an actually-still-missing
+  // permission opens Settings.
   //
   // Bug fixed here: MainActivity's "requestExactAlarmPermission" just
   // *launches* the system Settings screen and returns immediately —
@@ -88,10 +100,7 @@ class AlarmPermissionService {
   // schedules alarms, canScheduleExactAlarms() reflects what the user
   // actually just did.
   static Future<void> ensureExactAlarmPermission() async {
-    if (!Platform.isAndroid || _hasCheckedExactAlarmPermission) {
-      return;
-    }
-    _hasCheckedExactAlarmPermission = true;
+    if (!Platform.isAndroid) return;
 
     try {
       final allowed =
