@@ -169,6 +169,19 @@ class _WelcomePage extends StatelessWidget {
 class _ConnectedPage extends StatelessWidget {
   const _ConnectedPage();
 
+  // (icon, badge color, title, subtitle) — 8 features, 2 per row,
+  // matching the client-provided reference layout.
+  static const _items = [
+    (Icons.alarm_rounded, _OnboardColors.gold, 'Alarm', 'Meal & Medicine,\non time.'),
+    (Icons.calendar_month_rounded, Color(0xFF8B5CF6), 'Reminder', 'Never miss the special\ndays & appointments.'),
+    (Icons.track_changes_rounded, Color(0xFFEC4899), 'Daily Engagement', 'Move, think, play\n& enjoy.'),
+    (Icons.menu_book_rounded, Color(0xFFF97316), 'Daily Diary', 'Thoughts, feelings,\nmemories and moments.'),
+    (Icons.photo_camera_rounded, Color(0xFF3B82F6), 'Memories', 'Revisit moments\nthat matter.'),
+    (Icons.directions_walk_rounded, _OnboardColors.green, 'Walking & Steps', 'Stay active,\nhealthier and happier.'),
+    (Icons.park_rounded, Color(0xFF8255D9), 'Family Tree', 'Keep your loved ones\nclose. Birthdays & more.'),
+    (Icons.notifications_active_rounded, Color(0xFFE0435D), 'Notifications', 'Important updates,\nall in one place.'),
+  ];
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -182,55 +195,111 @@ class _ConnectedPage extends StatelessWidget {
             'From daily reminders to fun activities, Elderzha keeps you engaged every day.',
           ),
           const SizedBox(height: 16),
-          const Row(children: [
-            Expanded(
-              child: _Feature(
-                Icons.notifications_rounded,
-                'Reminders\n& Alarms',
-                _OnboardColors.gold,
-              ),
+          for (var i = 0; i < _items.length; i += 2)
+            Padding(
+              padding: EdgeInsets.only(bottom: i + 2 < _items.length ? 10 : 0),
+              child: Row(children: [
+                Expanded(
+                  child: _GridFeature(
+                    icon: _items[i].$1,
+                    color: _items[i].$2,
+                    title: _items[i].$3,
+                    subtitle: _items[i].$4,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _GridFeature(
+                    icon: _items[i + 1].$1,
+                    color: _items[i + 1].$2,
+                    title: _items[i + 1].$3,
+                    subtitle: _items[i + 1].$4,
+                  ),
+                ),
+              ]),
             ),
-            SizedBox(width: 12),
-            Expanded(
-              child: _Feature(
-                Icons.psychology_alt_rounded,
-                'Activities\n& Polls',
-                Color(0xFF8B5CF6),
+          const SizedBox(height: 14),
+          const Center(
+            child: Text(
+              'Small steps today, a bigger happier tomorrow',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: _OnboardColors.ink,
+                fontSize: 12.5,
+                fontStyle: FontStyle.italic,
+                fontWeight: FontWeight.w700,
               ),
-            ),
-          ]),
-          const SizedBox(height: 12),
-          const Row(children: [
-            Expanded(
-              child: _Feature(
-                Icons.groups_rounded,
-                'Community',
-                Color(0xFFEC4899),
-              ),
-            ),
-            SizedBox(width: 12),
-            Expanded(
-              child: _Feature(
-                Icons.directions_walk_rounded,
-                'Walking',
-                Color(0xFF45A85E),
-              ),
-            ),
-          ]),
-          SizedBox(
-            height: 230,
-            width: double.infinity,
-            child: Image.asset(
-              'assets/images/elderzha_woman_phone.png',
-              fit: BoxFit.contain,
-              alignment: Alignment.bottomCenter,
             ),
           ),
-          const _Reminder(),
         ],
       ),
     );
   }
+}
+
+class _GridFeature extends StatelessWidget {
+  const _GridFeature({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+  });
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        height: 78,
+        padding: const EdgeInsets.all(10),
+        decoration: _card(),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(12)),
+            child: Icon(icon, color: Colors.white, size: 19),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _OnboardColors.ink,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _OnboardColors.ink,
+                    fontSize: 9,
+                    height: 1.2,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            width: 20,
+            height: 20,
+            decoration: const BoxDecoration(color: _OnboardColors.cream3, shape: BoxShape.circle),
+            child: const Icon(Icons.chevron_right_rounded, size: 13, color: _OnboardColors.ink),
+          ),
+        ]),
+      );
 }
 
 class _SafetyPage extends StatelessWidget {
@@ -322,33 +391,6 @@ class _Copy extends StatelessWidget {
       );
 }
 
-class _Feature extends StatelessWidget {
-  const _Feature(this.icon, this.label, this.color);
-  final IconData icon;
-  final String label;
-  final Color color;
-  @override
-  Widget build(BuildContext context) => Container(
-        height: 124,
-        padding: const EdgeInsets.all(10),
-        decoration: _card(),
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          _CircleIcon(icon, color),
-          const SizedBox(height: 7),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: _OnboardColors.ink,
-              fontSize: 13,
-              height: 1.1,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ]),
-      );
-}
-
 class _CircleIcon extends StatelessWidget {
   const _CircleIcon(this.icon, this.color, {this.size = 52});
   final IconData icon;
@@ -360,29 +402,6 @@ class _CircleIcon extends StatelessWidget {
         height: size,
         decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         child: Icon(icon, color: Colors.white, size: size * .55),
-      );
-}
-
-class _Reminder extends StatelessWidget {
-  const _Reminder();
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 14),
-        decoration: _card(),
-        child: const Row(children: [
-          Icon(Icons.calendar_month_rounded, color: _OnboardColors.gold, size: 39),
-          SizedBox(width: 13),
-          Expanded(
-            child: Text(
-              'Never miss what matters.',
-              style: TextStyle(
-                color: _OnboardColors.ink,
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ]),
       );
 }
 
@@ -425,47 +444,21 @@ class _Premium extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 6),
-          Column(children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-              decoration: BoxDecoration(
-                color: _OnboardColors.gold,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Text(
-                'Premium',
-                style: TextStyle(
-                  color: _OnboardColors.ink,
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w800,
-                ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+            decoration: BoxDecoration(
+              color: _OnboardColors.gold,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Text(
+              'Premium',
+              style: TextStyle(
+                color: _OnboardColors.ink,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w800,
               ),
             ),
-            const SizedBox(height: 9),
-            Container(
-              width: 63,
-              height: 30,
-              padding: const EdgeInsets.only(left: 9, right: 3),
-              decoration: BoxDecoration(
-                color: _OnboardColors.green,
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'ON',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  CircleAvatar(radius: 12, backgroundColor: Colors.white),
-                ],
-              ),
-            ),
-          ]),
+          ),
         ]),
       );
 }
