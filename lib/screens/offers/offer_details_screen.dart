@@ -100,7 +100,6 @@ class _OfferDetailsScreenState extends State<OfferDetailsScreen> {
     final title = _text(o, ['title', 'offer_title', 'name', 'coupon_code']);
     final subtitle = _text(o, ['subtitle', 'sub_title', 'short_description']);
     final code = _text(o, ['coupon_code', 'code']);
-    final qty = _text(o, ['available_quantity', 'quantity', 'stock']);
     final start = _text(o, ['start_date', 'valid_from']);
     final end = _text(o, ['end_date', 'valid_till', 'expiry', 'expires']);
     final location = _text(o, ['store_location', 'location', 'address']);
@@ -222,8 +221,6 @@ class _OfferDetailsScreenState extends State<OfferDetailsScreen> {
           ),
         const SizedBox(height: 14),
         Wrap(spacing: 8, runSpacing: 8, children: [
-          if (qty.isNotEmpty)
-            _infoChip(Icons.inventory_2_outlined, '$qty available'),
           if (start.isNotEmpty)
             _infoChip(Icons.play_arrow_rounded, 'Starts $start'),
           if (end.isNotEmpty)

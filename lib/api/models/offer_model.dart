@@ -87,7 +87,6 @@ class OfferData {
     required this.badgeText,
     required this.badgeType,
     required this.status,
-    required this.availableQuantity,
     required this.iconUrl,
     required this.bannerUrl,
     required this.storeLocation,
@@ -105,7 +104,6 @@ class OfferData {
   final String badgeText;
   final String badgeType;
   final String status;
-  final String availableQuantity;
   final String iconUrl;
   final String bannerUrl;
   final String storeLocation;
@@ -130,7 +128,6 @@ class OfferData {
       badgeText: json["badge_text"]?.toString() ?? "",
       badgeType: json["badge_type"]?.toString() ?? "",
       status: json["status"]?.toString() ?? "",
-      availableQuantity: json["available_quantity"]?.toString() ?? "",
       iconUrl: json["icon_url"]?.toString() ?? "",
       bannerUrl: json["banner_url"]?.toString() ?? "",
       storeLocation: json["store_location"]?.toString() ?? "",

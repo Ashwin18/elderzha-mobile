@@ -151,9 +151,7 @@ class _OffersScreenState extends State<OffersScreen> {
     final title = _text(o, ['title', 'offer_title', 'name', 'coupon_code']);
     final subtitle = _text(o, ['subtitle', 'sub_title', 'short_description']);
     final code = _text(o, ['coupon_code', 'code']);
-    final qty = _text(o, ['available_quantity', 'quantity', 'stock']);
     final icon = _assetUrl(_text(o, ['icon_image', 'icon_url', 'icon']));
-    final lowStock = int.tryParse(qty) != null && int.parse(qty) <= 5;
 
     return GestureDetector(
       onTap: id == 0 ? null : () => _openOfferDetails(id),
@@ -204,10 +202,7 @@ class _OffersScreenState extends State<OffersScreen> {
             ]),
           ),
           const SizedBox(width: 8),
-          if (lowStock)
-            _pill('Low stock', C.red.withOpacity(.12), C.red)
-          else if (code.isNotEmpty)
-            _pill(code, C.yellowMid, C.yellowDeep),
+          if (code.isNotEmpty) _pill(code, C.yellowMid, C.yellowDeep),
           const SizedBox(width: 4),
           const Icon(Icons.chevron_right_rounded, color: C.txl, size: 20),
         ]),
