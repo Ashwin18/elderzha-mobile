@@ -172,16 +172,21 @@ class _ImagePreview extends StatelessWidget {
           ),
         ),
       ),
+      // Square (1080×1080) rather than the fixed landscape `height`
+      // param — a real aspect ratio box instead of an arbitrary crop
+      // height so a square upload displays uncropped.
       child: Container(
         margin: const EdgeInsets.only(top: 10),
-        height: height,
         width: double.infinity,
         clipBehavior: Clip.hardEdge,
         decoration: BoxDecoration(borderRadius: BorderRadius.circular(14)),
-        child: Image.network(
-          url,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _MediaError(url: url),
+        child: AspectRatio(
+          aspectRatio: 1,
+          child: Image.network(
+            url,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _MediaError(url: url),
+          ),
         ),
       ),
     );

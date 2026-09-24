@@ -286,7 +286,7 @@ class _ActivityBannerCard extends StatelessWidget {
                         ? ColorFilter.mode(Colors.white.withOpacity(.55), BlendMode.srcOver)
                         : const ColorFilter.mode(Colors.transparent, BlendMode.multiply),
                     child: AspectRatio(
-                      aspectRatio: 1.8,
+                      aspectRatio: 1, // square (1080×1080)
                       child: Container(
                         width: double.infinity,
                         color: C.yellowLight,

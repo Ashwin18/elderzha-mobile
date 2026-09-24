@@ -118,26 +118,30 @@ class _OfferDetailsScreenState extends State<OfferDetailsScreen> {
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 32),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Stack(children: [
-          Container(
-            height: 220,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: C.yellowMid,
-              borderRadius: BorderRadius.circular(24),
-            ),
-            clipBehavior: Clip.hardEdge,
-            child: banner.isEmpty
-                ? const Icon(Icons.local_offer_rounded,
-                    size: 54, color: C.yellowDeep)
-                : Image.network(
-                    banner,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const Icon(
-                      Icons.local_offer_rounded,
-                      size: 54,
-                      color: C.yellowDeep,
+          // Square (1080×1080) rather than a fixed 220px landscape
+          // crop, so a square banner upload displays uncropped.
+          AspectRatio(
+            aspectRatio: 1,
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: C.yellowMid,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              clipBehavior: Clip.hardEdge,
+              child: banner.isEmpty
+                  ? const Icon(Icons.local_offer_rounded,
+                      size: 54, color: C.yellowDeep)
+                  : Image.network(
+                      banner,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const Icon(
+                        Icons.local_offer_rounded,
+                        size: 54,
+                        color: C.yellowDeep,
+                      ),
                     ),
-                  ),
+            ),
           ),
           Positioned(
             left: 14,

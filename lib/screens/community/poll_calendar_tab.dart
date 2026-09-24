@@ -256,7 +256,7 @@ class _TodayPollCardState extends State<_TodayPollCard> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: AspectRatio(
-                      aspectRatio: 1.8,
+                      aspectRatio: 1, // square (1080×1080)
                       child: Image.network(
                         poll['image'].toString(),
                         width: double.infinity,
