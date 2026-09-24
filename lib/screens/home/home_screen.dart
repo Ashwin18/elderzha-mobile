@@ -896,17 +896,6 @@ class _HomeScreenState extends State<HomeScreen>
         ],
         if (!_checkInDone) ...[
           const SizedBox(height: 11),
-          Row(children: [
-            Icon(
-              _isCheckInWindowOpen ? Icons.lock_open_rounded : Icons.lock_clock_rounded,
-              size: 13,
-              color: C.txm,
-            ),
-            const SizedBox(width: 5),
-            Text(_diaryStatusLabel,
-                style: poppins(11, w: FontWeight.w700, c: C.txm)),
-          ]),
-          const SizedBox(height: 6),
           GestureDetector(
             onTap: _openCheckIn,
             child: Container(

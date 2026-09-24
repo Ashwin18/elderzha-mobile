@@ -83,6 +83,15 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="high_importance_channel" />
+        <!-- Without this, Firebase falls back to the full-colour launcher
+             icon for any notification the OS displays on its own (Android
+             requires a flat white/transparent status-bar icon on API 21+,
+             so the launcher icon renders as a blank shape instead). Same
+             ic_notification asset already used by the native fall/SOS
+             alert channels in FallMonitorService.kt / AlarmReceiver.kt. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_notification" />
         <receiver
             android:name=".AlarmReceiver"
             android:exported="false" />

@@ -281,7 +281,7 @@ Future<void> _showRemoteMessageNotification(RemoteMessage msg) async {
         channelDescription: _channel.description,
         importance: Importance.max,
         priority: Priority.high,
-        icon: '@mipmap/ic_launcher',
+        icon: '@drawable/ic_notification',
         largeIcon: bigPicture,
         styleInformation: bigPicture != null
             ? BigPictureStyleInformation(
@@ -439,7 +439,7 @@ Future<void> _showHistoryNotification(Map<String, dynamic> n) async {
         channelDescription: _channel.description,
         importance: Importance.max,
         priority: Priority.high,
-        icon: '@mipmap/ic_launcher',
+        icon: '@drawable/ic_notification',
       ),
       iOS: const DarwinNotificationDetails(),
     ),

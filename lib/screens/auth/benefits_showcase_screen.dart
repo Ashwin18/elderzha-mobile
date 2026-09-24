@@ -195,6 +195,8 @@ class _CoreFeaturesGridPage extends StatelessWidget {
                     children: _items.map((item) => _FeatureCard(emoji: item.$1, title: item.$2, subtitle: item.$3)).toList(),
                   ),
                   const SizedBox(height: 10),
+                  _StepCountCard(),
+                  const SizedBox(height: 10),
                   _FamilyTreeCard(),
                 ],
               ),
@@ -227,6 +229,34 @@ class _FeatureCard extends StatelessWidget {
             Text(title, style: _heading(12.5)),
             const SizedBox(height: 2),
             Text(subtitle, style: _body(10, color: _DT.navy.withOpacity(0.65))),
+          ]),
+        ),
+      ]),
+    );
+  }
+}
+
+class _StepCountCard extends StatelessWidget {
+  const _StepCountCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: _DT.softCard, borderRadius: BorderRadius.circular(18)),
+      child: Row(children: [
+        Container(
+          width: 42, height: 42,
+          decoration: const BoxDecoration(color: _DT.white, shape: BoxShape.circle),
+          child: const Center(child: Text('🚶', style: TextStyle(fontSize: 20))),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            Text('Step count', style: _heading(14)),
+            const SizedBox(height: 2),
+            Text('Tracked automatically, all day', style: _body(10.5, color: _DT.navy.withOpacity(0.65))),
           ]),
         ),
       ]),
