@@ -595,14 +595,16 @@ class _HomeScreenState extends State<HomeScreen>
                         ),
                       ),
                     ),
-                    // Greeting pill — top-left, over the window/curtain,
-                    // well above where anyone's hair or face starts.
+                    // Greeting pill — bottom-left, over where the photo's
+                    // leftmost elder's hand rests, clear of every face in
+                    // the frame regardless of how long the person's name
+                    // is (a long name pushed the old top-left pill wide
+                    // enough to reach toward the nearest face).
                     Positioned(
-                      top: 8,
                       left: 12,
-                      child: SafeArea(
-                        bottom: false,
-                        child: Container(
+                      bottom: 14,
+                      right: 90,
+                      child: Container(
                           padding:
                               const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
                           decoration: BoxDecoration(
@@ -635,7 +637,6 @@ class _HomeScreenState extends State<HomeScreen>
                           ),
                         ),
                       ),
-                    ),
                     // Notification bell — top-right.
                     Positioned(
                       top: 8,
