@@ -80,6 +80,7 @@ class DailyScheduler {
     try {
       await AlarmPermissionService.ensureFullScreenIntentPermission();
       await AlarmPermissionService.ensureExactAlarmPermission();
+      await AlarmPermissionService.ensureBatteryOptimizationExemption();
 
       final dateParts = date.split('-');
       final timeParts = time.split(':');

@@ -123,4 +123,46 @@ class AlarmPermissionService {
       // Ignore permission bridge failures and keep alarm scheduling functional.
     }
   }
+
+  // Battery optimization exemption. On Xiaomi/Vivo/Oppo/OnePlus/Samsung
+  // and similar OEMs especially, Android can freeze or kill the app's
+  // whole process while it's in the background/Doze — even an alarm
+  // that fired exactly on time via AlarmManager can then never reach
+  // AlarmReceiver's own follow-up work (the sound, the full-screen
+  // alarm activity), which is indistinguishable to the user from "the
+  // alarm just didn't ring". This is a *second*, separate permission
+  // from "Alarms & reminders" above — both are required for reliable
+  // delivery, and this one previously had a fully implemented native
+  // handler (MainActivity.kt's "requestBatteryOptimization" case) that
+  // nothing on the Dart side ever actually called, so the system
+  // "ignore battery optimizations" dialog never appeared for any user,
+  // on any device, at any point — this is likely the single biggest
+  // reason wizard/manual alarms show correctly in the Alarms tab but
+  // silently never fire. Same resume-wait pattern as the exact-alarm
+  // check above, since this also just launches a system Settings
+  // screen and returns immediately.
+  static Future<void> ensureBatteryOptimizationExemption() async {
+    if (!Platform.isAndroid) return;
+
+    try {
+      final ignoring =
+          await _alarmPermissionChannel.invokeMethod<bool>(
+            'isIgnoringBatteryOptimizations',
+          ) ??
+          true;
+      if (ignoring) return;
+
+      final watcher = _ResumeWatcher();
+      await _alarmPermissionChannel.invokeMethod(
+        'requestBatteryOptimization',
+      );
+      await watcher.resumed.timeout(
+        const Duration(seconds: 90),
+        onTimeout: () {},
+      );
+      watcher.dispose();
+    } catch (_) {
+      // Ignore permission bridge failures and keep alarm scheduling functional.
+    }
+  }
 }

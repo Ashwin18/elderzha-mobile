@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../alaram/daily_scheduler.dart';
+import '../../alaram/alarm_permission_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_routes.dart';
 import '../../providers/auth_provider.dart';
@@ -85,6 +86,15 @@ class _HomeScreenState extends State<HomeScreen>
     _loadAll();
     _initSteps();
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowHomeTour());
+    // Battery-optimization exemption is a separate permission from
+    // "Alarms & reminders" (requested at login/wizard time) — without
+    // it, some OEMs (Xiaomi/Vivo/Oppo/OnePlus/Samsung) can kill the
+    // app's background process and silently prevent already-scheduled
+    // alarms from ever ringing, which login/wizard alone can't catch
+    // for someone who's been logged in since before this check
+    // existed. Cheap no-op if already granted, so safe to run every
+    // time Home loads rather than gating it behind a "shown once" flag.
+    AlarmPermissionService.ensureBatteryOptimizationExemption();
   }
 
   // First-time-only guided tour of the Home screen's four main areas.

@@ -286,6 +286,7 @@ class _AlarmsScreenState extends State<AlarmsScreen> {
     setState(() => _saving = true);
     await AlarmPermissionService.ensureFullScreenIntentPermission();
     await AlarmPermissionService.ensureExactAlarmPermission();
+    await AlarmPermissionService.ensureBatteryOptimizationExemption();
 
     // 1. Save to API
     final payload = {

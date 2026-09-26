@@ -26,6 +26,8 @@ class AlarmService {
     required String imageUrl,
   }) async {
     await AlarmPermissionService.ensureFullScreenIntentPermission();
+    await AlarmPermissionService.ensureExactAlarmPermission();
+    await AlarmPermissionService.ensureBatteryOptimizationExemption();
 
     final triggerAt = time.millisecondsSinceEpoch;
     final date = "${time.year.toString().padLeft(4, '0')}-"

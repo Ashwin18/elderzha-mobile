@@ -36,6 +36,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
     // degrade to normal notifications until their next login (if ever).
     await AlarmPermissionService.ensureFullScreenIntentPermission();
     await AlarmPermissionService.ensureExactAlarmPermission();
+    await AlarmPermissionService.ensureBatteryOptimizationExemption();
     // This is the ONLY place a brand-new user's default wizard alarms
     // ever get scheduled — there's no retry if it fails here, and until
     // now nothing marked whether it actually succeeded. If anything

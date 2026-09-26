@@ -367,6 +367,7 @@ class _OtpScreenState extends State<OtpScreen> with CodeAutoFill {
     try {
       await AlarmPermissionService.ensureFullScreenIntentPermission();
       await AlarmPermissionService.ensureExactAlarmPermission();
+      await AlarmPermissionService.ensureBatteryOptimizationExemption();
 
       // 1. Get medical/food alarms from API and schedule
       final alarmRes = await AlarmService().getMedicalRecords();

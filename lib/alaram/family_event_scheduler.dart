@@ -20,6 +20,8 @@ class FamilyEventScheduler {
     List<FamilyMember> members,
   ) async {
     await AlarmPermissionService.ensureFullScreenIntentPermission();
+    await AlarmPermissionService.ensureExactAlarmPermission();
+    await AlarmPermissionService.ensureBatteryOptimizationExemption();
 
     final prefs = await SharedPreferences.getInstance();
     final alarmTone = prefs.getString('alarm_tone') ?? '';
