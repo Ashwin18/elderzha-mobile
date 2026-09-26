@@ -1,4 +1,4 @@
-package com.batechnology.elderzha
+package com.elderzha.app
 
 import android.content.BroadcastReceiver
 import android.content.Context

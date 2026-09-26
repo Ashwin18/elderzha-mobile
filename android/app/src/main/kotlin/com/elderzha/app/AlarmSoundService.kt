@@ -1,4 +1,4 @@
-package com.batechnology.elderzha
+package com.elderzha.app
 
 import android.app.Service
 import android.app.NotificationChannel
@@ -200,8 +200,8 @@ class AlarmSoundService : Service() {
     }
 
     companion object {
-        private const val ACTION_STOP = "com.batechnology.elderzha.STOP_ALARM_SOUND"
-        private const val ACTION_DISMISS = "com.batechnology.elderzha.DISMISS_ALARM"
+        private const val ACTION_STOP = "com.elderzha.app.STOP_ALARM_SOUND"
+        private const val ACTION_DISMISS = "com.elderzha.app.DISMISS_ALARM"
         private const val DISMISS_REQUEST_OFFSET = 500_000
         private const val EXTRA_ALARM_ID = "alarmId"
         private const val EXTRA_SOUND_URL = "soundUrl"

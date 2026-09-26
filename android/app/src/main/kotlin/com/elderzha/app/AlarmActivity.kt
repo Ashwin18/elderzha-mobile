@@ -1,4 +1,4 @@
-package com.batechnology.elderzha
+package com.elderzha.app
 
 import android.app.Activity
 import android.app.NotificationManager

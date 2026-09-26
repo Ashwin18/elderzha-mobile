@@ -1,4 +1,4 @@
-package com.batechnology.elderzha
+package com.elderzha.app
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -498,8 +498,8 @@ class FallMonitorService : Service(), SensorEventListener {
         const val NOTIF_ID = 7777
         const val FALL_ALARM_SOUND_ID = 7779 // distinct from real scheduled alarms
         const val ALERT_NOTIF_ID = 7778
-        const val ACTION_TEST_ALERT = "com.batechnology.elderzha.TEST_FALL_ALERT"
-        const val ACTION_STOP_SOS_SIREN = "com.batechnology.elderzha.STOP_SOS_SIREN"
+        const val ACTION_TEST_ALERT = "com.elderzha.app.TEST_FALL_ALERT"
+        const val ACTION_STOP_SOS_SIREN = "com.elderzha.app.STOP_SOS_SIREN"
         var isServiceRunning = false
             private set
 

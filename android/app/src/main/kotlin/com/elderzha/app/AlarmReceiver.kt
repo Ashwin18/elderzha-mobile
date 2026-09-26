@@ -1,4 +1,4 @@
-package com.batechnology.elderzha
+package com.elderzha.app
 
 import android.app.AlarmManager
 import android.app.KeyguardManager
@@ -204,7 +204,7 @@ class AlarmReceiver : BroadcastReceiver() {
     }
 
     companion object {
-        const val ACTION_DISMISS        = "com.batechnology.elderzha.DISMISS_ALARM"
+        const val ACTION_DISMISS        = "com.elderzha.app.DISMISS_ALARM"
         const val DISMISS_REQUEST_OFFSET = 500_000
         const val CHANNEL_ID            = "elderzha_alarm_channel_v4"
         const val EXTRA_ID              = "id"
