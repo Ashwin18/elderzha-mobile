@@ -63,7 +63,6 @@ class DefaultFirebaseOptions {
     projectId: 'elderzha-da434',
     storageBucket: 'elderzha-da434.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyAJ6Fd1R2Nve8agjDuupt3ZKITCIGJhQ_Y',
     appId: '1:604148632550:ios:d72ab656a540428f4d2427',
@@ -72,5 +71,4 @@ class DefaultFirebaseOptions {
     storageBucket: 'elderzha-da434.firebasestorage.app',
     iosBundleId: 'com.reminder.customer',
   );
-
 }
