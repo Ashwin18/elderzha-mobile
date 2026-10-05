@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/app_theme.dart';
 import '../../services/api_client.dart';
+import '../../widgets/location_disclosure_dialog.dart';
 
 /// Fall detection now runs as a NATIVE Android foreground service —
 /// survives the app being swiped from Recent Apps (does not survive
@@ -100,12 +102,55 @@ class _FallSettingsScreenState extends State<FallSettingsScreen>
 
   Future<void> _toggle(bool value) async {
     if (value) {
+      final canProceed = await _ensureLocationDisclosureAndPermission();
+      if (!canProceed) return; // user declined the disclosure, or denied permission
       await _channel.invokeMethod('startFallMonitoring');
     } else {
       await _channel.invokeMethod('stopFallMonitoring');
     }
     await Future.delayed(const Duration(milliseconds: 300));
     await _refresh();
+  }
+
+  /// Google Play's Prominent Disclosure requirement: before the OS
+  /// background-location permission prompt can ever appear, the app must
+  /// show its own clear in-app explanation and get an explicit "Allow"
+  /// from the user. This runs the very first time Background Fall
+  /// Detection is switched on (and again if permission was later revoked).
+  Future<bool> _ensureLocationDisclosureAndPermission() async {
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.always) return true;
+
+    if (!mounted) return false;
+    final userAgreed = await showLocationDisclosureDialog(context);
+    if (!userAgreed) return false;
+
+    permission = await Geolocator.requestPermission();
+    if (!mounted) return false;
+
+    if (permission == LocationPermission.always) return true;
+
+    if (permission == LocationPermission.whileInUse) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(
+          'For Fall Detection to work when the app is closed, please '
+          'also set Location to "Allow all the time" in Settings.',
+          style: poppins(12, c: C.white),
+        ),
+        backgroundColor: C.yellowDeep,
+      ));
+      return true;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(
+        'Location permission is required for Fall Detection. '
+        'Enable it in phone Settings to turn this on.',
+        style: poppins(12, c: C.white),
+      ),
+      backgroundColor: C.red,
+    ));
+    return false;
   }
 
   Future<void> _testAlert() async {

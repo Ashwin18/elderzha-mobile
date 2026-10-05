@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/fall_detection/fall_alert_service.dart';
+import '../../widgets/location_disclosure_dialog.dart';
 
 class FallAlertScreen extends StatefulWidget {
   const FallAlertScreen({super.key});
@@ -64,10 +65,21 @@ class _FallAlertScreenState extends State<FallAlertScreen>
     setState(() => _sending = true);
     Position? position;
     try {
-      // Request permission if not already granted
+      // Request permission if not already granted. Normally this is
+      // already "always" by this point, since enabling Background Fall
+      // Detection in Settings shows the prominent disclosure and asks
+      // first — this is just a safety net for an edge case (e.g. an
+      // existing install from before that flow existed).
       LocationPermission permitted = await Geolocator.checkPermission();
       if (permitted == LocationPermission.denied) {
-        permitted = await Geolocator.requestPermission();
+        if (mounted) {
+          final userAgreed = await showLocationDisclosureDialog(context);
+          if (!userAgreed) {
+            permitted = LocationPermission.denied;
+          } else {
+            permitted = await Geolocator.requestPermission();
+          }
+        }
       }
       if (permitted == LocationPermission.always ||
           permitted == LocationPermission.whileInUse) {
