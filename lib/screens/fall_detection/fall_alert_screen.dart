@@ -66,10 +66,12 @@ class _FallAlertScreenState extends State<FallAlertScreen>
     Position? position;
     try {
       // Request permission if not already granted. Normally this is
-      // already "always" by this point, since enabling Background Fall
-      // Detection in Settings shows the prominent disclosure and asks
-      // first — this is just a safety net for an edge case (e.g. an
-      // existing install from before that flow existed).
+      // already granted by this point, since enabling Background Fall
+      // Detection in Settings shows the disclosure and asks first — this
+      // is just a safety net for an edge case (e.g. an existing install
+      // from before that flow existed). Only foreground ("while using
+      // the app") permission is ever needed, since this screen is always
+      // visible on-screen when location is read.
       LocationPermission permitted = await Geolocator.checkPermission();
       if (permitted == LocationPermission.denied) {
         if (mounted) {

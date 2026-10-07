@@ -112,14 +112,18 @@ class _FallSettingsScreenState extends State<FallSettingsScreen>
     await _refresh();
   }
 
-  /// Google Play's Prominent Disclosure requirement: before the OS
-  /// background-location permission prompt can ever appear, the app must
-  /// show its own clear in-app explanation and get an explicit "Allow"
-  /// from the user. This runs the very first time Background Fall
-  /// Detection is switched on (and again if permission was later revoked).
+  /// Shows a clear in-app explanation before the OS location permission
+  /// prompt ever appears (Google Play's Prominent Disclosure expectation,
+  /// and just good practice generally). The app only ever reads location
+  /// while a Fall Detection / SOS screen is visible on-screen, so
+  /// "While using the app" is the correct, sufficient permission —
+  /// background/"Allow all the time" is neither requested nor needed.
   Future<bool> _ensureLocationDisclosureAndPermission() async {
     LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.always) return true;
+    if (permission == LocationPermission.always ||
+        permission == LocationPermission.whileInUse) {
+      return true;
+    }
 
     if (!mounted) return false;
     final userAgreed = await showLocationDisclosureDialog(context);
@@ -128,17 +132,8 @@ class _FallSettingsScreenState extends State<FallSettingsScreen>
     permission = await Geolocator.requestPermission();
     if (!mounted) return false;
 
-    if (permission == LocationPermission.always) return true;
-
-    if (permission == LocationPermission.whileInUse) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(
-          'For Fall Detection to work when the app is closed, please '
-          'also set Location to "Allow all the time" in Settings.',
-          style: poppins(12, c: C.white),
-        ),
-        backgroundColor: C.yellowDeep,
-      ));
+    if (permission == LocationPermission.always ||
+        permission == LocationPermission.whileInUse) {
       return true;
     }
 

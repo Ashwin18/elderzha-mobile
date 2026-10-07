@@ -9,9 +9,15 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Foreground-only: location is read for the SOS / Fall Detection
+         screens, which are only ever shown on-screen while the countdown
+         is visible (the native fall-detected alert, FallSOSActivity, does
+         not use location at all). ACCESS_BACKGROUND_LOCATION was removed
+         because nothing in the app genuinely needs "Allow all the time" —
+         declaring it was what triggered Google Play's Prominent Disclosure
+         requirement in the first place. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
     <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
     <uses-permission android:name="android.permission.VIBRATE"/>

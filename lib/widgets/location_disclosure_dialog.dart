@@ -1,13 +1,10 @@
 // lib/widgets/location_disclosure_dialog.dart
 //
-// Google Play "Prominent Disclosure and Consent" requirement for apps
-// that request ACCESS_BACKGROUND_LOCATION: before the system permission
-// dialog is ever shown, the app itself must show its own in-app UI that
-// clearly explains what location data is collected, why, and that it can
-// be accessed in the background — and the user must take an explicit
-// affirmative action to continue. Simply mentioning it in the privacy
-// policy, or relying on the OS permission dialog's own wording, does not
-// satisfy this requirement.
+// Shown before the OS location-permission prompt ever appears, so the
+// user always sees a clear, specific explanation first rather than just
+// the generic system dialog. Location is only ever read while a Fall
+// Detection / SOS screen is on-screen (never in the background), so this
+// only needs "While using the app" permission.
 //
 // This dialog is shown right before any call that can trigger the
 // Android location-permission prompt for the Fall Detection / SOS
@@ -42,9 +39,9 @@ Future<bool> showLocationDisclosureDialog(BuildContext context) async {
         ),
       ]),
       content: Text(
-        'ElderZha accesses your device location — including in the '
-        'background, while the app is closed or not in use — only to '
-        'power the Fall Detection and SOS safety feature.\n\n'
+        'ElderZha accesses your device location only to power the Fall '
+        'Detection and SOS safety feature, while the SOS screen is open '
+        'on your device.\n\n'
         'When a fall is detected or an SOS alert is sent, your current '
         'location is shared with your registered SOS contact and admin '
         'so they can find and help you quickly.\n\n'
