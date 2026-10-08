@@ -13,6 +13,7 @@ import '../../alaram/alarm_history_service.dart';
 import '../../alaram/alarm_permission_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_routes.dart';
+import '../../utils/notification_list.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/services.dart';
 import '../../widgets/coach_mark.dart';
@@ -188,12 +189,17 @@ class _HomeScreenState extends State<HomeScreen>
       NotificationService().getNotifications()
           .timeout(const Duration(seconds: 10), onTimeout: () => null),
     ]);
+    // Same list the Notifications screen shows (server history + the ones
+    // saved on this phone, minus API envelopes), so the bell number always
+    // matches what the screen lists.
+    final notificationCount =
+        (await NotificationList.merged(secondary[3])).length;
     if (!mounted) return;
     setState(() {
       _homeActivities    = _extractList(secondary[0]);
       _reminders         = _extractList(secondary[1]);
       _medicalRecord     = _extractMap(secondary[2]);
-      _notificationCount = _extractNotificationCount(secondary[3]);
+      _notificationCount = notificationCount;
     });
     } catch (_) {
       if (mounted) setState(() => _loadError = true);
@@ -430,76 +436,6 @@ class _HomeScreenState extends State<HomeScreen>
       });
       await _loadAll();
     }
-  }
-
-  int _extractNotificationCount(Map<String, dynamic>? res) {
-    if (res == null || res['status'] == false) return 0;
-    final explicit = int.tryParse((res['unread_count'] ??
-            res['notification_count'] ??
-            res['count'] ??
-            res['total'] ??
-            res['data']?['unread_count'] ??
-            res['data']?['count'] ??
-            '')
-        .toString());
-    if (explicit != null) return explicit;
-
-    final out = <Map<String, dynamic>>[];
-    _collectNotifications(res, out);
-    return out.length;
-  }
-
-  void _collectNotifications(dynamic value, List<Map<String, dynamic>> out) {
-    if (value is List) {
-      for (final item in value) {
-        _collectNotifications(item, out);
-      }
-      return;
-    }
-    if (value is! Map) return;
-    final map = Map<String, dynamic>.from(value);
-    if (_looksLikeNotification(map)) {
-      out.add(map);
-      return;
-    }
-    for (final key in [
-      'data',
-      'notifications',
-      'notification',
-      'notification_history',
-      'histories',
-      'items',
-      'list',
-      'history',
-      'today',
-      'yesterday',
-      'earlier',
-      'unread',
-      'read',
-    ]) {
-      final child = map[key];
-      if (child != null) _collectNotifications(child, out);
-    }
-  }
-
-  bool _looksLikeNotification(Map map) {
-    const keys = [
-      'title',
-      'message',
-      'body',
-      'notification',
-      'description',
-      'module_type',
-      'notification_type',
-      'type',
-      'category',
-      'timeline',
-      'created_at',
-    ];
-    return keys.any((key) {
-      final value = map[key];
-      return value != null && value.toString().trim().isNotEmpty;
-    });
   }
 
   Future<void> _changeMonth(int delta) async {
