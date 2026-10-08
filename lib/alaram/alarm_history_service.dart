@@ -18,6 +18,9 @@ class AlarmEvent {
   final DateTime recordedAt;
   final bool rang;
   final bool synced;
+  /// What the user did: 'ok', 'snoozed', 'dismissed' — or null if nothing yet.
+  final String? ack;
+  final DateTime? ackAt;
 
   const AlarmEvent({
     required this.localId,
@@ -28,6 +31,8 @@ class AlarmEvent {
     required this.recordedAt,
     required this.rang,
     required this.synced,
+    this.ack,
+    this.ackAt,
   });
 
   factory AlarmEvent.fromJson(Map<String, dynamic> j) => AlarmEvent(
@@ -41,6 +46,10 @@ class AlarmEvent {
             (j['recordedAt'] as num?)?.toInt() ?? 0),
         rang: j['status'] == 'rang',
         synced: j['synced'] == true,
+        ack: (j['ack']?.toString().isEmpty ?? true) ? null : j['ack'].toString(),
+        ackAt: (j['ackAt'] is num && (j['ackAt'] as num) > 0)
+            ? DateTime.fromMillisecondsSinceEpoch((j['ackAt'] as num).toInt())
+            : null,
       );
 
   /// "💊 Elderzha • Morning Before Food" -> "Morning Before Food"
@@ -58,6 +67,8 @@ class AlarmEvent {
         'scheduled_for': scheduledFor.toUtc().toIso8601String(),
         'recorded_at': recordedAt.toUtc().toIso8601String(),
         'status': rang ? 'rang' : 'missed',
+        'ack_action': ack,
+        'acknowledged_at': ackAt?.toUtc().toIso8601String(),
       };
 }
 

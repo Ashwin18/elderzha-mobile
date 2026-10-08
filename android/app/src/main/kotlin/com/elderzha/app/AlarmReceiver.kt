@@ -19,6 +19,7 @@ class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == ACTION_DISMISS) {
             val id = intent.getIntExtra(EXTRA_ID, 0)
+            try { AlarmStore.acknowledge(context, id, AlarmStore.ACK_DISMISSED) } catch (_: Exception) {}
             AlarmSoundService.stop(context)
             if (id != 0) {
                 val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager

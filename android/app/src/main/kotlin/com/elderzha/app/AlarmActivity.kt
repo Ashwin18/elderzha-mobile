@@ -255,6 +255,7 @@ class AlarmActivity : Activity() {
                 intArrayOf(theme.accentA, theme.accentB),
             ).apply { cornerRadius = dp(16).toFloat() }
             setOnClickListener {
+                try { AlarmStore.acknowledge(this@AlarmActivity, notificationId, AlarmStore.ACK_OK) } catch (_: Exception) {}
                 cancelNotification(notificationId)
                 AlarmSoundService.stop(this@AlarmActivity)
                 finish()
@@ -308,6 +309,7 @@ class AlarmActivity : Activity() {
         root.addView(android.widget.Button(this).apply {
             text = "OK"
             setOnClickListener {
+                try { AlarmStore.acknowledge(this@AlarmActivity, notificationId, AlarmStore.ACK_OK) } catch (_: Exception) {}
                 cancelNotification(notificationId)
                 AlarmSoundService.stop(this@AlarmActivity)
                 finish()
@@ -319,6 +321,7 @@ class AlarmActivity : Activity() {
     }
 
     private fun snooze(notificationId: Int, title: String, notes: String, soundUrl: String, imageUrl: String) {
+        try { AlarmStore.acknowledge(this, notificationId, AlarmStore.ACK_SNOOZED) } catch (_: Exception) {}
         cancelNotification(notificationId)
         AlarmSoundService.stop(this)
         // Distinct id from the real scheduled alarm, and from any other

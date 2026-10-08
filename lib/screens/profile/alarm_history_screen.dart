@@ -70,6 +70,19 @@ class _AlarmHistoryScreenState extends State<AlarmHistoryScreen> {
     return '$h:$m ${d.hour < 12 ? 'AM' : 'PM'}';
   }
 
+  String _ackText(AlarmEvent e) {
+    if (e.ack == null || e.ackAt == null) return 'Not acknowledged yet';
+    final t = _time(e.ackAt!);
+    switch (e.ack) {
+      case 'ok':
+        return 'You pressed OK at $t';
+      case 'snoozed':
+        return 'Snoozed at $t';
+      default:
+        return 'Dismissed at $t';
+    }
+  }
+
   String _dayLabel(DateTime d) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -201,6 +214,11 @@ class _AlarmHistoryScreenState extends State<AlarmHistoryScreen> {
                 Text(_time(e.scheduledFor), style: _t(16, w: FontWeight.w700)),
                 const SizedBox(height: 2),
                 Text(e.friendlyTitle, style: _t(14, c: C.txm)),
+                if (e.rang)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(_ackText(e), style: _t(13, c: C.txm)),
+                  ),
               ],
             ),
           ),

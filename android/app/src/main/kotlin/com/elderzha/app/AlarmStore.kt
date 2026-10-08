@@ -173,6 +173,41 @@ object AlarmStore {
         }
     }
 
+    const val ACK_OK = "ok"
+    const val ACK_SNOOZED = "snoozed"
+    const val ACK_DISMISSED = "dismissed"
+
+    /**
+     * The user responded to the alarm that is ringing for [id]: pressed OK,
+     * snoozed, or swiped the notification away. Attached to the latest "rang"
+     * event of that alarm. OK / snooze may replace a "dismissed" (a tap on the
+     * notification can report a dismissal first), never the other way round.
+     * The event is marked unsynced so the new detail reaches the server.
+     */
+    fun acknowledge(context: Context, id: Int, action: String) {
+        if (id == 0) return
+        synchronized(lock) {
+            val arr = readEvents(context)
+            var idx = -1
+            var latest = -1L
+            for (i in 0 until arr.length()) {
+                val o = arr.optJSONObject(i) ?: continue
+                if (o.optInt("alarmId") == id && o.optString("status") == STATUS_RANG) {
+                    val at = o.optLong("recordedAt")
+                    if (at >= latest) { latest = at; idx = i }
+                }
+            }
+            if (idx < 0) return
+            val o = arr.getJSONObject(idx)
+            val prev = o.optString("ack", "")
+            if (prev.isNotEmpty() && !(prev == ACK_DISMISSED && action != ACK_DISMISSED)) return
+            o.put("ack", action)
+            o.put("ackAt", System.currentTimeMillis())
+            o.put("synced", false)
+            prefs(context).edit().putString(KEY_EVENTS, arr.toString()).apply()
+        }
+    }
+
     fun eventsJson(context: Context): String =
         synchronized(lock) { readEvents(context).toString() }
 
