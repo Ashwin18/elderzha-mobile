@@ -35,28 +35,40 @@ class AlarmReceiver : BroadcastReceiver() {
         val soundUrl  = intent.getStringExtra(EXTRA_SOUND_URL) ?: ""
         val imageUrl  = intent.getStringExtra(EXTRA_IMAGE_URL) ?: ""
 
-        // Gap 12 Fix: Log alarm fired for history
+        // STEP 1 — keep the chain alive BEFORE doing anything that can fail.
+        // This used to be the very last statement, after starting the sound
+        // service and the alarm screen. If either of those threw (for
+        // example Android refusing a foreground-service or background
+        // activity start), onReceive exited early, the next day's alarm
+        // was never scheduled, and the alarm rang exactly once and never
+        // again.
         try {
-            val prefs = context.getSharedPreferences("${context.packageName}_preferences", android.content.Context.MODE_PRIVATE)
-            val log = prefs.getStringSet("flutter.alarm_fired_log", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
-            val entry = org.json.JSONObject()
-            entry.put("title", title)
-            entry.put("firedAt", System.currentTimeMillis())
-            entry.put("type", type)
-            log.add(entry.toString())
-            // Keep only last 30 entries
-            val trimmed = if (log.size > 30) log.drop(log.size - 30).toMutableSet() else log
-            prefs.edit().putStringSet("flutter.alarm_fired_log", trimmed).apply()
+            val next = nextTriggerAt(triggerAt, type.lowercase())
+            if (next > 0L) {
+                schedule(context, id, next, title, type, notes, soundUrl, imageUrl)
+            } else {
+                AlarmStore.remove(context, id) // one-off alarm: nothing left to arm
+            }
         } catch (_: Exception) {}
 
-        // Start sound service first
-        AlarmSoundService.start(context, id, soundUrl, title, notes, imageUrl)
+        // STEP 2 — record that it rang (shown in Profile > Alarm history).
+        try {
+            AlarmStore.recordEvent(context, id, title, type, triggerAt, AlarmStore.STATUS_RANG)
+        } catch (_: Exception) {}
+
+        // STEP 3 — make noise. Each part is independent so one failure
+        // (e.g. the sound service refusing to start) still leaves the
+        // notification and the alarm screen.
+        try {
+            AlarmSoundService.start(context, id, soundUrl, title, notes, imageUrl)
+        } catch (_: Exception) {}
 
         // Gap 7 Fix: Use goAsync() to allow background work in BroadcastReceiver
         val pendingResult = goAsync()
         Thread {
             try {
                 showNotification(context, id, title, notes, imageUrl, soundUrl)
+            } catch (_: Exception) {
             } finally {
                 pendingResult.finish()
             }
@@ -64,24 +76,26 @@ class AlarmReceiver : BroadcastReceiver() {
 
         // Gap 6 Fix: Show AlarmActivity always for alarms (both locked and unlocked)
         // This is intentional for medication alarms — user MUST acknowledge
-        val alarmIntent = Intent(context, AlarmActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                    Intent.FLAG_ACTIVITY_SINGLE_TOP
-            putExtra(AlarmActivity.EXTRA_TITLE, title)
-            putExtra(AlarmActivity.EXTRA_NOTES, notes)
-            putExtra(AlarmActivity.EXTRA_SOUND_URL, soundUrl)
-            putExtra(AlarmActivity.EXTRA_IMAGE_URL, imageUrl)
-            putExtra(AlarmActivity.EXTRA_PLAY_SOUND, false) // sound already started
-            putExtra(AlarmActivity.EXTRA_NOTIFICATION_ID, id)
-        }
-        context.startActivity(alarmIntent)
+        try {
+            val alarmIntent = Intent(context, AlarmActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP
+                putExtra(AlarmActivity.EXTRA_TITLE, title)
+                putExtra(AlarmActivity.EXTRA_NOTES, notes)
+                putExtra(AlarmActivity.EXTRA_SOUND_URL, soundUrl)
+                putExtra(AlarmActivity.EXTRA_IMAGE_URL, imageUrl)
+                putExtra(AlarmActivity.EXTRA_PLAY_SOUND, false) // sound already started
+                putExtra(AlarmActivity.EXTRA_NOTIFICATION_ID, id)
+            }
+            context.startActivity(alarmIntent)
+        } catch (_: Exception) {}
 
-        // Reschedule for next occurrence
-        val nextTriggerAt = nextTriggerAt(triggerAt, type.lowercase())
-        if (nextTriggerAt > 0L) {
-            schedule(context, id, nextTriggerAt, title, type, notes, soundUrl, imageUrl)
-        }
+        // STEP 4 — whenever any alarm fires, also repair the others: marks
+        // any that silently never rang as missed and re-arms them.
+        try {
+            AlarmStore.sweepAndRearm(context)
+        } catch (_: Exception) {}
     }
 
     private fun nextTriggerAt(triggerAt: Long, type: String): Long {
@@ -237,6 +251,9 @@ class AlarmReceiver : BroadcastReceiver() {
             } else {
                 alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
             }
+            // Remember what is armed, natively, so boot / self-repair /
+            // the history screen never depend on Flutter's preferences file.
+            AlarmStore.upsert(context, id, triggerAt, title, type, notes, soundUrl, imageUrl)
         }
 
         fun cancelAll(context: Context) { /* managed from Flutter side */ }

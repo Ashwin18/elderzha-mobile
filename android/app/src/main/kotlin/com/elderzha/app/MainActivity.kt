@@ -73,7 +73,51 @@ class MainActivity : FlutterActivity() {
                                 } catch (_: Exception) {}
                             }
                         } catch (_: Exception) {}
+                        // The block above reads a preferences file Flutter
+                        // doesn't write to, so it found nothing. This is
+                        // the list that is actually armed.
+                        try { AlarmStore.cancelAllArmed(this) } catch (_: Exception) {}
                         result.success(true)
+                    }
+                    // ── Alarm history ("did it ring?") ───────────────────
+                    "getAlarmEvents" -> {
+                        try { AlarmStore.sweepAndRearm(this) } catch (_: Exception) {}
+                        result.success(AlarmStore.eventsJson(this))
+                    }
+                    "markAlarmEventsSynced" -> {
+                        val ids = (call.argument<List<String>>("ids") ?: emptyList()).toSet()
+                        AlarmStore.markSynced(this, ids)
+                        result.success(true)
+                    }
+                    "sweepAndRearmAlarms" -> {
+                        result.success(AlarmStore.sweepAndRearm(this))
+                    }
+                    // Arms alarms Flutter knows about that the native store
+                    // doesn't (installs from before this existed, or a chain
+                    // that was lost). Never touches one already armed.
+                    "seedAlarmStore" -> {
+                        val list = call.argument<List<Map<String, Any?>>>("alarms") ?: emptyList()
+                        val now = System.currentTimeMillis()
+                        var seeded = 0
+                        for (m in list) {
+                            try {
+                                val id = (m["id"] as? Number)?.toInt() ?: 0
+                                val first = (m["triggerAt"] as? Number)?.toLong() ?: 0L
+                                if (id == 0 || first <= 0L || AlarmStore.contains(this, id)) continue
+                                val type = (m["scheduleType"] as? String ?: "daily").lowercase()
+                                val next = if (first > now) first else AlarmStore.nextFuture(first, type, now)
+                                if (next <= 0L) continue
+                                AlarmReceiver.schedule(
+                                    this, id, next,
+                                    m["title"] as? String ?: "ElderZha reminder", type,
+                                    m["notes"] as? String ?: "",
+                                    m["soundUrl"] as? String ?: "",
+                                    m["imageUrl"] as? String ?: "",
+                                )
+                                seeded++
+                            } catch (_: Exception) {}
+                        }
+                        result.success(seeded)
                     }
                     "cancelAllAlarmsAndMonitoring" -> {
                         // Used when an account is confirmed deleted server-side —
@@ -105,6 +149,8 @@ class MainActivity : FlutterActivity() {
                             stopService(Intent(this, FallMonitorService::class.java))
                             prefs.edit().putBoolean("flutter.fall_monitor_enabled", false).apply()
                         } catch (_: Exception) {}
+                        // Deleted account: no armed alarms and no history left.
+                        try { AlarmStore.clearAll(this) } catch (_: Exception) {}
                         result.success(true)
                     }
                     "requestFullScreenIntentPermission" -> {
@@ -291,12 +337,15 @@ class MainActivity : FlutterActivity() {
         )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
             alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
-            return
+        } else {
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
         }
-        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
+        // Native record of what is armed (see AlarmStore).
+        AlarmStore.upsert(this, id, triggerAt, title, type, notes, soundUrl, imageUrl)
     }
 
     private fun cancelAlarm(id: Int) {
+        AlarmStore.remove(this, id)
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val pendingIntent = PendingIntent.getBroadcast(
             this,

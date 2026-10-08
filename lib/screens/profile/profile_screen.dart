@@ -10,6 +10,7 @@ import '../../alaram/alarm_config_store.dart';
 import '../../services/services.dart';
 import '../../theme/app_theme.dart';
 import '../fall_detection/fall_settings_screen.dart';
+import 'alarm_history_screen.dart';
 import '../../utils/app_routes.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -613,6 +614,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       AppRoutes.autopaySettings,
                                     ).then((_) => _load()),
                                     valueColor: AppColors.green,
+                                  ),
+                                  _menuRow(
+                                    context,
+                                    Icons.alarm_on_rounded,
+                                    AppColors.orange,
+                                    'Alarm history',
+                                    'Rang / missed',
+                                    () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            const AlarmHistoryScreen(),
+                                      ),
+                                    ),
                                   ),
                                   _menuRow(
                                     context,

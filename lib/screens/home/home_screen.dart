@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../alaram/daily_scheduler.dart';
+import '../../alaram/alarm_history_service.dart';
 import '../../alaram/alarm_permission_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_routes.dart';
@@ -209,6 +210,10 @@ class _HomeScreenState extends State<HomeScreen>
     // successful or not, so a genuinely alarm-free account isn't
     // retried forever.
     unawaited(_retryUnscheduledSetupAlarmsIfNeeded());
+
+    // Repair any alarm that silently stopped (re-arms it, logs the miss)
+    // and report the rang/missed log to the server. Throttled and quiet.
+    unawaited(AlarmHistoryService.repairAndSync());
 
     // Phase 3 — Today at a Glance counts. Deliberately outside the
     // try/catch above so a failure here never marks the whole Home

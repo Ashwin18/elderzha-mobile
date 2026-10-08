@@ -42,6 +42,7 @@ class BootReceiver : BroadcastReceiver() {
                         .remove("flutter.scheduled_alarms")
                         .putBoolean("flutter.fall_monitor_enabled", false)
                         .apply()
+                    try { AlarmStore.clearAll(context) } catch (_: Exception) {}
                 }
             } finally {
                 pendingResult.finish()
@@ -81,6 +82,14 @@ class BootReceiver : BroadcastReceiver() {
             "${packageName}_preferences", Context.MODE_PRIVATE)
 
         val now = System.currentTimeMillis()
+
+        // Primary path: the native alarm store (written whenever an alarm
+        // is armed). Alarms whose time passed while the phone was off are
+        // recorded as missed, then every alarm is armed again. The
+        // preferences-based path below stays as a fallback only — it reads
+        // a file Flutter's plugin doesn't write to, so on its own it
+        // restored nothing after a restart.
+        try { AlarmStore.sweepAndRearm(context) } catch (_: Exception) {}
 
         // Gap 3 Fix: Flutter setStringList stores as Set<String> internally
         // The actual key has "flutter." prefix added by the Flutter plugin
