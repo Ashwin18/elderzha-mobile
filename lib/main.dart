@@ -79,6 +79,18 @@ Future<void> _bgHandler(RemoteMessage message) async {
   if (message.notification == null) {
     await _ensureLocalNotificationsReady();
     await _showRemoteMessageNotification(message);
+  } else {
+    // Android shows this one itself, so nothing below ever ran for it and it
+    // never reached the Notifications screen unless the user tapped it.
+    // Save it here so every push appears in the list.
+    try {
+      final n = message.notification!;
+      await _rememberNotification({
+        ...message.data,
+        if (n.title != null) 'title': n.title,
+        if (n.body != null) 'body': n.body,
+      });
+    } catch (_) {}
   }
 }
 
@@ -450,6 +462,7 @@ Future<void> _showHistoryNotification(Map<String, dynamic> n) async {
 Future<void> _rememberNotification(Map<String, dynamic> n) async {
   if (!_isUsableNotification(n)) return;
   final prefs = await SharedPreferences.getInstance();
+  await prefs.reload(); // the background and main isolates each cache prefs
   final existing = prefs.getStringList('local_notification_history') ?? [];
   final id = _notificationId(n) ??
       '${DateTime.now().millisecondsSinceEpoch}|${n['title'] ?? ''}';

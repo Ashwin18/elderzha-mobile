@@ -141,6 +141,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   Future<List<Map<String, dynamic>>> _loadLocalNotifications() async {
     final prefs = await SharedPreferences.getInstance();
+    // Pushes received while the app was in the background are saved by a
+    // separate isolate; reload so this screen sees them instead of its
+    // older cached copy.
+    await prefs.reload();
     final raw = prefs.getStringList('local_notification_history') ?? [];
     final out = <Map<String, dynamic>>[];
     for (final item in raw) {
@@ -188,6 +192,41 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     } catch (_) {
       return null;
     }
+  }
+
+  static const _monthNames = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+  ];
+
+  /// "Today, 3:59 PM" / "Yesterday, 9:10 AM" / "6 Oct, 8:00 PM".
+  /// The server sends a ready-made label in `timeline` ("2 hours ago"), which
+  /// is used as-is. Locally saved notifications only have a raw ISO timestamp
+  /// ("2026-10-08T15:59:02.918503"), which used to be shown unformatted.
+  String _timeText(Map n) {
+    final label = (n['timeline'] ?? '').toString().trim();
+    if (label.isNotEmpty && label.toLowerCase() != 'null') return label;
+
+    final raw = (n['created_at'] ?? n['date'] ?? n['time'] ?? '').toString().trim();
+    if (raw.isNotEmpty) {
+      try {
+        final d = DateTime.parse(raw).toLocal();
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        final day = DateTime(d.year, d.month, d.day);
+        final diff = today.difference(day).inDays;
+        final h = d.hour % 12 == 0 ? 12 : d.hour % 12;
+        final clock =
+            '$h:${d.minute.toString().padLeft(2, '0')} ${d.hour < 12 ? 'AM' : 'PM'}';
+        if (diff == 0) return 'Today, $clock';
+        if (diff == 1) return 'Yesterday, $clock';
+        final year = d.year == now.year ? '' : ' ${d.year}';
+        return '${d.day} ${_monthNames[d.month - 1]}$year, $clock';
+      } catch (_) {
+        return raw; // not a date we understand — show it as it came
+      }
+    }
+    return (n['group_date'] ?? '').toString();
   }
 
   bool _isSameDay(DateTime? a, DateTime b) =>
@@ -298,13 +337,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         n['description'] ??
         n['data']?['message'] ??
         '');
-    final time = n['timeline'] ??
-        n['time'] ??
-        n['created_at'] ??
-        n['date'] ??
-        n['group_date'] ??
-        '';
-    if (title.isEmpty && tag.isEmpty && time.toString().isEmpty) {
+    final time = _timeText(n);
+    if (title.isEmpty && tag.isEmpty && time.isEmpty) {
       return const SizedBox.shrink();
     }
     final gradient = _labelGradient(tag);
