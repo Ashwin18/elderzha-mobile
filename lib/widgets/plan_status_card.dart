@@ -112,9 +112,9 @@ class _PlanStatusCardState extends State<PlanStatusCard> {
             'Keep enough balance ready.';
       } else {
         headline = 'Plan ends $when';
-        detail = 'AutoPay is not on, so your plan will not renew by itself. '
-            'Set it up now — nothing is charged until your plan ends.';
-        buttonLabel = 'Set up AutoPay';
+        detail = 'AutoPay is off, so your plan will not renew by itself. '
+            'Turn it back on — nothing is charged until your plan ends.';
+        buttonLabel = 'Turn on AutoPay';
         buttonRoute = AppRoutes.autopaySetup;
       }
     } else if (autoOn) {
@@ -129,12 +129,12 @@ class _PlanStatusCardState extends State<PlanStatusCard> {
       accent = C.txm;
       tint = C.bg2;
       icon = Icons.autorenew_rounded;
-      headline = 'AutoPay is not on';
+      headline = 'AutoPay is off';
       detail = end != null
-          ? 'Your plan ends on ${_fmt(end)}. Set up AutoPay once and it '
-              'renews by itself — nothing is charged until then.'
-          : 'Set up AutoPay once and your plan renews by itself.';
-      buttonLabel = 'Set up AutoPay';
+          ? 'Your plan ends on ${_fmt(end)} and will not renew by itself. '
+              'Turn AutoPay back on — nothing is charged until then.'
+          : 'Turn AutoPay back on so your plan renews by itself.';
+      buttonLabel = 'Turn on AutoPay';
       buttonRoute = AppRoutes.autopaySetup;
     }
 

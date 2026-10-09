@@ -208,7 +208,7 @@ class _AutoPaySetupScreenState extends State<AutoPaySetupScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Set up AutoPay',
+                      Text('Turn on AutoPay',
                           style: poppins(23, w: FontWeight.w800)),
                       Text('Never miss a renewal',
                           style: poppins(12,
@@ -310,7 +310,7 @@ class _AutoPaySetupScreenState extends State<AutoPaySetupScreen> {
                           height: 22,
                           child: CircularProgressIndicator(
                               color: C.yellow, strokeWidth: 2))
-                      : Text('Set up AutoPay',
+                      : Text('Turn on AutoPay',
                           style: poppins(15,
                               w: FontWeight.w700, c: Colors.white)),
                 ),
