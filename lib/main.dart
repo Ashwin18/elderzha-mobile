@@ -45,6 +45,7 @@ import 'screens/profile/profile_screen.dart';
 import 'screens/profile/edit_profile_screen.dart';
 import 'screens/profile/subscription_screen.dart';
 import 'screens/auth/subscription_gate_screen.dart';
+import 'screens/auth/autopay_setup_screen.dart';
 import 'screens/profile/autopay_settings_screen.dart';
 import 'screens/profile/family_members_screen.dart';
 import 'screens/profile/family_tree_screen.dart';
@@ -756,6 +757,7 @@ class _ElderZhaAppState extends State<ElderZhaApp> {
           );
         },
         AppRoutes.subscriptionGate: (_) => const SubscriptionGateScreen(),
+        AppRoutes.autopaySetup: (_) => const AutoPaySetupScreen(),
         AppRoutes.coupons: (_) => const SubscriptionGateScreen(), // coupon entry
         '/activity-detail': (_) => const ActivityDetailScreen(),
         '/offer-detail': (ctx) {

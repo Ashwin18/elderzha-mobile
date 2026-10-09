@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../services/services.dart';
 import '../../services/plan_state.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/app_routes.dart';
 
 class AutoPaySettingsScreen extends StatefulWidget {
   const AutoPaySettingsScreen({super.key});
@@ -231,16 +232,9 @@ class _AutoPaySettingsScreenState extends State<AutoPaySettingsScreen> {
                                       if (!enabled) {
                                         _disableAutoPay();
                                       } else {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              'Choose a subscription plan to enable AutoPay again.',
-                                              style: GoogleFonts.poppins(),
-                                            ),
-                                            backgroundColor: AppColors.inkMuted,
-                                          ),
-                                        );
+                                        Navigator.pushNamed(context,
+                                                AppRoutes.autopaySetup)
+                                            .then((_) => _load());
                                       }
                                     },
                             ),
@@ -249,7 +243,7 @@ class _AutoPaySettingsScreenState extends State<AutoPaySettingsScreen> {
                           Text(
                             _autoPayActive
                                 ? 'Your subscription renews automatically every month through Razorpay. Disable only if you do not want the next monthly renewal.'
-                                : 'Monthly renewal is currently disabled. You can subscribe again from the payment flow when needed.',
+                                : 'AutoPay is off. Switch it on to renew your plan automatically — nothing is charged until your current plan ends.',
                             style: GoogleFonts.poppins(
                                 fontSize: 13,
                                 height: 1.5,

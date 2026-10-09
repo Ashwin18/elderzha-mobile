@@ -76,7 +76,10 @@ class _PlanStatusCardState extends State<PlanStatusCard> {
     IconData icon;
     String headline;
     String detail;
-    bool showRenew = false;
+    // Button under the card. Only shown when the user needs to act:
+    // pay again (plan ended / AutoPay failed) or switch AutoPay on.
+    String? buttonLabel;
+    String buttonRoute = AppRoutes.subscriptionGate;
 
     if (lapsed || (daysLeft != null && daysLeft < 0)) {
       accent = C.red;
@@ -84,7 +87,7 @@ class _PlanStatusCardState extends State<PlanStatusCard> {
       icon = Icons.error_outline_rounded;
       headline = failed ? 'AutoPay payment failed' : 'Plan ended';
       detail = 'Polls, activities and alarms are paused until you renew.';
-      showRenew = true;
+      buttonLabel = 'Renew now';
     } else if (failed) {
       accent = C.red;
       tint = C.redLight;
@@ -92,7 +95,7 @@ class _PlanStatusCardState extends State<PlanStatusCard> {
       headline = 'AutoPay payment failed';
       detail = 'Pay now to avoid losing polls, activities and alarms'
           '${end != null ? ' after ${_fmt(end)}' : ''}.';
-      showRenew = true;
+      buttonLabel = 'Pay now';
     } else if (daysLeft != null && daysLeft <= 5) {
       accent = C.orange;
       tint = C.orangeLight;
@@ -109,9 +112,10 @@ class _PlanStatusCardState extends State<PlanStatusCard> {
             'Keep enough balance ready.';
       } else {
         headline = 'Plan ends $when';
-        detail = 'AutoPay is off, so your plan will not renew by itself. '
-            'Renew to avoid interruption.';
-        showRenew = true;
+        detail = 'AutoPay is not on, so your plan will not renew by itself. '
+            'Set it up now — nothing is charged until your plan ends.';
+        buttonLabel = 'Set up AutoPay';
+        buttonRoute = AppRoutes.autopaySetup;
       }
     } else if (autoOn) {
       accent = C.green;
@@ -125,10 +129,13 @@ class _PlanStatusCardState extends State<PlanStatusCard> {
       accent = C.txm;
       tint = C.bg2;
       icon = Icons.autorenew_rounded;
-      headline = 'AutoPay is off';
+      headline = 'AutoPay is not on';
       detail = end != null
-          ? 'Your plan ends on ${_fmt(end)} and will not renew by itself.'
-          : 'Your plan will not renew by itself.';
+          ? 'Your plan ends on ${_fmt(end)}. Set up AutoPay once and it '
+              'renews by itself — nothing is charged until then.'
+          : 'Set up AutoPay once and your plan renews by itself.';
+      buttonLabel = 'Set up AutoPay';
+      buttonRoute = AppRoutes.autopaySetup;
     }
 
     // Share of the plan period already used (for the progress bar).
@@ -219,11 +226,11 @@ class _PlanStatusCardState extends State<PlanStatusCard> {
               ],
             ),
           ),
-          if (showRenew) ...[
+          if (buttonLabel != null) ...[
             const SizedBox(height: 12),
             GestureDetector(
-              onTap: () => appNavigatorKey.currentState
-                  ?.pushNamed(AppRoutes.subscriptionGate),
+              onTap: () =>
+                  appNavigatorKey.currentState?.pushNamed(buttonRoute),
               child: Container(
                 width: double.infinity,
                 height: 46,
@@ -232,7 +239,7 @@ class _PlanStatusCardState extends State<PlanStatusCard> {
                   color: C.ink,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Text('Renew now',
+                child: Text(buttonLabel!,
                     style: poppins(14, w: FontWeight.w700, c: Colors.white)),
               ),
             ),

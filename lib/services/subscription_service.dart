@@ -464,6 +464,16 @@ class SubscriptionService {
     return res ?? {'status': false, 'message': 'Network error'};
   }
 
+  // Turn AutoPay on for a plan the user already paid for. Nothing is
+  // charged for the plan now; billing starts when the current plan ends.
+  Future<Map<String, dynamic>> enableAutoPay({int? planId}) async {
+    final res = await _api.safePost('/user/subscription/create', data: {
+      'enable_autopay': 1,
+      if (planId != null) 'plan_id': planId,
+    });
+    return res ?? {'status': false, 'message': 'Network error'};
+  }
+
   // ── POST /user/promo-code/validate ───────────────────────
   // Called while user is entering a promo code, before checkout —
   // shows pricing preview ("Pay ₹1 now, ₹299/month from next cycle").
