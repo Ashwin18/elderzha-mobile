@@ -21,9 +21,11 @@ import 'network/connectivity_wrapper.dart';
 import 'providers/auth_provider.dart';
 import 'services/api_client.dart';
 import 'services/notification_service.dart';
+import 'services/plan_state.dart';
 import 'theme/app_theme.dart';
 import 'utils/app_routes.dart';
 import 'widgets/main_scaffold.dart';
+import 'widgets/plan_lapsed_overlay.dart';
 
 // ── Screens ───────────────────────────────────────────────────────────────────
 import 'screens/onboarding/splash_screen.dart';
@@ -673,7 +675,6 @@ class ElderZhaApp extends StatefulWidget {
 
 class _ElderZhaAppState extends State<ElderZhaApp> {
   late final AppLifecycleListener _lifecycleListener;
-  final _subSvc = SubscriptionService();
 
   @override
   void initState() {
@@ -693,30 +694,13 @@ class _ElderZhaAppState extends State<ElderZhaApp> {
   }
 
   Future<void> _onResume() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token') ?? '';
-    if (token.isEmpty) return;
-    // Check plan on every resume with timeout — prevents UI freeze
-    bool isActive = false;
-    try {
-      isActive = await _subSvc.checkPlanFromAPI().timeout(
-        const Duration(seconds: 8),
-        onTimeout: () async {
-          return prefs.getBool('subscription_active_local') == true;
-        },
-      );
-    } catch (_) {
-      isActive = prefs.getBool('subscription_active_local') == true;
-    }
-    if (!isActive) {
-      // Bug 5 Fix: use navigator state directly, not ModalRoute.of()
-      // ModalRoute.of() only works on widget's own context, not navigator key context
-      final nav = appNavigatorKey.currentState;
-      if (nav != null) {
-        nav.pushNamedAndRemoveUntil(
-          AppRoutes.subscriptionGate, (r) => false);
-      }
-    }
+    // Coming back to the app (from the background, a UPI app, the photo
+    // picker, a permission dialog...) never moves the user to another
+    // screen. It only refreshes whether the plan is active: if the server
+    // clearly says it is not, the blurred "Renew" prompt appears over the
+    // current screen and alarms pause; if the answer is unclear, nothing
+    // changes. (The old code threw people onto a payment screen here.)
+    await PlanState.refresh();
   }
 
   @override
@@ -727,8 +711,9 @@ class _ElderZhaAppState extends State<ElderZhaApp> {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,
       initialRoute: AppRoutes.splash,
-      builder: (context, child) =>
-          ConnectivityWrapper(child: child ?? const SizedBox()),
+      navigatorObservers: [PlanRouteObserver()],
+      builder: (context, child) => ConnectivityWrapper(
+          child: PlanLapsedHost(child: child ?? const SizedBox())),
       routes: {
         AppRoutes.splash: (_) => const SplashScreen(),
         AppRoutes.onboarding: (_) => const OnboardingScreen(),
@@ -770,6 +755,7 @@ class _ElderZhaAppState extends State<ElderZhaApp> {
                 0,
           );
         },
+        AppRoutes.subscriptionGate: (_) => const SubscriptionGateScreen(),
         AppRoutes.coupons: (_) => const SubscriptionGateScreen(), // coupon entry
         '/activity-detail': (_) => const ActivityDetailScreen(),
         '/offer-detail': (ctx) {

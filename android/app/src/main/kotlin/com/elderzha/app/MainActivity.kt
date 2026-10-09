@@ -89,6 +89,16 @@ class MainActivity : FlutterActivity() {
                         AlarmStore.markSynced(this, ids)
                         result.success(true)
                     }
+                    // ── Plan lapsed / renewed ────────────────────────────
+                    "pauseAlarms" -> {
+                        result.success(try { AlarmStore.pauseAll(this) } catch (_: Exception) { 0 })
+                    }
+                    "resumeAlarms" -> {
+                        result.success(try { AlarmStore.resumeAll(this) } catch (_: Exception) { 0 })
+                    }
+                    "alarmsPaused" -> {
+                        result.success(try { AlarmStore.isPaused(this) } catch (_: Exception) { false })
+                    }
                     "sweepAndRearmAlarms" -> {
                         result.success(AlarmStore.sweepAndRearm(this))
                     }
@@ -151,10 +161,6 @@ class MainActivity : FlutterActivity() {
                         } catch (_: Exception) {}
                         // Deleted account: no armed alarms and no history left.
                         try { AlarmStore.clearAll(this) } catch (_: Exception) {}
-                        result.success(true)
-                    }
-                    "requestFullScreenIntentPermission" -> {
-                        requestFullScreenIntentPermission()
                         result.success(true)
                     }
                     "startVoiceRecording" -> {

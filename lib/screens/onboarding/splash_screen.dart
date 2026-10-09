@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import '../../services/services.dart';
+import '../../services/plan_state.dart';
 import '../../utils/join_date_helper.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_routes.dart';
@@ -76,6 +77,18 @@ class _SplashScreenState extends State<SplashScreen>
             onTimeout: () => null,
           );
       if (userRes == null) fetchFailed = true;
+      // An error reply (500, maintenance page, ...) is NOT an answer. Only a
+      // reply that says status:true AND carries the plan flag is trusted;
+      // otherwise a paying user would be treated as "never set up".
+      if (userRes != null) {
+        final d = userRes['data'];
+        final u = d is Map ? (d['user'] ?? d) : null;
+        if (userRes['status'] != true ||
+            u is! Map ||
+            !u.containsKey('is_plan_active')) {
+          fetchFailed = true;
+        }
+      }
     } catch (_) {
       fetchFailed = true;
     }
@@ -86,12 +99,13 @@ class _SplashScreenState extends State<SplashScreen>
     // an already fully-set-up, actively-paying user back through
     // setup just because of a temporary network hiccup (this was
     // the original code's safety net for the same reason).
+    // Always go to Home when we couldn't get an answer: Home asks again as
+    // soon as it opens, and only a clear "plan not active" answer from the
+    // server puts the Renew prompt up. (Sending people to the payment
+    // screen on a failed request is what made paying users land there at
+    // random.)
     if (fetchFailed) {
-      final cachedActive = prefs.getBool('subscription_active_local') == true;
-      Navigator.pushReplacementNamed(
-        context,
-        cachedActive ? AppRoutes.home : AppRoutes.subscriptionGate,
-      );
+      Navigator.pushReplacementNamed(context, AppRoutes.home);
       return;
     }
 
@@ -132,8 +146,11 @@ class _SplashScreenState extends State<SplashScreen>
     // Existing user, profile+alarm already done, plan just expired
     // → renewal screen (SubscriptionGate), not the new-user setup
     // steps or the "Welcome" framing meant for first-time signup.
+    // Home opens with the blurred "Renew" prompt over it; alarms are paused.
     if (isProfileUpdated && isAlarmSet) {
-      Navigator.pushReplacementNamed(context, AppRoutes.subscriptionGate);
+      await PlanState.markLapsed();
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, AppRoutes.home);
       return;
     }
 

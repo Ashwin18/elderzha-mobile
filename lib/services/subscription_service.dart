@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api_client.dart';
@@ -98,6 +100,148 @@ class SubscriptionService {
     } catch (_) {
       return null;
     }
+  }
+
+  // The server's own yes/no for "is this plan active?" — taken straight from
+  // is_plan_active, with NO arithmetic against the phone's clock (a phone
+  // with a wrong date must never lock out a paying user or silence their
+  // alarms). Also keeps the saved "active" flag in step.
+  //   true / false -> the server clearly answered
+  //   null         -> could not tell (no network, error reply, odd reply)
+  Future<bool?> definitivePlanStatus() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final res = await _api.safeGet('/user/get/user/details');
+      if (res == null || res['status'] != true) return null;
+      final userData =
+          res['data'] is Map ? (res['data']['user'] ?? res['data']) : null;
+      if (userData is! Map) return null;
+      final flag = userData['is_plan_active'];
+      if (flag == null) return null;
+      final active = flag == 1 || flag == '1' || flag == true;
+      if (active) {
+        await _rememberActive(prefs);
+      } else {
+        await prefs.setBool(localActiveKey, false);
+      }
+      return active;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ── GET /user/subscription/status ────────────────────────────────────────
+  // The real AutoPay status: plan_expiry_date, plan_purchased_date,
+  // plan_type, auto_pay_enabled, auto_pay_status ('created' | 'active' |
+  // 'halted' | 'cancelled' ...), razorpay_status, next_billing_date.
+  // null when it could not be fetched.
+  Future<Map<String, dynamic>?> getAutoPayStatus() async {
+    try {
+      final res = await _api.safeGet('/user/subscription/status');
+      if (res == null || res['status'] != true) return null;
+      final d = res['data'];
+      return d is Map ? Map<String, dynamic>.from(d) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ── A payment that was taken but not yet confirmed with the server ───────
+  // Saved the moment Razorpay reports success, cleared only when the server
+  // confirms. Lets the app finish activating later (next open, or the
+  // "I already paid" button) instead of losing the payment.
+  static const String pendingPaymentKey = 'pending_payment_confirm';
+
+  static Future<void> savePendingPayment({
+    required int purchaseId,
+    required String subscriptionId,
+    required String paymentId,
+    required String signature,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+        pendingPaymentKey,
+        jsonEncode({
+          'purchase_id': purchaseId,
+          'subscription_id': subscriptionId,
+          'payment_id': paymentId,
+          'signature': signature,
+          'saved_at': DateTime.now().toIso8601String(),
+        }));
+  }
+
+  static Future<bool> hasPendingPayment() async {
+    final prefs = await SharedPreferences.getInstance();
+    return (prefs.getString(pendingPaymentKey) ?? '').isNotEmpty;
+  }
+
+  static Future<void> clearPendingPayment() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(pendingPaymentKey);
+  }
+
+  /// Tries again to confirm a saved payment. Returns true when the server
+  /// confirmed it (the record is then cleared and the plan marked active),
+  /// false when it is still unconfirmed or there was nothing saved.
+  Future<bool> retryPendingConfirm() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(pendingPaymentKey);
+    if (raw == null || raw.isEmpty) return false;
+    try {
+      final m = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+      // Give up on very old records so a bad one cannot loop forever.
+      final saved = DateTime.tryParse('${m['saved_at']}');
+      if (saved != null && DateTime.now().difference(saved).inDays >= 3) {
+        await prefs.remove(pendingPaymentKey);
+        return false;
+      }
+      final res = await confirmSubscription(
+        purchaseId: int.tryParse('${m['purchase_id']}') ?? 0,
+        razorpaySubscriptionId: '${m['subscription_id'] ?? ''}',
+        razorpayPaymentId: '${m['payment_id'] ?? ''}',
+        razorpaySignature: '${m['signature'] ?? ''}',
+      ).timeout(const Duration(seconds: 15),
+          onTimeout: () => {'status': false, 'message': 'Network error'});
+      if (res['status'] == true) {
+        await prefs.remove(pendingPaymentKey);
+        await _rememberActive(prefs);
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  /// Called right after Razorpay reports success. Saves the payment, then
+  /// asks the server to confirm it (two tries). true = confirmed; false =
+  /// still unconfirmed — the saved record stays so it is finished later.
+  Future<bool> finishPayment({
+    required int purchaseId,
+    required String subscriptionId,
+    required String paymentId,
+    required String signature,
+  }) async {
+    await savePendingPayment(
+      purchaseId: purchaseId,
+      subscriptionId: subscriptionId,
+      paymentId: paymentId,
+      signature: signature,
+    );
+    for (var i = 0; i < 2; i++) {
+      if (await retryPendingConfirm()) return true;
+      if (i == 0) await Future<void>.delayed(const Duration(seconds: 3));
+    }
+    return false;
+  }
+
+  /// Before starting a NEW payment: is an earlier one still unconfirmed?
+  ///   'none'      nothing waiting — go ahead
+  ///   'confirmed' the earlier payment has just been confirmed (already paid)
+  ///   'stuck'     still unconfirmed — do NOT charge the user again yet
+  Future<String> settlePendingPayment() async {
+    if (!await hasPendingPayment()) return 'none';
+    if (await retryPendingConfirm()) return 'confirmed';
+    // retryPendingConfirm drops records older than 3 days.
+    return await hasPendingPayment() ? 'stuck' : 'none';
   }
 
   Future<void> _rememberActive(SharedPreferences prefs) async {

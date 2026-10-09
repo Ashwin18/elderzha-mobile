@@ -9,6 +9,7 @@ import '../../providers/auth_provider.dart';
 import '../../alaram/alarm_config_store.dart';
 import '../../services/services.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/plan_status_card.dart';
 import '../fall_detection/fall_settings_screen.dart';
 import 'alarm_history_screen.dart';
 import '../../utils/app_routes.dart';
@@ -488,6 +489,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         padding: const EdgeInsets.fromLTRB(16, 16, 16, 30),
                         child: Column(
                           children: [
+                            // ── Plan: start / end dates, days left and
+                            // whether AutoPay will renew it.
+                            const PlanStatusCard(),
                             // ── Feature grid — bigger touch targets for
                             // the items people actively use day to day.
                             GridView.count(

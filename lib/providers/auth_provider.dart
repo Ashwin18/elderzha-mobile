@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/services.dart';
+import '../services/plan_state.dart';
 import '../alaram/daily_scheduler.dart';
 import '../utils/join_date_helper.dart';
 
@@ -200,6 +201,10 @@ class AuthProvider extends ChangeNotifier {
     await prefs.remove('elderzha_alarm_config');
     await JoinDateHelper.clear();
     await SubscriptionService.clearSubscriptionActiveLocal();
+    await prefs.remove(SubscriptionService.pendingPaymentKey);
+    await prefs.remove('setup_alarms_scheduled_ok');
+    // Un-pause alarms first (the next account must start clean), then clear.
+    await PlanState.reset();
     // Bug 14 Fix: Cancel all alarms — prevents previous user alarms firing for next user
     try {
       await DailyScheduler.cancelAllAlarms();

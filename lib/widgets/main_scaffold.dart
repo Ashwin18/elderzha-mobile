@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../services/services.dart';
-import '../utils/app_routes.dart';
+import '../services/plan_state.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/community/community_screen.dart';
 import '../screens/reminders/reminder_screen.dart';
@@ -81,13 +81,12 @@ class _MainScaffoldState extends State<MainScaffold>
     super.dispose();
   }
 
+  // Opening Home asks the server whether the plan is active. If it clearly
+  // says no, the blurred "Renew" prompt is drawn over this screen (see
+  // PlanLapsedHost) and alarms pause — the user is no longer thrown onto a
+  // payment screen. An unclear answer (no network, error) changes nothing.
   Future<void> _guardSubscription() async {
-    final active = await SubscriptionService().hasActiveSubscription();
-    if (!mounted || active) return;
-    Navigator.of(context).pushNamedAndRemoveUntil(
-      AppRoutes.payment,
-      (route) => false,
-    );
+    await PlanState.refresh(force: true);
   }
 
   @override

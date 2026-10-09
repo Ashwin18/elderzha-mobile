@@ -6,6 +6,7 @@ import 'package:confetti/confetti.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_routes.dart';
 import '../../services/services.dart';
+import '../../services/plan_state.dart';
 
 class PaymentScreen extends StatefulWidget {
   const PaymentScreen({super.key});
@@ -48,6 +49,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   @override
   void dispose() {
+    PlanState.paymentInFlight = false;
     _rzp.clear();
     _promoCtrl.dispose();
     _confettiController.dispose();
@@ -105,6 +107,30 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
     setState(() => _paying = true);
 
+    // An earlier payment that was taken but not yet confirmed must be
+    // settled first — otherwise this tap could charge the user twice.
+    final earlier = await _subService.settlePendingPayment();
+    if (!mounted) return;
+    if (earlier == 'stuck') {
+      setState(() => _paying = false);
+      _snack('We are still confirming your last payment. Please wait a '
+          'minute and try again — you will not be charged twice.');
+      return;
+    }
+    if (earlier == 'confirmed') {
+      await PlanState.markActive();
+      if (!mounted) return;
+      setState(() => _paying = false);
+      _goSuccess({
+        'plan_name': _planName(_selPlan),
+        'payment_id': '',
+        'auto_pay': true,
+        'first_month_free': false,
+        'promo_applied': false,
+      });
+      return;
+    }
+
     // Always create a REAL Razorpay recurring subscription — this used
     // to call the one-time /user/purchase/plan endpoint regardless of
     // the "auto pay" messaging shown above, meaning no actual recurring
@@ -151,8 +177,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   void _openRzp(Map<String, dynamic> opts) {
     try {
+      // While checkout is open, plan checks wait — coming back from a UPI
+      // app must never be read as "not paid".
+      PlanState.paymentInFlight = true;
       _rzp.open(opts);
     } catch (e) {
+      PlanState.paymentInFlight = false;
       _snack('Could not open payment: $e');
     }
   }
@@ -160,39 +190,27 @@ class _PaymentScreenState extends State<PaymentScreen> {
   void _onSuccess(PaymentSuccessResponse r) async {
     if (_paymentHandled) return;
     _paymentHandled = true;
-    setState(() => _paying = true);
-    Map<String, dynamic> res = {'status': true};
-    try {
-      // POST /user/subscription/confirm — verifies and activates the
-      // real recurring subscription (was previously confirming as if
-      // it were a one-time payment, which doesn't apply here at all).
-      final confirmation = _subService.confirmSubscription(
-        purchaseId: _pendingPurchaseId ?? 0,
-        razorpaySubscriptionId: _pendingSubscriptionId ?? '',
-        razorpayPaymentId: r.paymentId ?? '',
-        razorpaySignature: r.signature ?? '',
-      );
-      res = await confirmation.timeout(
-        const Duration(seconds: 8),
-        onTimeout: () => {
-          'status': true,
-          'message': 'Payment captured. Confirmation is syncing.',
-        },
-      );
-    } catch (_) {
-      res = {
-        'status': true,
-        'message': 'Payment captured. Confirmation is syncing.',
-      };
+    if (mounted) setState(() => _paying = true);
+    // Saves the payment first, then asks the server to confirm it. If the
+    // network fails the saved record is finished later (next time the app
+    // opens, or "I already paid — check again") instead of being lost.
+    final confirmed = await _subService.finishPayment(
+      purchaseId: _pendingPurchaseId ?? 0,
+      subscriptionId: _pendingSubscriptionId ?? '',
+      paymentId: r.paymentId ?? '',
+      signature: r.signature ?? '',
+    );
+    PlanState.paymentInFlight = false;
+    if (confirmed) {
+      await SubscriptionService.markSubscriptionActiveLocal();
+      await PlanState.markActive();
     }
-    if (mounted) setState(() => _paying = false);
     if (!mounted) return;
-    if (res['status'] != true) {
-      _snack(res['message'] ?? 'Payment confirmation failed');
-      _paymentHandled = false;
-      return;
+    setState(() => _paying = false);
+    if (!confirmed) {
+      _snack('Payment received. We are activating your plan — this can '
+          'take a minute.', ok: true);
     }
-    await SubscriptionService.markSubscriptionActiveLocal();
     _goSuccess({
       'plan_name': _planName(_selPlan),
       'payment_id': r.paymentId,
@@ -215,11 +233,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   void _onError(PaymentFailureResponse r) {
+    PlanState.paymentInFlight = false;
+    if (!mounted) return;
     setState(() => _paying = false);
     _snack('Payment failed: ${r.message ?? 'Unknown'}');
   }
 
   void _onWallet(ExternalWalletResponse r) {
+    if (!mounted) return;
     setState(() => _paying = false);
   }
 
@@ -441,6 +462,21 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                 child: TextField(
                               controller: _promoCtrl,
                               textCapitalization: TextCapitalization.characters,
+                              // Editing the box after a code was applied
+                              // cancels that code, so the price shown and
+                              // the code sent to the server always match.
+                              onChanged: (v) {
+                                if (_promoApplied != null &&
+                                    v.trim().toUpperCase() !=
+                                        _promoApplied!.toUpperCase()) {
+                                  setState(() {
+                                    _promoApplied = null;
+                                    _promoValue = null;
+                                    _promoFullAmount = null;
+                                    _promoBillingNote = null;
+                                  });
+                                }
+                              },
                               decoration: InputDecoration(
                                 hintText: 'Promo code',
                                 prefixIcon: const Icon(

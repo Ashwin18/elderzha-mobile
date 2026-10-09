@@ -1,6 +1,6 @@
 // lib/screens/auth/subscription_gate_screen.dart
-// Full-screen paywall shown when plan expires.
-// Cannot be dismissed. User must renew to continue.
+// Paywall screen opened from the blurred "Renew" prompt when the plan has
+// ended or AutoPay failed. The user can step back; the app stays locked.
 // Promo codes are for NEW users only (registration) — not shown here.
 // ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
@@ -8,6 +8,7 @@ import 'package:razorpay_flutter/razorpay_flutter.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_routes.dart';
 import '../../services/services.dart';
+import '../../services/plan_state.dart';
 import 'benefits_showcase_screen.dart';
 
 class SubscriptionGateScreen extends StatefulWidget {
@@ -41,6 +42,7 @@ class _SubscriptionGateScreenState extends State<SubscriptionGateScreen> {
 
   @override
   void dispose() {
+    PlanState.paymentInFlight = false;
     _rzp.clear();
     super.dispose();
   }
@@ -68,6 +70,24 @@ class _SubscriptionGateScreenState extends State<SubscriptionGateScreen> {
       return;
     }
     setState(() => _paying = true);
+
+    // An earlier payment that was taken but not yet confirmed must be
+    // settled first — otherwise this tap could charge the user twice.
+    final earlier = await _svc.settlePendingPayment();
+    if (!mounted) return;
+    if (earlier == 'stuck') {
+      setState(() => _paying = false);
+      _snack('We are still confirming your last payment. Please wait a '
+          'minute and try again — you will not be charged twice.');
+      return;
+    }
+    if (earlier == 'confirmed') {
+      await PlanState.markActive();
+      if (!mounted) return;
+      setState(() => _paying = false);
+      _goHome();
+      return;
+    }
 
     // All users get real AutoPay — creates an actual recurring
     // Razorpay subscription (previously called the one-time-purchase
@@ -106,36 +126,55 @@ class _SubscriptionGateScreenState extends State<SubscriptionGateScreen> {
   }
 
   void _openRzp(Map<String, dynamic> opts) {
-    try { _rzp.open(opts); } catch (e) { _snack('Could not open payment: $e'); }
+    try {
+      // While checkout is open, plan checks wait — coming back from a UPI
+      // app must never be read as "not paid".
+      PlanState.paymentInFlight = true;
+      _rzp.open(opts);
+    } catch (e) {
+      PlanState.paymentInFlight = false;
+      _snack('Could not open payment: $e');
+    }
   }
 
   void _onSuccess(PaymentSuccessResponse r) async {
     if (_paymentHandled) return;
     _paymentHandled = true;
-    setState(() => _paying = true);
-    try {
-      final conf = _svc.confirmSubscription(
-        purchaseId: _pendingPurchaseId ?? 0,
-        razorpaySubscriptionId: _pendingSubscriptionId ?? '',
-        razorpayPaymentId: r.paymentId ?? '',
-        razorpaySignature: r.signature ?? '',
-      );
-      await conf.timeout(const Duration(seconds: 8),
-          onTimeout: () => {'status': true});
-    } catch (_) {}
+    if (mounted) setState(() => _paying = true);
+    // Saves the payment first, then asks the server to confirm it. If that
+    // fails the saved record is finished later instead of being lost, and
+    // the plan is NOT marked active until the server says so.
+    final confirmed = await _svc.finishPayment(
+      purchaseId: _pendingPurchaseId ?? 0,
+      subscriptionId: _pendingSubscriptionId ?? '',
+      paymentId: r.paymentId ?? '',
+      signature: r.signature ?? '',
+    );
+    PlanState.paymentInFlight = false;
+    if (confirmed) {
+      await SubscriptionService.markSubscriptionActiveLocal();
+      await PlanState.markActive();
+    }
     if (!mounted) return;
-    await SubscriptionService.markSubscriptionActiveLocal();
     setState(() => _paying = false);
+    if (!confirmed) {
+      _snack('Payment received. We are activating your plan — this can '
+          'take a minute.', ok: true);
+    }
     _goHome();
   }
 
   void _onError(PaymentFailureResponse r) {
+    PlanState.paymentInFlight = false;
+    if (!mounted) return;
     setState(() { _paying = false; _paymentHandled = false; });
     _snack('Payment failed: ${r.message ?? 'Unknown error'}');
   }
 
-  void _onWallet(ExternalWalletResponse r) =>
-      setState(() => _paying = false);
+  void _onWallet(ExternalWalletResponse r) {
+    if (!mounted) return;
+    setState(() => _paying = false);
+  }
 
   void _goHome() {
     if (!mounted) return;
@@ -169,7 +208,9 @@ class _SubscriptionGateScreenState extends State<SubscriptionGateScreen> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: false, // Cannot dismiss — must subscribe
+      // The user can step back to the blurred Renew prompt; the app itself
+      // stays locked until they subscribe.
+      canPop: true,
       child: Scaffold(
         backgroundColor: C.bg,
         body: Column(children: [

@@ -38,6 +38,16 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
       _nameCtrl.text = args['name']?.toString() ?? '';
       _gender = args['gender']?.toString() ?? '';
     }
+    // Resumed from the splash screen (no arguments passed): fall back to
+    // what the app already knows about this user.
+    if (_phone.isEmpty || _nameCtrl.text.isEmpty) {
+      final auth = context.read<AuthProvider>();
+      if (_phone.isEmpty) _phone = auth.userPhone;
+      if (_nameCtrl.text.isEmpty && auth.userName != 'User') {
+        _nameCtrl.text = auth.userName;
+      }
+      if (_gender.isEmpty) _gender = auth.userGender;
+    }
     _seeded = true;
   }
 

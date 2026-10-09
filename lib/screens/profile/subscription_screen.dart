@@ -28,13 +28,13 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     setState(() => _loading = true);
     final results = await Future.wait([
       _subService.getPurchasedPlan(),
-      _subService.getSubscriptionStatus(),
+      _subService.getAutoPayStatus(),
       _subService.getPaymentHistory(),
     ]);
     if (!mounted) return;
     setState(() {
       _plan = _extractPlan(results[0]);
-      _subStatus = results[1]?['subscription'] ?? results[1]?['data'];
+      _subStatus = results[1];
       _history = _extractList(results[2]);
       _loading = false;
     });
@@ -115,15 +115,22 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   }
 
   Widget _planTab() {
-    final isAutoActive = _subStatus?['auto_pay_status'] == 'active' ||
-        _subStatus?['razorpay_status'] == 'active';
+    final autoState = '${_subStatus?['auto_pay_status']}'.toLowerCase();
+    final rzpState = '${_subStatus?['razorpay_status']}'.toLowerCase();
+    final isAutoActive = _subStatus?['auto_pay_enabled'] != false &&
+        (autoState == 'active' ||
+            rzpState == 'active' ||
+            rzpState == 'authenticated');
     final planName = _plan?['plan_name'] ??
         _plan?['name'] ??
         _plan?['type'] ??
         'No active plan';
     final amount =
         _plan?['amount'] ?? _plan?['price'] ?? _plan?['plan_amount'] ?? '0';
-    final startDate = _plan?['start_date'] ?? _plan?['created_at'] ?? '';
+    final startDate = _subStatus?['plan_purchased_date'] ??
+        _plan?['start_date'] ??
+        _plan?['created_at'] ??
+        '';
     final endDate = _plan?['end_date'] ??
         _plan?['expiry_date'] ??
         _subStatus?['plan_expiry_date'] ??

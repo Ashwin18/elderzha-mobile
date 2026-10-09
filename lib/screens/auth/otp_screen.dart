@@ -11,6 +11,7 @@ import '../../alaram/family_event_scheduler.dart';
 import '../../alaram/alarm_permission_service.dart';
 import '../../api/models/fetch_profile_model.dart';
 import '../../services/services.dart';
+import '../../services/plan_state.dart';
 import 'benefits_showcase_screen.dart';
 import '../../providers/auth_provider.dart';
 import '../../theme/app_theme.dart';
@@ -229,8 +230,12 @@ class _OtpScreenState extends State<OtpScreen> with CodeAutoFill {
 
       // ── EXISTING USER — SUBSCRIPTION EXPIRED ────────────────────────────────
       // Had profile + alarm set up before, just plan expired → renew only
+      // They land on Home with the blurred "Renew" prompt over it (alarms
+      // paused) rather than on a separate payment screen.
       if (isProfileUpdated && isAlarmSet && !isPlanActive) {
-        Navigator.pushReplacementNamed(context, AppRoutes.subscriptionGate);
+        await PlanState.markLapsed();
+        if (!mounted) return;
+        Navigator.pushReplacementNamed(context, AppRoutes.home);
         return;
       }
 

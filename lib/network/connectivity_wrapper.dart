@@ -45,7 +45,16 @@ class _ConnectivityWrapperState extends State<ConnectivityWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_hasConnection) return const InternetErrorScreen();
-    return widget.child;
+    // Draw the offline screen ON TOP of the app instead of replacing it.
+    // Replacing it threw away the whole Navigator, so a short signal drop
+    // restarted the app at the splash screen and lost whatever the user
+    // was typing or paying for.
+    if (_hasConnection) return widget.child;
+    return Stack(
+      children: [
+        widget.child,
+        const Positioned.fill(child: InternetErrorScreen()),
+      ],
+    );
   }
 }

@@ -34,10 +34,11 @@ object AlarmStore {
     private const val PREFS = "elderzha_alarm_store"
     private const val KEY_ARMED = "armed"
     private const val KEY_EVENTS = "events"
+    private const val KEY_PAUSED = "paused"
 
     // How late an alarm may be (Doze can delay delivery) before it counts
     // as missed.
-    private const val GRACE_MS = 3 * 60_000L
+    private const val GRACE_MS = 15 * 60_000L
     private const val MAX_EVENTS = 200
 
     const val STATUS_RANG = "rang"
@@ -121,6 +122,65 @@ object AlarmStore {
             cancelAllArmed(context)
             prefs(context).edit().remove(KEY_EVENTS).apply()
         }
+    }
+
+    // ── Pause / resume (plan lapsed) ─────────────────────────────────────
+
+    /**
+     * True while the user's plan is lapsed. Nothing rings, nothing is
+     * recorded as missed, and nothing new is armed with AlarmManager —
+     * but every alarm stays in "armed" so it can come back exactly as it was.
+     */
+    fun isPaused(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_PAUSED, false)
+
+    /** Cancels every pending AlarmManager intent but keeps the alarms. */
+    fun pauseAll(context: Context): Int {
+        synchronized(lock) {
+            prefs(context).edit().putBoolean(KEY_PAUSED, true).commit()
+            val armed = readArmed(context)
+            var n = 0
+            for (k in armed.keys().asSequence().toList()) {
+                val id = armed.optJSONObject(k)?.optInt("id", 0) ?: 0
+                if (id != 0) { cancelPending(context, id); n++ }
+            }
+            return n
+        }
+    }
+
+    /**
+     * Brings every paused alarm back. An alarm whose time passed while
+     * paused is moved to its next future time WITHOUT being recorded as
+     * missed (it was paused, not missed); a one-off alarm in the past is
+     * dropped. Returns how many were armed again.
+     */
+    fun resumeAll(context: Context): Int {
+        val snapshot: List<JSONObject> = synchronized(lock) {
+            prefs(context).edit().putBoolean(KEY_PAUSED, false).commit()
+            val armed = readArmed(context)
+            armed.keys().asSequence().mapNotNull { armed.optJSONObject(it) }.toList()
+        }
+        val now = System.currentTimeMillis()
+        var n = 0
+        for (e in snapshot) {
+            try {
+                val id = e.optInt("id", 0)
+                var triggerAt = e.optLong("triggerAt", 0L)
+                val type = e.optString("type", "daily")
+                if (id == 0 || triggerAt <= 0L) continue
+                if (triggerAt <= now) {
+                    triggerAt = nextFuture(triggerAt, type, now)
+                    if (triggerAt <= 0L) { remove(context, id); continue }
+                }
+                AlarmReceiver.schedule(
+                    context, id, triggerAt, e.optString("title", "ElderZha reminder"), type,
+                    e.optString("notes", ""), e.optString("soundUrl", ""),
+                    e.optString("imageUrl", ""),
+                )
+                n++
+            } catch (_: Exception) {}
+        }
+        return n
     }
 
     // ── History ──────────────────────────────────────────────────────────
@@ -250,6 +310,7 @@ object AlarmStore {
      * Safe to call often.
      */
     fun sweepAndRearm(context: Context): Int {
+        if (isPaused(context)) return 0
         var rearmed = 0
         val now = System.currentTimeMillis()
         val snapshot: List<JSONObject> = synchronized(lock) {

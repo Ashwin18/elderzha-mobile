@@ -28,6 +28,9 @@ class AlarmReceiver : BroadcastReceiver() {
             return
         }
 
+        // A stray alarm that fires while the plan is lapsed does nothing.
+        if (AlarmStore.isPaused(context)) return
+
         val id        = intent.getIntExtra(EXTRA_ID, 0)
         val title     = intent.getStringExtra(EXTRA_TITLE)    ?: "ElderZha reminder"
         val notes     = intent.getStringExtra(EXTRA_NOTES)    ?: "It is time for your reminder."
@@ -167,9 +170,12 @@ class AlarmReceiver : BroadcastReceiver() {
         )
 
         val image = loadBitmap(imageUrl)
-        val defaultLargeIcon = BitmapFactory.decodeResource(
-            context.resources, R.mipmap.ic_launcher
-        )
+        // R.mipmap.ic_launcher is an adaptive-icon XML on Android 8+, which
+        // BitmapFactory cannot decode (it returned null, so alarms lost
+        // their large icon). The launcher foreground is a real PNG.
+        val defaultLargeIcon: Bitmap? = try {
+            BitmapFactory.decodeResource(context.resources, R.drawable.ic_launcher_foreground)
+        } catch (_: Exception) { null }
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setColor(android.graphics.Color.parseColor("#FFCC01"))
@@ -241,6 +247,12 @@ class AlarmReceiver : BroadcastReceiver() {
 
         fun schedule(context: Context, id: Int, triggerAt: Long, title: String,
                      type: String, notes: String, soundUrl: String, imageUrl: String) {
+            // Plan lapsed: remember the alarm but do not arm it. It is armed
+            // again by AlarmStore.resumeAll once the user renews.
+            if (AlarmStore.isPaused(context)) {
+                AlarmStore.upsert(context, id, triggerAt, title, type, notes, soundUrl, imageUrl)
+                return
+            }
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             val pendingIntent = PendingIntent.getBroadcast(
                 context, id,

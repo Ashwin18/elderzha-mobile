@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../services/services.dart';
+import '../../services/plan_state.dart';
 import '../../theme/app_theme.dart';
 
 class AutoPaySettingsScreen extends StatefulWidget {
@@ -27,12 +30,14 @@ class _AutoPaySettingsScreenState extends State<AutoPaySettingsScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     final results = await Future.wait([
-      _subService.getSubscriptionStatus(),
+      _subService.getAutoPayStatus(),
       _subService.getPurchasedPlan(),
     ]);
     if (!mounted) return;
     setState(() {
-      _status = _extractMap(results[0]?['subscription'] ?? results[0]?['data']);
+      // The real /user/subscription/status data (auto_pay_status,
+      // razorpay_status, next_billing_date, plan dates...).
+      _status = _extractMap(results[0]);
       _plan = _extractPlan(results[1]);
       _loading = false;
     });
@@ -55,9 +60,11 @@ class _AutoPaySettingsScreenState extends State<AutoPaySettingsScreen> {
 
   bool get _autoPayActive {
     final status = _status;
-    return status?['auto_pay_status'] == 'active' ||
-        status?['razorpay_status'] == 'active' ||
-        status?['status'] == 'active';
+    if (status == null) return false;
+    final a = '${status['auto_pay_status']}'.toLowerCase();
+    final r = '${status['razorpay_status']}'.toLowerCase();
+    final enabled = status['auto_pay_enabled'] != false;
+    return enabled && (a == 'active' || r == 'active' || r == 'authenticated');
   }
 
   String get _planName => (_plan?['plan_name'] ??
@@ -98,16 +105,19 @@ class _AutoPaySettingsScreenState extends State<AutoPaySettingsScreen> {
     final res = await _subService.cancelSubscription();
     if (!mounted) return;
     setState(() => _saving = false);
+    final ok = res['status'] == true;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          res['message']?.toString() ?? 'AutoPay disabled',
+          res['message']?.toString() ??
+              (ok ? 'AutoPay disabled' : 'Could not disable AutoPay'),
           style: GoogleFonts.poppins(),
         ),
-        backgroundColor: AppColors.green,
+        backgroundColor: ok ? AppColors.green : AppColors.red,
       ),
     );
     await _load();
+    unawaited(PlanState.loadStatus());
   }
 
   @override

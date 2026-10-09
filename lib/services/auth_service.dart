@@ -105,8 +105,8 @@ class AuthService {
   }) async {
     final profilePayload = {
       'name': name,
-      if (phone != null && phone.isNotEmpty) 'phone': phone,
-      'phone': phone,
+      // Never send a blank phone — it would overwrite the saved number.
+      if (phone.isNotEmpty) 'phone': phone,
       if (email != null) 'email': email,
       if (dob != null) 'dob': dob,
       if (gender != null) 'gender': gender,
