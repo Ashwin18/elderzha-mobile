@@ -112,10 +112,8 @@ class _PlanStatusCardState extends State<PlanStatusCard> {
             'Keep enough balance ready.';
       } else {
         headline = 'Plan ends $when';
-        detail = 'AutoPay is off, so your plan will not renew by itself. '
-            'Turn it back on — nothing is charged until your plan ends.';
-        buttonLabel = 'Turn on AutoPay';
-        buttonRoute = AppRoutes.autopaySetup;
+        detail = 'We could not find an active AutoPay for this plan, so it '
+            'may not renew by itself. You can manage AutoPay in Profile.';
       }
     } else if (autoOn) {
       accent = C.green;
@@ -129,13 +127,9 @@ class _PlanStatusCardState extends State<PlanStatusCard> {
       accent = C.txm;
       tint = C.bg2;
       icon = Icons.autorenew_rounded;
-      headline = 'AutoPay is off';
-      detail = end != null
-          ? 'Your plan ends on ${_fmt(end)} and will not renew by itself. '
-              'Turn AutoPay back on — nothing is charged until then.'
-          : 'Turn AutoPay back on so your plan renews by itself.';
-      buttonLabel = 'Turn on AutoPay';
-      buttonRoute = AppRoutes.autopaySetup;
+      headline = end != null ? 'Plan active until ${_fmt(end)}' : 'Plan active';
+      detail = 'We could not confirm an active AutoPay for this plan. '
+          'You can manage AutoPay in Profile.';
     }
 
     // Share of the plan period already used (for the progress bar).
