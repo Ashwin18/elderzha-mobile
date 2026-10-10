@@ -55,8 +55,13 @@ class _PlanStatusCardState extends State<PlanStatusCard> {
     final start = _parse(s?['plan_purchased_date']);
     final end = _parse(s?['plan_expiry_date']);
     final now = DateTime.now();
-    final daysLeft =
-        end == null ? null : (end.difference(now).inHours / 24).ceil();
+    // Whole calendar days until the end date, so the app and the admin panel
+    // always show the same number (14 Oct is 4 days after 10 Oct).
+    final daysLeft = end == null
+        ? null
+        : DateTime(end.year, end.month, end.day)
+            .difference(DateTime(now.year, now.month, now.day))
+            .inDays;
 
     final autoState = '${s?['auto_pay_status']}'.toLowerCase();
     final rzpState = '${s?['razorpay_status']}'.toLowerCase();
