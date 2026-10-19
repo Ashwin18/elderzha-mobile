@@ -82,7 +82,9 @@ class _AutoPaySettingsScreenState extends State<AutoPaySettingsScreen> {
         title: Text('Disable AutoPay?',
             style: GoogleFonts.poppins(fontWeight: FontWeight.w800)),
         content: Text(
-          'Your current subscription remains active until the paid period ends. Future monthly renewals will stop.',
+          (_status?['trial'] is Map && (_status!['trial'] as Map)['in_trial'] == true)
+              ? 'You will not be charged. You can keep using ElderZha until your free trial ends.'
+              : 'Your current subscription remains active until the paid period ends. Future monthly renewals will stop.',
           style: GoogleFonts.poppins(fontSize: 13, color: AppColors.inkMuted),
         ),
         actions: [

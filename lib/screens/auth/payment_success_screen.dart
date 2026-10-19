@@ -10,6 +10,7 @@ import '../../alaram/family_event_scheduler.dart';
 import '../../api/models/fetch_profile_model.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_routes.dart';
+import '../../utils/ez_dates.dart';
 import '../../services/services.dart';
 import '../../widgets/ez_button.dart';
 import 'benefits_showcase_screen.dart';
@@ -63,6 +64,11 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
         ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>? ??
             {};
     final paymentId = args['payment_id'] as String? ?? '';
+    // Early Bird free trial: nothing was charged, the app opens on launch day.
+    final isTrial = args['trial'] == true;
+    final firstPay = parseYmd(args['first_debit_date']);
+    final launch = parseYmd(args['launch_date']);
+    final firstPayAmt = '${args['first_payment'] ?? ''}';
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -92,7 +98,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
                   const SizedBox(height: 20),
 
                   Text(
-                    "You're all set! 🎉",
+                    isTrial ? "You're in, Early Bird! 🎉" : "You're all set! 🎉",
                     style: GoogleFonts.poppins(
                       fontSize: 24,
                       fontWeight: FontWeight.w800,
@@ -102,13 +108,45 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Every feature below is unlocked now',
+                    isTrial
+                        ? (launch != null
+                            ? 'ElderZha opens fully on ${fmtDay(launch)}'
+                            : 'ElderZha opens fully on launch day')
+                        : 'Every feature below is unlocked now',
                     style: GoogleFonts.poppins(
                       fontSize: 13,
                       color: AppColors.inkLight,
                     ),
                     textAlign: TextAlign.center,
                   ),
+
+                  if (isTrial) ...[
+                    const SizedBox(height: 14),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppColors.greenLight,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Text(
+                        firstPay == null
+                            ? 'Your free trial is on. Nothing was charged today. '
+                                'Cancel any time before your first payment and you will not be charged.'
+                            : 'Your free trial is on. Nothing was charged today. '
+                                '${firstPayAmt.isEmpty ? 'Your first payment' : firstPayAmt} '
+                                'will be taken by AutoPay on ${fmtDay(firstPay)}. '
+                                'Cancel any time before then and you will not be charged.',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.ink,
+                          height: 1.45,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ],
 
                   if (paymentId.isNotEmpty) ...[
                     const SizedBox(height: 10),
@@ -125,7 +163,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
                   const SizedBox(height: 24),
                   const SizedBox(
                     width: double.infinity,
-                    child: BenefitsList(unlocked: true),
+                    child: BenefitsList(unlocked: !isTrial),
                   ),
 
                   const SizedBox(height: 12),

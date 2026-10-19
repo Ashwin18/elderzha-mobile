@@ -17,7 +17,11 @@ import '../../utils/notification_list.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/services.dart';
 import '../../widgets/coach_mark.dart';
+import '../../services/plan_state.dart';
+import 'prelaunch_home.dart';
 
+/// Home tab. Early Bird members see the launch countdown here until the app
+/// opens (the server decides the date); everyone else gets the normal Home.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
     super.key,
@@ -29,10 +33,45 @@ class HomeScreen extends StatefulWidget {
   final VoidCallback? onOpenSpike;
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<HomeScreen> createState() => _HomeScreenGateState();
 }
 
-class _HomeScreenState extends State<HomeScreen>
+class _HomeScreenGateState extends State<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    PlanState.restoreTrial();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<Map<String, dynamic>?>(
+      valueListenable: PlanState.trial,
+      builder: (context, _, __) => PlanState.prelaunch
+          ? const PreLaunchHome()
+          : FullHomeScreen(
+              onOpenReminder: widget.onOpenReminder,
+              onOpenSpike: widget.onOpenSpike,
+            ),
+    );
+  }
+}
+
+class FullHomeScreen extends StatefulWidget {
+  const FullHomeScreen({
+    super.key,
+    this.onOpenReminder,
+    this.onOpenSpike,
+  });
+
+  final VoidCallback? onOpenReminder;
+  final VoidCallback? onOpenSpike;
+
+  @override
+  State<FullHomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<FullHomeScreen>
     with SingleTickerProviderStateMixin {
   final _actSvc = ActivityService();
   final _shareCardKey = GlobalKey();

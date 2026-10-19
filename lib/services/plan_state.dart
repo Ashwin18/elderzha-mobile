@@ -12,6 +12,7 @@
 // failed request, a timeout or a strange reply means "don't know" and never
 // locks anyone out or silences their alarms.
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -33,6 +34,46 @@ class PlanState {
   /// Latest /user/subscription/status data (null until fetched).
   static final ValueNotifier<Map<String, dynamic>?> status =
       ValueNotifier<Map<String, dynamic>?>(null);
+
+  /// Early Bird free-trial details from /user/subscription/status
+  /// (null for everyone else). Cached on the phone so the launch screen shows
+  /// straight away when the app opens, without a flash of the normal Home.
+  /// Keys: in_trial, first_debit_date, first_debit_display,
+  /// first_payment_display, launch_date, prelaunch.
+  static final ValueNotifier<Map<String, dynamic>?> trial =
+      ValueNotifier<Map<String, dynamic>?>(null);
+  static const String _trialCacheKey = 'early_bird_trial_cache';
+  static bool _trialRestored = false;
+
+  /// True while the Early Bird launch countdown replaces Home.
+  static bool get prelaunch => trial.value?['prelaunch'] == true;
+
+  /// Loads the cached trial details once per app start.
+  static Future<void> restoreTrial() async {
+    if (_trialRestored) return;
+    _trialRestored = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_trialCacheKey);
+      if (raw != null && raw.isNotEmpty && trial.value == null) {
+        final m = jsonDecode(raw);
+        if (m is Map) trial.value = Map<String, dynamic>.from(m);
+      }
+    } catch (_) {}
+  }
+
+  static Future<void> _setTrial(dynamic t) async {
+    final m = t is Map ? Map<String, dynamic>.from(t) : null;
+    trial.value = m;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (m == null) {
+        await prefs.remove(_trialCacheKey);
+      } else {
+        await prefs.setString(_trialCacheKey, jsonEncode(m));
+      }
+    } catch (_) {}
+  }
 
   /// Name of the screen currently on top (kept by [PlanRouteObserver]).
   static final ValueNotifier<String> routeName = ValueNotifier<String>('');
@@ -137,7 +178,10 @@ class PlanState {
   /// overlay wording.
   static Future<void> loadStatus() async {
     final s = await SubscriptionService().getAutoPayStatus();
-    if (s != null) status.value = s;
+    if (s != null) {
+      status.value = s;
+      await _setTrial(s['trial']);
+    }
   }
 
   /// Logout: forget everything and let the next account start clean.
@@ -145,6 +189,8 @@ class PlanState {
     lapsed.value = false;
     status.value = null;
     _lastRefresh = null;
+    _trialRestored = true; // nothing to restore for the next account
+    await _setTrial(null);
     try {
       final paused = await _planAlarmChannel.invokeMethod('alarmsPaused');
       if (paused == true) {

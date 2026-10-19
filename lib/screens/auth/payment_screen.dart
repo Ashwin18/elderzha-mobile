@@ -7,6 +7,7 @@ import '../../theme/app_theme.dart';
 import '../../utils/app_routes.dart';
 import '../../services/services.dart';
 import '../../services/plan_state.dart';
+import '../../utils/ez_dates.dart';
 
 class PaymentScreen extends StatefulWidget {
   const PaymentScreen({super.key});
@@ -32,6 +33,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
   double? _promoValue;        // e.g. 1.00 — what they pay today
   double? _promoFullAmount;   // e.g. 299.00 — what bills from next cycle
   String? _promoBillingNote;  // human-readable line from backend
+  bool _promoIsTrial = false;     // Early Bird free trial code
+  String? _promoFirstDebit;       // 'YYYY-MM-DD' first payment (trial)
+  String? _promoLaunch;           // 'YYYY-MM-DD' app opens (trial)
   bool _checkingPromo = false;
   bool _paymentHandled = false;
 
@@ -86,6 +90,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
         _promoValue = _toDouble(data['promo_value']);
         _promoFullAmount = _toDouble(data['plan_amount']) ?? _planAmount;
         _promoBillingNote = data['billing_note']?.toString();
+        _promoIsTrial = data['type']?.toString() == 'trial';
+        _promoFirstDebit = data['first_debit_date']?.toString();
+        _promoLaunch = data['launch_date']?.toString();
       });
       _confettiController.play();
       _snack('Promo code applied!', ok: true);
@@ -95,6 +102,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
         _promoValue = null;
         _promoFullAmount = null;
         _promoBillingNote = null;
+        _promoIsTrial = false;
+        _promoFirstDebit = null;
+        _promoLaunch = null;
       });
       _snack(res['message'] ?? 'Invalid promo code');
     }
@@ -219,6 +229,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
       'promo_applied': _promoApplied != null,
       'promo_value': _promoValue,
       'recurring_amount': _formatAmount(_promoFullAmount ?? _planAmount),
+      if (_promoIsTrial) ...{
+        'trial': true,
+        'first_debit_date': _promoFirstDebit,
+        'launch_date': _promoLaunch,
+        'first_payment': '₹${_formatAmount(_promoFullAmount ?? _planAmount).replaceAll(RegExp(r'\.00$'), '')}',
+      },
     });
   }
 
@@ -357,6 +373,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                 _promoValue = null;
                                 _promoFullAmount = null;
                                 _promoBillingNote = null;
+                                _promoIsTrial = false;
+                                _promoFirstDebit = null;
+                                _promoLaunch = null;
                                 _promoCtrl.clear();
                               }),
                               child: AnimatedContainer(
@@ -474,6 +493,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                     _promoValue = null;
                                     _promoFullAmount = null;
                                     _promoBillingNote = null;
+                                    _promoIsTrial = false;
+                                    _promoFirstDebit = null;
+                                    _promoLaunch = null;
                                   });
                                 }
                               },
@@ -555,7 +577,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                           height: 22,
                                           child: CircularProgressIndicator(
                                               color: C.yellow, strokeWidth: 2))
-                                      : Text('⚡ Subscribe with Razorpay',
+                                      : Text(_promoIsTrial
+                                          ? '🎁 Start my free trial'
+                                          : '⚡ Subscribe with Razorpay',
                                           style: poppins(14,
                                               w: FontWeight.w700,
                                               c: Colors.white))),

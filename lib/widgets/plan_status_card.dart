@@ -9,6 +9,7 @@ import '../navigation_key.dart';
 import '../services/plan_state.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_routes.dart';
+import '../utils/ez_dates.dart';
 
 class PlanStatusCard extends StatefulWidget {
   const PlanStatusCard({super.key});
@@ -70,6 +71,11 @@ class _PlanStatusCardState extends State<PlanStatusCard> {
             rzpState == 'active' ||
             rzpState == 'authenticated');
     final failed = PlanState.autoPayFailed;
+    // Early Bird free trial (set by the server; null for everyone else).
+    final trial = s?['trial'] is Map ? Map<String, dynamic>.from(s!['trial']) : null;
+    final inTrial = trial != null && trial['in_trial'] == true;
+    final trialPay = parseYmd(trial?['first_debit_date']);
+    final trialAmt = '${trial?['first_payment_display'] ?? ''}';
     final planType = '${s?['plan_type'] ?? ''}'.trim();
     final planName = planType.isEmpty
         ? 'Your plan'
@@ -101,6 +107,28 @@ class _PlanStatusCardState extends State<PlanStatusCard> {
       detail = 'Pay now to avoid losing polls, activities and alarms'
           '${end != null ? ' after ${_fmt(end)}' : ''}.';
       buttonLabel = 'Pay now';
+    } else if (inTrial && !autoOn) {
+      accent = C.txm;
+      tint = C.bg2;
+      icon = Icons.cancel_outlined;
+      headline = 'AutoPay is off';
+      detail = 'You will not be charged. You can keep using ElderZha until '
+          '${end != null ? _fmt(end) : 'your free trial ends'}.';
+    } else if (inTrial) {
+      final soon = daysLeft != null && daysLeft <= 3;
+      accent = soon ? C.orange : C.green;
+      tint = soon ? C.orangeLight : C.greenLight;
+      icon = Icons.card_giftcard_rounded;
+      headline = soon
+          ? (daysLeft! <= 0
+              ? 'First payment today'
+              : 'First payment in $daysLeft day${daysLeft == 1 ? '' : 's'}')
+          : 'Free trial is on';
+      detail = trialPay == null
+          ? 'Nothing is charged today. AutoPay takes your first payment when the free trial ends.'
+          : 'Nothing is charged today. ${trialAmt.isEmpty ? 'Your first payment' : trialAmt} '
+              'will be taken by AutoPay on ${_fmt(trialPay)}. '
+              'You can cancel before then in AutoPay settings.';
     } else if (daysLeft != null && daysLeft <= 5) {
       accent = C.orange;
       tint = C.orangeLight;
