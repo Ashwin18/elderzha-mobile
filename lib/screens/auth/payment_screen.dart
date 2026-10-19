@@ -211,6 +211,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
       signature: r.signature ?? '',
     );
     PlanState.paymentInFlight = false;
+    if (_promoIsTrial) {
+      // Show the launch countdown straight away.
+      await PlanState.setTrialLocal(
+        firstDebitDate: _promoFirstDebit,
+        launchDate: _promoLaunch,
+        firstPaymentDisplay:
+            '₹${_formatAmount(_promoFullAmount ?? _planAmount).replaceAll(RegExp(r'\.00$'), '')}',
+      );
+    }
     if (confirmed) {
       await SubscriptionService.markSubscriptionActiveLocal();
       await PlanState.markActive();

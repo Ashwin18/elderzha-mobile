@@ -40,7 +40,9 @@ class _HomeScreenGateState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    PlanState.restoreTrial();
+    // Load what we last knew, then ask the server — so the launch countdown
+    // is there whenever Home opens, not only after visiting Profile.
+    PlanState.restoreTrial().then((_) => PlanState.loadStatus());
   }
 
   @override

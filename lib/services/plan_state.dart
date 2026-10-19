@@ -62,6 +62,24 @@ class PlanState {
     } catch (_) {}
   }
 
+  /// Called the moment an Early Bird checkout succeeds, so the launch screen
+  /// shows immediately (the server's answer then replaces this).
+  static Future<void> setTrialLocal({
+    String? firstDebitDate,
+    String? launchDate,
+    String? firstPaymentDisplay,
+  }) async {
+    final launch = DateTime.tryParse('${launchDate ?? ''}');
+    final pre = launch != null && DateTime.now().isBefore(launch);
+    await _setTrial({
+      'in_trial': true,
+      'first_debit_date': firstDebitDate,
+      'launch_date': launchDate,
+      'first_payment_display': firstPaymentDisplay,
+      'prelaunch': pre,
+    });
+  }
+
   static Future<void> _setTrial(dynamic t) async {
     final m = t is Map ? Map<String, dynamic>.from(t) : null;
     trial.value = m;
