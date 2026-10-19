@@ -672,8 +672,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
           Align(
             alignment: Alignment.centerLeft,
             child: Text(
-                'Razorpay may take a small verification amount (about ₹5) '
-                'to set up AutoPay. It is not part of the plan fee.',
+                'Your bank may ask for a small verification amount to set up '
+                'AutoPay. It is refunded automatically.',
                 style: poppins(11, c: C.txl, h: 1.4)),
           ),
         ],
