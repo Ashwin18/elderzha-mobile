@@ -17,3 +17,12 @@ String fmtDay(DateTime d) => '${d.day} ${_ezMonths[d.month - 1]} ${d.year}';
 
 /// 16 Nov (no year)
 String fmtDayShort(DateTime d) => '${d.day} ${_ezMonths[d.month - 1]}';
+
+const List<String> _ezMonthsLong = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+/// 16 November 2026
+String fmtDayLong(DateTime d) =>
+    '${d.day} ${_ezMonthsLong[d.month - 1]} ${d.year}';

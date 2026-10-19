@@ -70,6 +70,16 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
     final launch = parseYmd(args['launch_date']);
     final firstPayAmt = '${args['first_payment'] ?? ''}';
 
+    if (isTrial) {
+      return _trialScaffold(
+        context,
+        promoCode: '${args['promo_code'] ?? ''}',
+        firstPay: firstPay,
+        launch: launch,
+        firstPayAmt: firstPayAmt,
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: Stack(
@@ -171,6 +181,159 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
                     label: 'Go to Home →',
                     onTap: () => Navigator.pushNamedAndRemoveUntil(
                         context, AppRoutes.home, (route) => false),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Early Bird free-trial confirmation: nothing was charged today.
+  Widget _trialScaffold(
+    BuildContext context, {
+    required String promoCode,
+    required DateTime? firstPay,
+    required DateTime? launch,
+    required String firstPayAmt,
+  }) {
+    return Scaffold(
+      backgroundColor: C.bg,
+      body: Stack(
+        children: [
+          Container(decoration: const BoxDecoration(gradient: C.bgGradient)),
+          const _ConfettiLayer(),
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(22, 28, 22, 24),
+              child: Column(
+                children: [
+                  Container(
+                    width: 96,
+                    height: 96,
+                    decoration: const BoxDecoration(
+                        color: C.white, shape: BoxShape.circle),
+                    child: Stack(alignment: Alignment.center, children: [
+                      const Icon(Icons.card_giftcard_rounded,
+                          size: 54, color: C.yellowDark),
+                      Positioned(
+                        right: 18,
+                        bottom: 18,
+                        child: Container(
+                          decoration: const BoxDecoration(
+                              color: C.green, shape: BoxShape.circle),
+                          padding: const EdgeInsets.all(2),
+                          child: const Icon(Icons.check_rounded,
+                              size: 18, color: Colors.white),
+                        ),
+                      ),
+                    ]),
+                  ),
+                  const SizedBox(height: 18),
+                  Text('Free Trial\nActivated!',
+                      textAlign: TextAlign.center,
+                      style: poppins(30, w: FontWeight.w800, c: C.ink, h: 1.15)),
+                  if (promoCode.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Text.rich(
+                      TextSpan(children: [
+                        TextSpan(
+                            text: 'Promo code ',
+                            style: poppins(13, c: C.txm)),
+                        TextSpan(
+                            text: promoCode,
+                            style: poppins(13, w: FontWeight.w800, c: C.ink)),
+                        TextSpan(
+                            text: ' applied successfully.',
+                            style: poppins(13, c: C.txm)),
+                      ]),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                  const SizedBox(height: 18),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    decoration: BoxDecoration(
+                      color: C.white,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: C.bd),
+                    ),
+                    child: Column(children: [
+                      Text('₹0 Paid Now',
+                          style: poppins(24, w: FontWeight.w800, c: C.ink)),
+                      const SizedBox(height: 2),
+                      Text('Your free trial is reserved.',
+                          style: poppins(12.5, c: C.txm)),
+                    ]),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: C.white,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: C.yellowBorder, width: 1.5),
+                    ),
+                    child: Row(children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                            color: C.yellowMid,
+                            borderRadius: BorderRadius.circular(12)),
+                        child: const Icon(Icons.calendar_month_rounded,
+                            color: C.yellowDeep),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Full ElderZha experience opens on',
+                                style: poppins(12, c: C.txm)),
+                            Text(
+                                launch != null
+                                    ? fmtDayLong(launch)
+                                    : 'launch day',
+                                style: poppins(16,
+                                    w: FontWeight.w800, c: C.ink)),
+                          ],
+                        ),
+                      ),
+                    ]),
+                  ),
+                  const SizedBox(height: 10),
+                  Text('Get ready to explore all features on launch day!',
+                      textAlign: TextAlign.center,
+                      style: poppins(12.5, c: C.txm)),
+                  if (firstPay != null) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      '${firstPayAmt.isEmpty ? 'Your first payment' : firstPayAmt} '
+                      'will be taken by AutoPay on ${fmtDay(firstPay)}. '
+                      'Cancel before then and you will not be charged.',
+                      textAlign: TextAlign.center,
+                      style: poppins(11.5, c: C.txl, h: 1.4),
+                    ),
+                  ],
+                  const SizedBox(height: 22),
+                  EzButton(
+                    label: 'Go to Countdown',
+                    onTap: () => Navigator.pushNamedAndRemoveUntil(
+                        context, AppRoutes.home, (route) => false),
+                  ),
+                  const SizedBox(height: 4),
+                  TextButton(
+                    onPressed: () =>
+                        Navigator.of(context).pushNamed(AppRoutes.subscription),
+                    child: Text('View Subscription Details',
+                        style: poppins(13,
+                            w: FontWeight.w600,
+                            c: const Color(0xFF2563EB))),
                   ),
                 ],
               ),

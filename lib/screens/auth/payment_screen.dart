@@ -231,6 +231,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       'recurring_amount': _formatAmount(_promoFullAmount ?? _planAmount),
       if (_promoIsTrial) ...{
         'trial': true,
+        'promo_code': _promoApplied,
         'first_debit_date': _promoFirstDebit,
         'launch_date': _promoLaunch,
         'first_payment': '₹${_formatAmount(_promoFullAmount ?? _planAmount).replaceAll(RegExp(r'\.00$'), '')}',
@@ -402,7 +403,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                               borderRadius:
                                                   BorderRadius.circular(6)),
                                           child: Text(
-                                              isYear ? 'Save ₹189' : 'Popular',
+                                              (sel && _promoIsTrial)
+                                                  ? 'Pre-launch offer'
+                                                  : (isYear ? 'Save ₹189' : 'Popular'),
                                               style: poppins(10,
                                                   w: FontWeight.w700,
                                                   c: sel ? C.yellow : C.txl)),
@@ -559,6 +562,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                   ]),
                                 )),
 
+                          if (_promoApplied != null && _promoIsTrial)
+                            _trialBreakdown(),
+
                           const SizedBox(height: 24),
 
                           // Pay button
@@ -578,7 +584,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                           child: CircularProgressIndicator(
                                               color: C.yellow, strokeWidth: 2))
                                       : Text(_promoIsTrial
-                                          ? '🎁 Start my free trial'
+                                          ? '🎁 Start free trial · Pay ₹0 now'
                                           : '⚡ Subscribe with Razorpay',
                                           style: poppins(14,
                                               w: FontWeight.w700,
@@ -609,6 +615,53 @@ class _PaymentScreenState extends State<PaymentScreen> {
       ),
     ),
     ]);
+  }
+
+  // Price breakdown shown once an Early Bird code is applied.
+  Widget _trialBreakdown() {
+    final plan = _promoFullAmount ?? _planAmount;
+    final first = parseYmd(_promoFirstDebit);
+    final amt = '₹${_formatAmount(plan)}';
+    Widget row(String l, String r, {Color? c, bool bold = false}) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 3),
+          child: Row(children: [
+            Expanded(
+                child: Text(l,
+                    style: poppins(12.5,
+                        w: bold ? FontWeight.w800 : FontWeight.w500,
+                        c: c ?? C.txm))),
+            Text(r,
+                style: poppins(bold ? 18 : 12.5,
+                    w: bold ? FontWeight.w800 : FontWeight.w600,
+                    c: c ?? C.ink)),
+          ]),
+        );
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: C.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: C.bd, width: 1.5),
+      ),
+      child: Column(children: [
+        row('Subscription (Monthly)', amt),
+        row('Discount (${_promoApplied ?? ''})', '- $amt', c: C.green),
+        const Divider(height: 16),
+        row('Amount payable now', '₹0', bold: true),
+        if (first != null) ...[
+          const SizedBox(height: 4),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+                'Free until ${fmtDay(first)}. Then $amt a month by AutoPay. '
+                'Cancel before then and you will not be charged.',
+                style: poppins(11, c: C.txl, h: 1.4)),
+          ),
+        ],
+      ]),
+    );
   }
 
   Widget _feature(IconData icon, String label) => Padding(

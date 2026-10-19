@@ -2,8 +2,9 @@
 //
 // Early Bird launch screen. Shown on the Home tab (instead of the normal
 // Home) from the day someone joins with the Early Bird promo code until the
-// launch day the server gives us. It counts down to launch, reminds them of
-// the free trial and the first payment date, and lets them manage AutoPay.
+// launch day the server gives us. It counts down to launch (days, hours,
+// minutes, seconds), shows what is waiting, reminds them of the free trial
+// and first payment date, and lets them manage AutoPay.
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -14,7 +15,6 @@ import '../../services/plan_state.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_routes.dart';
 import '../../utils/ez_dates.dart';
-import '../auth/benefits_showcase_screen.dart';
 
 class PreLaunchHome extends StatefulWidget {
   const PreLaunchHome({super.key});
@@ -26,22 +26,25 @@ class PreLaunchHome extends StatefulWidget {
 class _PreLaunchHomeState extends State<PreLaunchHome> {
   Timer? _tick;
   bool _asked = false;
+  int _n = 0;
 
   @override
   void initState() {
     super.initState();
     // Re-read the trial details when this screen opens (dates may have been
-    // changed in admin), then keep the countdown moving.
+    // changed in admin), then keep the countdown moving every second.
     PlanState.loadStatus();
-    _tick = Timer.periodic(const Duration(seconds: 30), (_) {
+    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
-      setState(() {});
+      setState(() => _n++);
       final launch = _launch;
       // Launch day has arrived: ask the server, which switches Home over.
       if (launch != null && !DateTime.now().isBefore(launch) && !_asked) {
         _asked = true;
         PlanState.loadStatus();
       }
+      // Safety net: ask again every few minutes in case the date changed.
+      if (_n % 300 == 0) PlanState.loadStatus();
     });
   }
 
@@ -59,6 +62,14 @@ class _PreLaunchHomeState extends State<PreLaunchHome> {
     await PlanState.loadStatus();
   }
 
+  static const _waiting = <(IconData, Color, Color, String)>[
+    (Icons.alarm_rounded, Color(0xFFE6F1FB), Color(0xFF0C447C), 'Alarms &\nReminders'),
+    (Icons.self_improvement_rounded, Color(0xFFEAF3DE), Color(0xFF27500A), 'Fitness\n& Yoga'),
+    (Icons.emoji_events_rounded, Color(0xFFEEEDFE), Color(0xFF3C3489), 'Activities\n& Polls'),
+    (Icons.shield_rounded, Color(0xFFE3F5EC), Color(0xFF0F6B3A), 'Safety\nSOS Alert'),
+    (Icons.card_giftcard_rounded, Color(0xFFFAEEDA), Color(0xFF854F0B), 'Offers\n& More'),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final name = context.watch<AuthProvider>().userName;
@@ -67,9 +78,7 @@ class _PreLaunchHomeState extends State<PreLaunchHome> {
     final amount = '${_t['first_payment_display'] ?? ''}';
     var left = launch == null ? Duration.zero : launch.difference(DateTime.now());
     if (left.isNegative) left = Duration.zero;
-    final days = left.inDays;
-    final hours = left.inHours % 24;
-    final mins = left.inMinutes % 60;
+    String two(int v) => v.toString().padLeft(2, '0');
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -88,7 +97,7 @@ class _PreLaunchHomeState extends State<PreLaunchHome> {
                   Expanded(
                     child: Text(
                       name.trim().isEmpty ? 'Welcome 👋' : 'Hello, $name 👋',
-                      style: poppins(20, w: FontWeight.w800, c: C.ink),
+                      style: poppins(15, w: FontWeight.w700, c: C.ink),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -99,48 +108,127 @@ class _PreLaunchHomeState extends State<PreLaunchHome> {
                     decoration: BoxDecoration(
                         color: C.ink, borderRadius: BorderRadius.circular(999)),
                     child: Text('Early Bird',
-                        style:
-                            poppins(11, w: FontWeight.w700, c: C.yellow)),
+                        style: poppins(11, w: FontWeight.w700, c: C.yellow)),
                   ),
                 ]),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
+                Text('ElderZha is coming soon!',
+                    textAlign: TextAlign.center,
+                    style: poppins(24, w: FontWeight.w800, c: C.ink, h: 1.2)),
+                const SizedBox(height: 14),
 
-                // ── Countdown ────────────────────────────────────────────
+                // ── Launch date banner ───────────────────────────────────
                 Container(
-                  padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    color: C.white,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: C.yellowBorder),
-                  ),
-                  child: Column(children: [
-                    Text(
-                        launch == null
-                            ? 'ElderZha is launching soon'
-                            : 'ElderZha opens in',
-                        style: poppins(13, w: FontWeight.w600, c: C.txm)),
-                    if (launch != null) ...[
-                      const SizedBox(height: 14),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                      color: C.ink, borderRadius: BorderRadius.circular(18)),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.calendar_month_rounded,
+                          color: C.yellow, size: 30),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _box('$days', days == 1 ? 'Day' : 'Days'),
-                          const SizedBox(width: 10),
-                          _box('$hours', 'Hrs'),
-                          const SizedBox(width: 10),
-                          _box('$mins', 'Min'),
+                          Text('LAUNCHING ON',
+                              style: poppins(10.5,
+                                  w: FontWeight.w700, c: C.yellow)),
+                          Text(
+                              launch != null ? fmtDayLong(launch) : 'Soon',
+                              style: poppins(19,
+                                  w: FontWeight.w800, c: C.white, h: 1.2)),
                         ],
                       ),
-                      const SizedBox(height: 14),
-                      Text('Launch day · ${fmtDay(launch)}',
-                          style: poppins(13, w: FontWeight.w700, c: C.ink)),
                     ],
-                    const SizedBox(height: 6),
-                    Text(
-                      'Everything unlocks on launch day — your alarms, polls, '
-                      'community and more. Nothing for you to do.',
-                      textAlign: TextAlign.center,
-                      style: poppins(12, c: C.txm, h: 1.45),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Your journey to a healthier, safer and happier life begins soon.',
+                  textAlign: TextAlign.center,
+                  style: poppins(12.5, c: C.txm, h: 1.4),
+                ),
+                const SizedBox(height: 14),
+
+                // ── Countdown ────────────────────────────────────────────
+                if (launch != null)
+                  Row(children: [
+                    _box('${left.inDays}', left.inDays == 1 ? 'Day' : 'Days'),
+                    const SizedBox(width: 8),
+                    _box(two(left.inHours % 24), 'Hours'),
+                    const SizedBox(width: 8),
+                    _box(two(left.inMinutes % 60), 'Minutes'),
+                    const SizedBox(width: 8),
+                    _box(two(left.inSeconds % 60), 'Seconds'),
+                  ]),
+                const SizedBox(height: 16),
+
+                // ── Hero picture ─────────────────────────────────────────
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: AspectRatio(
+                    aspectRatio: 1600 / 717,
+                    child: Container(
+                      color: C.yellow,
+                      child: Image.asset(
+                        'assets/images/home_header_photo_v3.jpg',
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+
+                // ── What is waiting ──────────────────────────────────────
+                Text("Here's what's waiting for you",
+                    style: poppins(15, w: FontWeight.w800, c: C.ink)),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    for (final w in _waiting)
+                      Expanded(
+                        child: Column(children: [
+                          Container(
+                            width: 46,
+                            height: 46,
+                            decoration: BoxDecoration(
+                                color: w.$2,
+                                borderRadius: BorderRadius.circular(14)),
+                            child: Icon(w.$1, color: w.$3, size: 24),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(w.$4,
+                              textAlign: TextAlign.center,
+                              style: poppins(9.5,
+                                  w: FontWeight.w600, c: C.txm, h: 1.25)),
+                        ]),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+
+                // ── Stay tuned ───────────────────────────────────────────
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                      color: C.yellow, borderRadius: BorderRadius.circular(18)),
+                  child: Row(children: [
+                    const Icon(Icons.notifications_active_rounded,
+                        color: C.ink, size: 26),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Stay Tuned',
+                              style: poppins(15, w: FontWeight.w800, c: C.ink)),
+                          Text("We'll let you know the moment ElderZha opens.",
+                              style: poppins(12, c: C.ink, h: 1.35)),
+                        ],
+                      ),
                     ),
                   ]),
                 ),
@@ -150,7 +238,7 @@ class _PreLaunchHomeState extends State<PreLaunchHome> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: C.yellowMid,
+                    color: C.white,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: C.yellowBorder),
                   ),
@@ -162,8 +250,7 @@ class _PreLaunchHomeState extends State<PreLaunchHome> {
                               size: 20, color: C.yellowDeep),
                           const SizedBox(width: 8),
                           Text("You're an Early Bird",
-                              style: poppins(14,
-                                  w: FontWeight.w800, c: C.ink)),
+                              style: poppins(14, w: FontWeight.w800, c: C.ink)),
                         ]),
                         const SizedBox(height: 10),
                         _line(Icons.check_circle_rounded, C.green,
@@ -198,15 +285,6 @@ class _PreLaunchHomeState extends State<PreLaunchHome> {
                         ),
                       ]),
                 ),
-                const SizedBox(height: 18),
-
-                Text(
-                    launch == null
-                        ? 'What opens on launch day'
-                        : 'What opens on ${fmtDayShort(launch)}',
-                    style: poppins(15, w: FontWeight.w800, c: C.ink)),
-                const SizedBox(height: 10),
-                const BenefitsList(unlocked: false),
               ],
             ),
           ),
@@ -215,17 +293,21 @@ class _PreLaunchHomeState extends State<PreLaunchHome> {
     );
   }
 
-  Widget _box(String value, String label) => Container(
-        width: 78,
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-            color: C.ink, borderRadius: BorderRadius.circular(16)),
-        child: Column(children: [
-          Text(value,
-              style: poppins(28, w: FontWeight.w800, c: C.yellow, h: 1.1)),
-          const SizedBox(height: 2),
-          Text(label, style: poppins(11, w: FontWeight.w600, c: C.white)),
-        ]),
+  Widget _box(String value, String label) => Expanded(
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: C.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: C.yellowBorder),
+          ),
+          child: Column(children: [
+            Text(value,
+                style: poppins(24, w: FontWeight.w800, c: C.ink, h: 1.1)),
+            const SizedBox(height: 2),
+            Text(label, style: poppins(10.5, w: FontWeight.w600, c: C.txm)),
+          ]),
+        ),
       );
 
   Widget _line(IconData icon, Color color, String text) => Row(
