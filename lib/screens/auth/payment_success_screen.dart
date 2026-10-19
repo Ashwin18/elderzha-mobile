@@ -161,7 +161,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
                   ],
 
                   const SizedBox(height: 24),
-                  const SizedBox(
+                  SizedBox(
                     width: double.infinity,
                     child: BenefitsList(unlocked: !isTrial),
                   ),
