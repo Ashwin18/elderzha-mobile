@@ -285,6 +285,12 @@ class _PreLaunchHomeState extends State<PreLaunchHome> {
                         ),
                       ]),
                 ),
+                const SizedBox(height: 10),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pushNamed('/support'),
+                  child: Text('Need help? Contact support',
+                      style: poppins(12.5, w: FontWeight.w700, c: C.txm)),
+                ),
               ],
             ),
           ),

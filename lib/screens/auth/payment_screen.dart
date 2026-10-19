@@ -593,7 +593,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                           child: CircularProgressIndicator(
                                               color: C.yellow, strokeWidth: 2))
                                       : Text(_promoIsTrial
-                                          ? '🎁 Start free trial · Pay ₹0 now'
+                                          ? '🎁 Start free trial · ₹0 plan fee today'
                                           : '⚡ Subscribe with Razorpay',
                                           style: poppins(14,
                                               w: FontWeight.w700,
@@ -666,6 +666,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
             child: Text(
                 'Free until ${fmtDay(first)}. Then $amt a month by AutoPay. '
                 'Cancel before then and you will not be charged.',
+                style: poppins(11, c: C.txl, h: 1.4)),
+          ),
+          const SizedBox(height: 4),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+                'Razorpay may take a small verification amount (about ₹5) '
+                'to set up AutoPay. It is not part of the plan fee.',
                 style: poppins(11, c: C.txl, h: 1.4)),
           ),
         ],

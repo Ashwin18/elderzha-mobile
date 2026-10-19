@@ -108,6 +108,23 @@ class _MainScaffoldState extends State<MainScaffold>
       const OffersScreen(),
       const ProfileScreen(),
     ];
+    return ValueListenableBuilder<Map<String, dynamic>?>(
+      valueListenable: PlanState.trial,
+      builder: (context, _, __) => _buildScaffold(screens),
+    );
+  }
+
+  Widget _buildScaffold(List<Widget> screens) {
+    // Early Bird members see only the countdown until launch day: no bottom
+    // bar, no other tabs. It unlocks by itself when the server says launched.
+    final locked = PlanState.prelaunch;
+    if (locked) {
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (_, __) => SystemNavigator.pop(),
+        child: Scaffold(body: screens[0]),
+      );
+    }
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (_, __) {
