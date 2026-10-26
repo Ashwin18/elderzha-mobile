@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../services/services.dart';
 import '../services/plan_state.dart';
+import '../screens/challenge/challenge_screens.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/community/community_screen.dart';
 import '../screens/reminders/reminder_screen.dart';
@@ -73,10 +74,13 @@ class _MainScaffoldState extends State<MainScaffold>
       CurvedAnimation(parent: _spikePulseController, curve: Curves.easeInOut),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) => _guardSubscription());
+    // If launch day arrives while the app is open, start Day 1 right then.
+    PlanState.trial.addListener(_maybeStartChallenge);
   }
 
   @override
   void dispose() {
+    PlanState.trial.removeListener(_maybeStartChallenge);
     _spikePulseController.dispose();
     super.dispose();
   }
@@ -87,6 +91,25 @@ class _MainScaffoldState extends State<MainScaffold>
   // payment screen. An unclear answer (no network, error) changes nothing.
   Future<void> _guardSubscription() async {
     await PlanState.refresh(force: true);
+    // The 100-Day Challenge starts with a compulsory Day 1 rating, but only
+    // once the full app is open (never during the Early Bird countdown).
+    await PlanState.restoreTrial();
+    await PlanState.loadStatus();
+    await _maybeStartChallenge();
+  }
+
+  bool _challengeOpen = false;
+
+  Future<void> _maybeStartChallenge() async {
+    if (!mounted || _challengeOpen || PlanState.prelaunch) return;
+    final st = await ChallengeState.load();
+    if (!mounted || st == null || st['baseline_done'] == true) return;
+    if (PlanState.prelaunch || PlanState.lapsed.value) return;
+    _challengeOpen = true;
+    await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => const ChallengeScreen(compulsory: true)));
+    _challengeOpen = false;
+    ChallengeState.load();
   }
 
   @override

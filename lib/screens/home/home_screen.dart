@@ -1,3 +1,4 @@
+import '../../widgets/challenge_banner.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
@@ -51,10 +52,15 @@ class _HomeScreenGateState extends State<HomeScreen> {
       valueListenable: PlanState.trial,
       builder: (context, _, __) => PlanState.prelaunch
           ? const PreLaunchHome()
-          : FullHomeScreen(
-              onOpenReminder: widget.onOpenReminder,
-              onOpenSpike: widget.onOpenSpike,
-            ),
+          : Column(children: [
+              Expanded(
+                child: FullHomeScreen(
+                  onOpenReminder: widget.onOpenReminder,
+                  onOpenSpike: widget.onOpenSpike,
+                ),
+              ),
+              const ChallengeBanner(),
+            ]),
     );
   }
 }

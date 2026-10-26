@@ -205,6 +205,7 @@ class AuthProvider extends ChangeNotifier {
     await prefs.remove('setup_alarms_scheduled_ok');
     // Un-pause alarms first (the next account must start clean), then clear.
     await PlanState.reset();
+    ChallengeState.reset();
     // Bug 14 Fix: Cancel all alarms — prevents previous user alarms firing for next user
     try {
       await DailyScheduler.cancelAllAlarms();
