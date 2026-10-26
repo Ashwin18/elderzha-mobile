@@ -334,21 +334,36 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      GestureDetector(
-                        onTap: () => Navigator.pushReplacementNamed(context, AppRoutes.alarmSetup),
-                        child: Container(
-                          width: 36, height: 36,
-                          decoration: const BoxDecoration(color: C.white, shape: BoxShape.circle),
-                          child: const Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: C.ink),
+                      Row(children: [
+                        GestureDetector(
+                          onTap: () => Navigator.pushReplacementNamed(
+                              context, AppRoutes.alarmSetup),
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: const BoxDecoration(
+                                color: C.white, shape: BoxShape.circle),
+                            child: const Icon(Icons.arrow_back_ios_new_rounded,
+                                size: 16, color: C.ink),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 14),
+                        Expanded(
+                          child: Image.asset('assets/images/logo.png',
+                              height: 54,
+                              errorBuilder: (_, __, ___) => Text('ElderZha',
+                                  textAlign: TextAlign.center,
+                                  style: poppins(24,
+                                      w: FontWeight.w800, c: C.ink))),
+                        ),
+                        const SizedBox(width: 40),
+                      ]),
+                      const SizedBox(height: 10),
                       Text('Almost there! 🎉',
                           style:
                               poppins(13, w: FontWeight.w600, c: C.yellowDeep)),
-                      const SizedBox(height: 4),
-                      Text('Choose your\nplan',
-                          style: poppins(26,
+                      const SizedBox(height: 2),
+                      Text('Choose your plan',
+                          style: poppins(27,
                               w: FontWeight.w800, c: C.ink, h: 1.2)),
                     ]),
               )),
@@ -368,212 +383,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Plan cards
-                          ..._plans.map<Widget>((plan) {
-                            final sel = _selPlanId == plan['id'];
-                            final isYear =
-                                (plan['duration_type'] ?? plan['type'] ?? '')
-                                    .toString()
-                                    .toLowerCase()
-                                    .contains('year');
-                            return GestureDetector(
-                              onTap: () => setState(() {
-                                _selPlanId = plan['id'];
-                                _promoApplied = null;
-                                _promoValue = null;
-                                _promoFullAmount = null;
-                                _promoBillingNote = null;
-                                _promoIsTrial = false;
-                                _promoFirstDebit = null;
-                                _promoLaunch = null;
-                                _promoCtrl.clear();
-                              }),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 150),
-                                margin: const EdgeInsets.only(bottom: 10),
-                                padding: const EdgeInsets.all(14),
-                                decoration: BoxDecoration(
-                                  color: sel ? C.yellowLight : C.white,
-                                  borderRadius: BorderRadius.circular(18),
-                                  border: Border.all(
-                                      color: sel ? C.yellow : C.bd,
-                                      width: sel ? 2 : 1.5),
-                                ),
-                                child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(children: [
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 9, vertical: 3),
-                                          decoration: BoxDecoration(
-                                              color: sel ? C.ink : C.bg3,
-                                              borderRadius:
-                                                  BorderRadius.circular(6)),
-                                          child: Text(
-                                              (sel && _promoIsTrial)
-                                                  ? 'Pre-launch offer'
-                                                  : (isYear ? 'Save ₹189' : 'Popular'),
-                                              style: poppins(10,
-                                                  w: FontWeight.w700,
-                                                  c: sel ? C.yellow : C.txl)),
-                                        ),
-                                      ]),
-                                      const SizedBox(height: 8),
-                                      Text(_planName(plan),
-                                          style: poppins(15,
-                                              w: FontWeight.w700, c: C.ink)),
-                                      Row(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.end,
-                                          children: [
-                                            Text(_amount(plan),
-                                                style: poppins(24,
-                                                    w: FontWeight.w800,
-                                                    c: C.yellowDeep)),
-                                            Padding(
-                                                padding: const EdgeInsets.only(
-                                                    bottom: 3, left: 3),
-                                                child: Text(_period(plan),
-                                                    style:
-                                                        poppins(12, c: C.txl))),
-                                          ]),
-                                      const Divider(height: 16),
-                                      Container(
-                                        width: double.infinity,
-                                        padding: const EdgeInsets.all(12),
-                                        decoration: BoxDecoration(
-                                          color: C.yellowMid,
-                                          borderRadius:
-                                              BorderRadius.circular(14),
-                                          border:
-                                              Border.all(color: C.yellowBorder),
-                                        ),
-                                        child: Row(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            const Icon(
-                                              Icons.autorenew_rounded,
-                                              color: C.yellowDeep,
-                                              size: 19,
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text('Monthly auto pay',
-                                                      style: poppins(13,
-                                                          w: FontWeight.w800,
-                                                          c: C.ink)),
-                                                  const SizedBox(height: 2),
-                                                  Text(
-                                                      'This plan renews automatically every month. You can disable auto pay later from My Profile settings.',
-                                                      style: poppins(11,
-                                                          w: FontWeight.w600,
-                                                          c: C.yellowDeep,
-                                                          h: 1.35)),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ]),
-                              ),
-                            );
-                          }),
-
-                          const SizedBox(height: 4),
-                          Row(children: [
-                            Expanded(
-                                child: TextField(
-                              controller: _promoCtrl,
-                              textCapitalization: TextCapitalization.characters,
-                              // Editing the box after a code was applied
-                              // cancels that code, so the price shown and
-                              // the code sent to the server always match.
-                              onChanged: (v) {
-                                if (_promoApplied != null &&
-                                    v.trim().toUpperCase() !=
-                                        _promoApplied!.toUpperCase()) {
-                                  setState(() {
-                                    _promoApplied = null;
-                                    _promoValue = null;
-                                    _promoFullAmount = null;
-                                    _promoBillingNote = null;
-                                    _promoIsTrial = false;
-                                    _promoFirstDebit = null;
-                                    _promoLaunch = null;
-                                  });
-                                }
-                              },
-                              decoration: InputDecoration(
-                                hintText: 'Promo code',
-                                prefixIcon: const Icon(
-                                    Icons.local_offer_outlined,
-                                    size: 18),
-                                suffixIcon: _promoApplied != null
-                                    ? const Icon(Icons.check_circle_rounded,
-                                        color: C.green, size: 18)
-                                    : null,
-                              ),
-                            )),
-                            const SizedBox(width: 8),
-                            GestureDetector(
-                              onTap: _checkingPromo ? null : _validatePromo,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 14),
-                                decoration: BoxDecoration(
-                                    color: C.ink,
-                                    borderRadius: BorderRadius.circular(14)),
-                                child: _checkingPromo
-                                    ? const SizedBox(
-                                        width: 14,
-                                        height: 14,
-                                        child: CircularProgressIndicator(
-                                            color: Colors.white,
-                                            strokeWidth: 2))
-                                    : Text('Apply',
-                                        style: poppins(13,
-                                            w: FontWeight.w700,
-                                            c: Colors.white)),
-                              ),
-                            ),
-                          ]),
-                          if (_promoApplied != null)
-                            Padding(
-                                padding: const EdgeInsets.only(top: 8),
-                                child: Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: C.greenLight,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                        color: C.green.withOpacity(.25)),
-                                  ),
-                                  child: Row(children: [
-                                    const Icon(Icons.check_circle_rounded,
-                                        size: 16, color: C.green),
-                                    const SizedBox(width: 7),
-                                    Expanded(
-                                      child: Text(
-                                        _renewalText(),
-                                        style: poppins(12,
-                                            w: FontWeight.w700, c: C.green),
-                                      ),
-                                    ),
-                                  ]),
-                                )),
-
+                          _promoSection(),
+                          if (_promoApplied != null) _offerBanner(),
                           if (_promoApplied != null && _promoIsTrial)
                             _trialBreakdown(),
-
+                          const SizedBox(height: 14),
+                          ..._plans.map<Widget>(_planCard),
                           const SizedBox(height: 24),
 
                           // Pay button
@@ -624,6 +439,320 @@ class _PaymentScreenState extends State<PaymentScreen> {
       ),
     ),
     ]);
+  }
+
+  String _rs(double v) =>
+      '₹${_formatAmount(v).replaceAll(RegExp(r'\.00$'), '')}';
+
+  void _clearPromo() {
+    _promoApplied = null;
+    _promoValue = null;
+    _promoFullAmount = null;
+    _promoBillingNote = null;
+    _promoIsTrial = false;
+    _promoFirstDebit = null;
+    _promoLaunch = null;
+  }
+
+  // "Have a promo code?" card, or the green "Promo code applied!" strip.
+  Widget _promoSection() {
+    if (_promoApplied != null) {
+      return Container(
+        padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+        decoration: BoxDecoration(
+          color: C.greenLight,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: C.green.withOpacity(.25)),
+        ),
+        child: Row(children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration:
+                const BoxDecoration(color: C.green, shape: BoxShape.circle),
+            child: const Icon(Icons.check_rounded, color: Colors.white),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+              child: Text('Promo code applied!',
+                  style: poppins(14, w: FontWeight.w800, c: C.ink))),
+          Container(
+            padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
+            decoration: BoxDecoration(
+                color: C.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: C.bd)),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Text(_promoApplied!,
+                  style: poppins(13, w: FontWeight.w800, c: C.ink)),
+              const SizedBox(width: 6),
+              GestureDetector(
+                onTap: () => setState(() {
+                  _clearPromo();
+                  _promoCtrl.clear();
+                }),
+                child: const Icon(Icons.cancel_outlined,
+                    size: 20, color: C.txl),
+              ),
+            ]),
+          ),
+        ]),
+      );
+    }
+    return Column(children: [
+      Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF1EC),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFF7CFC2)),
+        ),
+        child: Row(children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+                color: const Color(0xFFE8334F),
+                borderRadius: BorderRadius.circular(12)),
+            child: const Icon(Icons.percent_rounded,
+                color: Colors.white, size: 26),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Have a promo code?',
+                  style: poppins(15, w: FontWeight.w800, c: C.ink)),
+              Text('Enter it below to unlock your special offer.',
+                  style: poppins(12, c: C.txm, h: 1.35)),
+            ]),
+          ),
+        ]),
+      ),
+      const SizedBox(height: 10),
+      Row(children: [
+        Expanded(
+            child: TextField(
+          controller: _promoCtrl,
+          textCapitalization: TextCapitalization.characters,
+          decoration: const InputDecoration(
+            hintText: 'Enter promo code',
+            prefixIcon: Icon(Icons.local_offer_outlined, size: 18),
+          ),
+        )),
+        const SizedBox(width: 8),
+        GestureDetector(
+          onTap: _checkingPromo ? null : _validatePromo,
+          child: Container(
+            height: 50,
+            padding: const EdgeInsets.symmetric(horizontal: 22),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+                color: C.ink, borderRadius: BorderRadius.circular(14)),
+            child: _checkingPromo
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2))
+                : Text('Apply',
+                    style:
+                        poppins(14, w: FontWeight.w700, c: Colors.white)),
+          ),
+        ),
+      ]),
+    ]);
+  }
+
+  // Big green offer banner shown after a code is applied.
+  Widget _offerBanner() {
+    final plan = _rs(_promoFullAmount ?? _planAmount);
+    final first = parseYmd(_promoFirstDebit);
+    final String big;
+    final String small;
+    if (_promoIsTrial) {
+      big = 'FREE TRIAL';
+      small = first == null
+          ? 'Then just $plan/month'
+          : 'Free until ${fmtDay(first)}  ·  then just $plan/month';
+    } else {
+      big = 'Pay ${_rs(_promoValue ?? 0)} today';
+      small = 'Then just $plan/month';
+    }
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+            colors: [Color(0xFFF2FBD9), Color(0xFFDDF5C4)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFBFE39B)),
+      ),
+      child: Row(children: [
+        const Icon(Icons.card_giftcard_rounded,
+            size: 50, color: Color(0xFFE53935)),
+        const SizedBox(width: 12),
+        Expanded(
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(big,
+                style: poppins(26,
+                    w: FontWeight.w900, c: const Color(0xFF14702C), h: 1.1)),
+            const SizedBox(height: 4),
+            Text(small,
+                style: poppins(12.5,
+                    w: FontWeight.w700, c: const Color(0xFF1F4D2B), h: 1.35)),
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  static const _features = <(IconData, Color, String)>[
+    (Icons.directions_run_rounded, Color(0xFFF59E0B), 'Physical\nFitness'),
+    (Icons.restaurant_rounded, Color(0xFFE53935), 'Food\nReminder'),
+    (Icons.medication_rounded, Color(0xFF3B82F6), 'Medical\nReminder'),
+    (Icons.personal_injury_rounded, Color(0xFFE53935), 'Fall\nDetection'),
+    (Icons.menu_book_rounded, Color(0xFF0E9AA7), 'Learning\n& Fun'),
+    (Icons.event_note_rounded, Color(0xFF6D4AD0), 'Daily\nRoutine'),
+    (Icons.sentiment_satisfied_alt_rounded, Color(0xFFF59E0B), 'Happiness'),
+    (Icons.verified_user_rounded, Color(0xFF22A85A), 'Independence'),
+  ];
+
+  Widget _featureGrid() => Column(children: [
+        for (var r = 0; r < 2; r++)
+          Padding(
+            padding: EdgeInsets.only(top: r == 0 ? 0 : 8),
+            child: Row(children: [
+              for (var c = 0; c < 4; c++)
+                Expanded(
+                  child: Container(
+                    margin: EdgeInsets.only(left: c == 0 ? 0 : 6),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                        color: C.white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: C.bd.withOpacity(.6))),
+                    child: Column(children: [
+                      Icon(_features[r * 4 + c].$1,
+                          size: 28, color: _features[r * 4 + c].$2),
+                      const SizedBox(height: 6),
+                      Text(_features[r * 4 + c].$3,
+                          textAlign: TextAlign.center,
+                          style: poppins(10.5,
+                              w: FontWeight.w600, c: C.ink, h: 1.2)),
+                    ]),
+                  ),
+                ),
+            ]),
+          ),
+      ]);
+
+  Widget _autoPayBox() {
+    final first = parseYmd(_promoFirstDebit);
+    final plan = _rs(_promoFullAmount ?? _planAmount);
+    final String text;
+    if (_promoApplied != null && _promoIsTrial) {
+      text = first == null
+          ? 'After your free trial, this plan renews at $plan/month. '
+              'You can turn off auto pay anytime from My Profile settings.'
+          : 'After your free trial ends on ${fmtDay(first)}, this plan renews '
+              'at $plan/month. You can turn off auto pay anytime from My '
+              'Profile settings.';
+    } else if (_promoApplied != null) {
+      text = '${_renewalText().replaceAll(RegExp(r'\.$'), '')}. You can turn off auto pay anytime from My '
+          'Profile settings.';
+    } else {
+      text = 'This plan renews automatically every month. You can disable '
+          'auto pay later from My Profile settings.';
+    }
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: C.yellowMid,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: C.yellowBorder),
+      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Icon(Icons.autorenew_rounded, color: C.yellowDeep, size: 26),
+        const SizedBox(width: 10),
+        Expanded(
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Monthly auto pay',
+                style: poppins(14, w: FontWeight.w800, c: C.ink)),
+            const SizedBox(height: 2),
+            Text(text,
+                style: poppins(11.5,
+                    w: FontWeight.w600, c: C.yellowDeep, h: 1.4)),
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  Widget _planCard(dynamic plan) {
+    final sel = _selPlanId == plan['id'];
+    final isYear = (plan['duration_type'] ?? plan['type'] ?? '')
+        .toString()
+        .toLowerCase()
+        .contains('year');
+    return GestureDetector(
+      onTap: () => setState(() {
+        _selPlanId = plan['id'];
+        _clearPromo();
+        _promoCtrl.clear();
+      }),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: sel ? C.yellowLight : C.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: sel ? C.yellow : C.bd, width: sel ? 2 : 1.5),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              decoration: BoxDecoration(
+                  color: sel ? C.ink : C.bg3,
+                  borderRadius: BorderRadius.circular(8)),
+              child: Text(
+                  (sel && _promoIsTrial)
+                      ? 'Pre-launch offer'
+                      : (isYear ? 'Save ₹189' : 'Popular'),
+                  style: poppins(10.5,
+                      w: FontWeight.w700, c: sel ? C.yellow : C.txl)),
+            ),
+          ]),
+          const SizedBox(height: 8),
+          Text(_planName(plan),
+              style: poppins(18, w: FontWeight.w800, c: C.ink)),
+          Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Text(_amount(plan),
+                style: poppins(30, w: FontWeight.w900, c: C.ink, h: 1.15)),
+            Padding(
+                padding: const EdgeInsets.only(bottom: 5, left: 3),
+                child: Text(_period(plan), style: poppins(13, c: C.txl))),
+          ]),
+          const SizedBox(height: 2),
+          Text('Full access to all ElderZha features',
+              style: poppins(13, w: FontWeight.w700, c: C.ink)),
+          if (sel) ...[
+            const SizedBox(height: 12),
+            _featureGrid(),
+            const SizedBox(height: 12),
+            _autoPayBox(),
+          ],
+        ]),
+      ),
+    );
   }
 
   // Price breakdown shown once an Early Bird code is applied.
