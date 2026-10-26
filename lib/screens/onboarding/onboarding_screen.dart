@@ -1,25 +1,18 @@
 // lib/screens/onboarding/onboarding_screen.dart
 //
-// Intro/onboarding flow replaced (Sep 2026) with the client-provided
-// ElderZha_Intro_Flutter design: a cleaner three-page native-widget
-// flow (Welcome → Stay Active & Connected → More Safety, More
-// Possibilities) using the app's real gold/navy/cream palette and
-// three character illustrations. Keeps the same public API as the
-// screen it replaces (`OnboardingScreen`, no-arg constructor,
-// registered at AppRoutes.onboarding) so main.dart needs no changes,
-// and preserves the existing "finish → register" and "skip →
-// register" navigation behavior.
+// The swipe slides shown before login (Welcome → Stay Active & Connected →
+// More Safety, More Possibilities).
+//
+// Oct 2026: restyled to match the rest of the app — the same yellow-to-
+// off-white background, fonts and colours as every other screen — and made
+// easier for older eyes: bigger type, bigger buttons, roomier cards, one
+// clear message per page. Same public API (`OnboardingScreen`, no-arg
+// constructor, AppRoutes.onboarding) and the same navigation: finish or
+// skip → register.
 import 'package:flutter/material.dart';
-import '../../utils/app_routes.dart';
 
-abstract final class _OnboardColors {
-  static const gold = Color(0xFFFFB800);
-  static const ink = Color(0xFF1A1726);
-  static const cream1 = Color(0xFFFFFBEA);
-  static const cream2 = Color(0xFFFFF3C4);
-  static const cream3 = Color(0xFFFFE9A0);
-  static const green = Color(0xFF087A54);
-}
+import '../../theme/app_theme.dart';
+import '../../utils/app_routes.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -36,7 +29,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Future<void> _next() async {
     if (_page < _pageCount - 1) {
       await _controller.nextPage(
-        duration: const Duration(milliseconds: 420),
+        duration: const Duration(milliseconds: 450),
         curve: Curves.easeOutCubic,
       );
     } else if (mounted) {
@@ -54,43 +47,48 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final last = _page == _pageCount - 1;
     return Scaffold(
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              _OnboardColors.cream1,
-              _OnboardColors.cream2,
-              _OnboardColors.cream3,
-            ],
-          ),
-        ),
+      backgroundColor: C.bg,
+      body: Container(
+        decoration: const BoxDecoration(gradient: C.bgGradient),
         child: SafeArea(
           child: Column(
             children: [
-              Align(
-                alignment: Alignment.topRight,
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 16, top: 4),
-                  child: TextButton(
-                    onPressed: _skip,
-                    child: const Text(
-                      'Skip',
-                      style: TextStyle(
-                        color: _OnboardColors.ink,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
+              // Logo on the left, a large easy-to-tap Skip on the right.
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 6, 8, 0),
+                child: Row(children: [
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Image.asset(
+                        'assets/images/logo.png',
+                        height: 46,
+                        errorBuilder: (_, __, ___) => Text('ElderZha',
+                            style: poppins(22, w: FontWeight.w800)),
                       ),
                     ),
                   ),
-                ),
+                  AnimatedOpacity(
+                    opacity: last ? 0 : 1,
+                    duration: const Duration(milliseconds: 200),
+                    child: TextButton(
+                      onPressed: last ? null : _skip,
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(72, 48),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                      ),
+                      child: Text('Skip',
+                          style: poppins(16, w: FontWeight.w700, c: C.ink)),
+                    ),
+                  ),
+                ]),
               ),
               Expanded(
                 child: PageView(
                   controller: _controller,
-                  onPageChanged: (value) => setState(() => _page = value),
+                  onPageChanged: (v) => setState(() => _page = v),
                   children: const [
                     _WelcomePage(),
                     _ConnectedPage(),
@@ -98,7 +96,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   ],
                 ),
               ),
-              _Pager(page: _page, pageCount: _pageCount, onNext: _next),
+              _BottomBar(
+                page: _page,
+                pageCount: _pageCount,
+                onNext: _next,
+              ),
             ],
           ),
         ),
@@ -107,57 +109,67 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+//  Page 1 — Welcome
+// ─────────────────────────────────────────────────────────────────────────
 class _WelcomePage extends StatelessWidget {
   const _WelcomePage();
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, box) {
+      final heroH = (box.maxHeight * .52).clamp(260.0, 420.0).toDouble();
       return SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(24, 8, 24, 6),
+        padding: const EdgeInsets.fromLTRB(24, 10, 24, 12),
         child: Column(
           children: [
-            const Text(
-              'ELDERZHA',
-              style: TextStyle(
-                color: _OnboardColors.ink,
-                fontSize: 35,
-                fontWeight: FontWeight.w900,
-                letterSpacing: .7,
-              ),
-            ),
-            const SizedBox(height: 4),
-            const Text(
+            Text(
               "Life Doesn't Retire.",
-              style: TextStyle(
-                color: _OnboardColors.ink,
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                fontStyle: FontStyle.italic,
-              ),
+              textAlign: TextAlign.center,
+              style: poppins(19, w: FontWeight.w700, c: C.yellowDeep, h: 1.2)
+                  .copyWith(fontStyle: FontStyle.italic),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
+            // A tall "arch window" frame around the couple — soft, warm and
+            // clearly the focus of the screen.
             Container(
-              height: (box.maxHeight * .51).clamp(300, 420).toDouble(),
+              height: heroH,
+              width: double.infinity,
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(colors: [
-                  Colors.white.withOpacity(.88),
-                  Colors.white.withOpacity(.12),
-                ]),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(heroH),
+                  topRight: Radius.circular(heroH),
+                  bottomLeft: const Radius.circular(32),
+                  bottomRight: const Radius.circular(32),
+                ),
+                gradient: const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.white, Color(0xFFFFF1BE)],
+                ),
+                border: Border.all(color: Colors.white, width: 5),
+                boxShadow: const [
+                  BoxShadow(
+                      color: Color(0x26B58300),
+                      blurRadius: 28,
+                      offset: Offset(0, 12)),
+                ],
               ),
+              clipBehavior: Clip.antiAlias,
               child: Image.asset(
                 'assets/images/elderzha_couple.png',
                 fit: BoxFit.contain,
                 alignment: Alignment.bottomCenter,
               ),
             ),
+            const SizedBox(height: 22),
+            Text('Welcome to ElderZha!',
+                textAlign: TextAlign.center, style: _headline),
             const SizedBox(height: 10),
-            const _Heading('Welcome to Elderzha!', centered: true),
-            const SizedBox(height: 10),
-            const _Copy(
-              'Your everyday companion for a happier, healthier\nand more connected life.',
-              centered: true,
+            Text(
+              'Your everyday companion for a happier, healthier and more connected life.',
+              textAlign: TextAlign.center,
+              style: _body,
             ),
           ],
         ),
@@ -166,69 +178,56 @@ class _WelcomePage extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+//  Page 2 — Stay Active, Stay Connected
+// ─────────────────────────────────────────────────────────────────────────
 class _ConnectedPage extends StatelessWidget {
   const _ConnectedPage();
 
-  // (icon, badge color, title, subtitle) — 8 features, 2 per row,
-  // matching the client-provided reference layout.
+  // (icon, colour, title, subtitle)
   static const _items = [
-    (Icons.alarm_rounded, _OnboardColors.gold, 'Alarm', 'Meal & Medicine,\non time.'),
-    (Icons.calendar_month_rounded, Color(0xFF8B5CF6), 'Reminder', 'Never miss the special\ndays & appointments.'),
-    (Icons.track_changes_rounded, Color(0xFFEC4899), 'Daily Engagement', 'Move, think, play\n& enjoy.'),
-    (Icons.menu_book_rounded, Color(0xFFF97316), 'Daily Diary', 'Thoughts, feelings,\nmemories and moments.'),
-    (Icons.photo_camera_rounded, Color(0xFF3B82F6), 'Memories', 'Revisit moments\nthat matter.'),
-    (Icons.directions_walk_rounded, _OnboardColors.green, 'Walking & Steps', 'Stay active,\nhealthier and happier.'),
-    (Icons.park_rounded, Color(0xFF8255D9), 'Family Tree', 'Keep your loved ones\nclose. Birthdays & more.'),
-    (Icons.notifications_active_rounded, Color(0xFFE0435D), 'Notifications', 'Important updates,\nall in one place.'),
+    (Icons.alarm_rounded, Color(0xFFF59E0B), 'Alarm', 'Meal & medicine, on time.'),
+    (Icons.calendar_month_rounded, Color(0xFF8B5CF6), 'Reminder', 'Never miss special days & appointments.'),
+    (Icons.track_changes_rounded, Color(0xFFEC4899), 'Daily Engagement', 'Move, think, play & enjoy.'),
+    (Icons.menu_book_rounded, Color(0xFFF97316), 'Daily Diary', 'Thoughts, feelings and memories.'),
+    (Icons.photo_camera_rounded, Color(0xFF3B82F6), 'Memories', 'Revisit moments that matter.'),
+    (Icons.directions_walk_rounded, Color(0xFF087A54), 'Walking & Steps', 'Stay active and healthy.'),
+    (Icons.park_rounded, Color(0xFF7C4DDB), 'Family Tree', 'Keep loved ones close.'),
+    (Icons.notifications_active_rounded, Color(0xFFE0435D), 'Notifications', 'Important updates in one place.'),
   ];
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(22, 8, 22, 6),
+      padding: const EdgeInsets.fromLTRB(22, 14, 22, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _Heading('Stay Active,\nStay Connected'),
+          Text('Stay Active,\nStay Connected', style: _headline),
           const SizedBox(height: 10),
-          const _Copy(
-            'From daily reminders to fun activities, Elderzha keeps you engaged every day.',
+          Text(
+            'From daily reminders to fun activities, ElderZha keeps you engaged every day.',
+            style: _body,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
           for (var i = 0; i < _items.length; i += 2)
             Padding(
-              padding: EdgeInsets.only(bottom: i + 2 < _items.length ? 10 : 0),
-              child: Row(children: [
-                Expanded(
-                  child: _GridFeature(
-                    icon: _items[i].$1,
-                    color: _items[i].$2,
-                    title: _items[i].$3,
-                    subtitle: _items[i].$4,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _GridFeature(
-                    icon: _items[i + 1].$1,
-                    color: _items[i + 1].$2,
-                    title: _items[i + 1].$3,
-                    subtitle: _items[i + 1].$4,
-                  ),
-                ),
-              ]),
-            ),
-          const SizedBox(height: 14),
-          const Center(
-            child: Text(
-              'Small steps today, a bigger happier tomorrow',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: _OnboardColors.ink,
-                fontSize: 12.5,
-                fontStyle: FontStyle.italic,
-                fontWeight: FontWeight.w700,
+              padding: const EdgeInsets.only(bottom: 12),
+              child: IntrinsicHeight(
+                child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Expanded(child: _FeatureCard(_items[i])),
+                  const SizedBox(width: 12),
+                  Expanded(child: _FeatureCard(_items[i + 1])),
+                ]),
               ),
+            ),
+          const SizedBox(height: 4),
+          Center(
+            child: Text(
+              'Small steps today, a bigger happier tomorrow.',
+              textAlign: TextAlign.center,
+              style: poppins(14.5, w: FontWeight.w600, c: C.yellowDeep, h: 1.35)
+                  .copyWith(fontStyle: FontStyle.italic),
             ),
           ),
         ],
@@ -237,97 +236,72 @@ class _ConnectedPage extends StatelessWidget {
   }
 }
 
-class _GridFeature extends StatelessWidget {
-  const _GridFeature({
-    required this.icon,
-    required this.color,
-    required this.title,
-    required this.subtitle,
-  });
-  final IconData icon;
-  final Color color;
-  final String title;
-  final String subtitle;
+class _FeatureCard extends StatelessWidget {
+  const _FeatureCard(this.item);
+  final (IconData, Color, String, String) item;
 
   @override
   Widget build(BuildContext context) => Container(
-        height: 78,
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
         decoration: _card(),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(12)),
-            child: Icon(icon, color: Colors.white, size: 19),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: _OnboardColors.ink,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: _OnboardColors.ink,
-                    fontSize: 9,
-                    height: 1.2,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: item.$2,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                      color: item.$2.withOpacity(.35),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4)),
+                ],
+              ),
+              child: Icon(item.$1, color: Colors.white, size: 27),
             ),
-          ),
-          Container(
-            width: 20,
-            height: 20,
-            decoration: const BoxDecoration(color: _OnboardColors.cream3, shape: BoxShape.circle),
-            child: const Icon(Icons.chevron_right_rounded, size: 13, color: _OnboardColors.ink),
-          ),
-        ]),
+            const SizedBox(height: 12),
+            Text(item.$3,
+                style: poppins(15, w: FontWeight.w800, c: C.ink, h: 1.2)),
+            const SizedBox(height: 4),
+            Text(item.$4, style: poppins(13, c: C.txm, h: 1.35)),
+          ],
+        ),
       );
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+//  Page 3 — More Safety, More Possibilities
+// ─────────────────────────────────────────────────────────────────────────
 class _SafetyPage extends StatelessWidget {
   const _SafetyPage();
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(22, 8, 22, 6),
+      padding: const EdgeInsets.fromLTRB(22, 14, 22, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _Heading('More Safety.\nMore Possibilities.'),
+          Text('More Safety.\nMore Possibilities.', style: _headline),
           const SizedBox(height: 10),
-          const _Copy(
+          Text(
             'Get peace of mind with Fall Detection and discover local offers — both included with your sign up!',
+            style: _body,
           ),
-          const SizedBox(height: 16),
-          const _Premium(
+          const SizedBox(height: 18),
+          const _PremiumCard(
             Icons.health_and_safety_rounded,
-            _OnboardColors.green,
+            Color(0xFF087A54),
             'Fall Detection',
             'Get help, when you need it most.',
           ),
           const SizedBox(height: 12),
-          const _Premium(
+          const _PremiumCard(
             Icons.card_giftcard_rounded,
-            Color(0xFF8255D9),
+            Color(0xFF7C4DDB),
             'Local Offers',
             'Exclusive deals & offers near you.',
           ),
@@ -335,12 +309,23 @@ class _SafetyPage extends StatelessWidget {
             height: 250,
             child: Stack(alignment: Alignment.bottomCenter, children: [
               Positioned(
-                right: 6,
-                top: 26,
-                child: _CircleIcon(
-                  Icons.local_offer_rounded,
-                  _OnboardColors.gold,
-                  size: 56,
+                right: 8,
+                top: 24,
+                child: Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: C.yellow,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                          color: C.yellowDark.withOpacity(.4),
+                          blurRadius: 14,
+                          offset: const Offset(0, 6)),
+                    ],
+                  ),
+                  child: const Icon(Icons.local_offer_rounded,
+                      color: C.ink, size: 30),
                 ),
               ),
               Image.asset(
@@ -356,173 +341,139 @@ class _SafetyPage extends StatelessWidget {
   }
 }
 
-class _Heading extends StatelessWidget {
-  const _Heading(this.text, {this.centered = false});
-  final String text;
-  final bool centered;
-  @override
-  Widget build(BuildContext context) => Text(
-        text,
-        textAlign: centered ? TextAlign.center : TextAlign.left,
-        style: const TextStyle(
-          color: _OnboardColors.ink,
-          fontSize: 27,
-          height: 1.12,
-          fontWeight: FontWeight.w900,
-          letterSpacing: -.6,
-        ),
-      );
-}
-
-class _Copy extends StatelessWidget {
-  const _Copy(this.text, {this.centered = false});
-  final String text;
-  final bool centered;
-  @override
-  Widget build(BuildContext context) => Text(
-        text,
-        textAlign: centered ? TextAlign.center : TextAlign.left,
-        style: const TextStyle(
-          color: _OnboardColors.ink,
-          fontSize: 14.5,
-          height: 1.4,
-          fontWeight: FontWeight.w500,
-        ),
-      );
-}
-
-class _CircleIcon extends StatelessWidget {
-  const _CircleIcon(this.icon, this.color, {this.size = 52});
-  final IconData icon;
-  final Color color;
-  final double size;
-  @override
-  Widget build(BuildContext context) => Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        child: Icon(icon, color: Colors.white, size: size * .55),
-      );
-}
-
-class _Premium extends StatelessWidget {
-  const _Premium(this.icon, this.color, this.title, this.description);
+class _PremiumCard extends StatelessWidget {
+  const _PremiumCard(this.icon, this.color, this.title, this.description);
   final IconData icon;
   final Color color;
   final String title;
   final String description;
+
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(13),
+        padding: const EdgeInsets.all(16),
         decoration: _card(),
         child: Row(children: [
-          _CircleIcon(icon, color, size: 56),
-          const SizedBox(width: 12),
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                    color: color.withOpacity(.35),
+                    blurRadius: 12,
+                    offset: const Offset(0, 5)),
+              ],
+            ),
+            child: Icon(icon, color: Colors.white, size: 30),
+          ),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: _OnboardColors.ink,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
+                Text(title,
+                    style: poppins(17, w: FontWeight.w800, c: C.ink, h: 1.2)),
                 const SizedBox(height: 4),
-                Text(
-                  description,
-                  style: const TextStyle(
-                    color: _OnboardColors.ink,
-                    fontSize: 11.5,
-                    height: 1.25,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+                Text(description, style: poppins(13.5, c: C.txm, h: 1.35)),
               ],
             ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
             decoration: BoxDecoration(
-              color: _OnboardColors.gold,
+              color: C.ink,
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Text(
-              'Premium',
-              style: TextStyle(
-                color: _OnboardColors.ink,
-                fontSize: 10.5,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
+            child: Text('Premium',
+                style: poppins(11.5, w: FontWeight.w800, c: C.yellow, h: 1.1)),
           ),
         ]),
       );
 }
 
-class _Pager extends StatelessWidget {
-  const _Pager({required this.page, required this.pageCount, required this.onNext});
+// ─────────────────────────────────────────────────────────────────────────
+//  Bottom bar: progress dots + one big, clear button
+// ─────────────────────────────────────────────────────────────────────────
+class _BottomBar extends StatelessWidget {
+  const _BottomBar({
+    required this.page,
+    required this.pageCount,
+    required this.onNext,
+  });
   final int page;
   final int pageCount;
   final VoidCallback onNext;
+
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(22, 7, 18, 14),
-        child: SizedBox(
-          height: 60,
-          child: Stack(alignment: Alignment.center, children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                pageCount,
-                (i) => AnimatedContainer(
-                  duration: const Duration(milliseconds: 220),
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  width: i == page ? 24 : 9,
-                  height: 9,
-                  decoration: BoxDecoration(
-                    color: i == page
-                        ? _OnboardColors.gold
-                        : _OnboardColors.ink.withOpacity(.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
+  Widget build(BuildContext context) {
+    final last = page == pageCount - 1;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(22, 12, 22, 16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(.92),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        boxShadow: const [
+          BoxShadow(
+              color: Color(0x14000000), blurRadius: 20, offset: Offset(0, -6)),
+        ],
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(
+            pageCount,
+            (i) => AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              width: i == page ? 30 : 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: i == page ? C.ink : C.ink.withOpacity(.18),
+                borderRadius: BorderRadius.circular(8),
               ),
             ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: Material(
-                color: _OnboardColors.gold,
-                shape: const CircleBorder(),
-                elevation: 5,
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: onNext,
-                  child: const SizedBox(
-                    width: 58,
-                    height: 58,
-                    child: Icon(
-                      Icons.arrow_forward_rounded,
-                      color: _OnboardColors.ink,
-                      size: 30,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ]),
+          ),
         ),
-      );
+        const SizedBox(height: 14),
+        Material(
+          color: C.yellow,
+          borderRadius: BorderRadius.circular(20),
+          elevation: 3,
+          shadowColor: C.yellowDark.withOpacity(.5),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: onNext,
+            child: SizedBox(
+              width: double.infinity,
+              height: 60,
+              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Text(last ? 'Get Started' : 'Next',
+                    style: poppins(18, w: FontWeight.w800, c: C.ink)),
+                const SizedBox(width: 10),
+                const Icon(Icons.arrow_forward_rounded, color: C.ink, size: 26),
+              ]),
+            ),
+          ),
+        ),
+      ]),
+    );
+  }
 }
 
+// ── shared styles ───────────────────────────────────────────────────────
+TextStyle get _headline =>
+    poppins(30, w: FontWeight.w800, c: C.ink, h: 1.15).copyWith(letterSpacing: -.5);
+
+TextStyle get _body => poppins(16.5, w: FontWeight.w500, c: C.txm, h: 1.5);
+
 BoxDecoration _card() => BoxDecoration(
-      color: Colors.white.withOpacity(.80),
-      borderRadius: BorderRadius.circular(21),
-      border: Border.all(color: Colors.white.withOpacity(.92)),
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(22),
+      border: Border.all(color: C.yellowBorder.withOpacity(.7)),
       boxShadow: const [
-        BoxShadow(color: Color(0x16000000), blurRadius: 17, offset: Offset(0, 7)),
+        BoxShadow(color: Color(0x14000000), blurRadius: 16, offset: Offset(0, 6)),
       ],
     );
