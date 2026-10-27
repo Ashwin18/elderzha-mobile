@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:confetti/confetti.dart';
+import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_routes.dart';
 import '../../services/services.dart';
@@ -350,6 +352,20 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Pre-launch: one-screen "Pre-Register Now" page, button pinned at the bottom.
+    if (_offerOn && !_loadingPlans) {
+      final first = context.read<AuthProvider>().userName.trim().split(' ').first;
+      return PrelaunchOfferView(
+        name: first == 'User' ? '' : first,
+        launch: parseYmd(_promoLaunch)!,
+        firstDebit: parseYmd(_promoFirstDebit)!,
+        offerPrice:
+            _formatAmount(_promoFullAmount ?? _planAmount).replaceAll(RegExp(r'\.00$'), ''),
+        regularPrice: _formatAmount(_planAmount).replaceAll(RegExp(r'\.00$'), ''),
+        paying: _paying,
+        onPay: _onPayTap,
+      );
+    }
     return Stack(children: [
     Scaffold(
       backgroundColor: C.bg,
@@ -395,7 +411,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         const SizedBox(width: 40),
                       ]),
                       const SizedBox(height: 10),
-                      if (_offerOn) ..._offerHeader() else ...[
                       Text('Almost there! 🎉',
                           style:
                               poppins(13, w: FontWeight.w600, c: C.yellowDeep)),
@@ -403,7 +418,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       Text('Choose your plan',
                           style: poppins(27,
                               w: FontWeight.w800, c: C.ink, h: 1.2)),
-                      ],
                     ]),
               )),
         ),
@@ -422,90 +436,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (_offerOn)
-                            PrelaunchOfferView(
-                              launch: parseYmd(_promoLaunch)!,
-                              firstDebit: parseYmd(_promoFirstDebit)!,
-                              offerPrice: _formatAmount(
-                                      _promoFullAmount ?? _planAmount)
-                                  .replaceAll(RegExp(r'\.00$'), ''),
-                              regularPrice: _formatAmount(_planAmount)
-                                  .replaceAll(RegExp(r'\.00$'), ''),
-                              featureGrid: _featureGrid(),
-                            )
-                          else ...[
                           _promoSection(),
                           if (_promoApplied != null) _offerBanner(),
                           if (_promoApplied != null && _promoIsTrial)
                             _trialBreakdown(),
                           const SizedBox(height: 14),
                           ..._plans.map<Widget>(_planCard),
-                          ],
                           const SizedBox(height: 24),
 
                           // Pay button
                           GestureDetector(
                             onTap: _paying ? null : _onPayTap,
-                            child: _offerOn
-                                ? Container(
-                                    width: double.infinity,
-                                    height: 72,
-                                    decoration: BoxDecoration(
-                                        color: const Color(0xFF14602F),
-                                        borderRadius: BorderRadius.circular(20),
-                                        boxShadow: [
-                                          BoxShadow(
-                                              color: C.green.withOpacity(.35),
-                                              blurRadius: 14,
-                                              offset: const Offset(0, 6))
-                                        ]),
-                                    child: Center(
-                                        child: _paying
-                                            ? const SizedBox(
-                                                width: 24,
-                                                height: 24,
-                                                child:
-                                                    CircularProgressIndicator(
-                                                        color: C.yellow,
-                                                        strokeWidth: 2.5))
-                                            : Row(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.center,
-                                                children: [
-                                                    const Text('🎁',
-                                                        style: TextStyle(
-                                                            fontSize: 30)),
-                                                    const SizedBox(width: 12),
-                                                    Column(
-                                                        mainAxisSize:
-                                                            MainAxisSize.min,
-                                                        crossAxisAlignment:
-                                                            CrossAxisAlignment
-                                                                .start,
-                                                        children: [
-                                                          Text('Pre-Register Now',
-                                                              style: poppins(19,
-                                                                  w: FontWeight
-                                                                      .w800,
-                                                                  c: Colors
-                                                                      .white,
-                                                                  h: 1.15)),
-                                                          Text('₹0 Payment',
-                                                              style: poppins(17,
-                                                                  w: FontWeight
-                                                                      .w800,
-                                                                  c: C.yellow,
-                                                                  h: 1.15)),
-                                                        ]),
-                                                    const SizedBox(width: 10),
-                                                    const Icon(
-                                                        Icons
-                                                            .chevron_right_rounded,
-                                                        color: Colors.white,
-                                                        size: 30),
-                                                  ])),
-                                  )
-                                : Container(
+                            child: Container(
                               width: double.infinity,
                               height: 50,
                               decoration: BoxDecoration(
@@ -550,28 +492,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
       ),
     ),
     ]);
-  }
-
-  // Header copy for the pre-launch "Pre-Register Now" page.
-  List<Widget> _offerHeader() {
-    final launch = parseYmd(_promoLaunch);
-    final launchTxt = launch == null ? '' : fmtDayShort(launch);
-    return [
-      Text('Pre-Register Now',
-          style: poppins(27, w: FontWeight.w900, c: C.ink, h: 1.15)),
-      Text.rich(TextSpan(children: [
-        TextSpan(text: 'with '),
-        TextSpan(text: 'Zero Payment', style: TextStyle(color: C.green)),
-      ]),
-          style: poppins(27, w: FontWeight.w900, c: C.ink, h: 1.15)),
-      Text('& Start Enjoying from',
-          style: poppins(19, w: FontWeight.w800, c: C.ink, h: 1.25)),
-      Text('$launchTxt!',
-          style: poppins(36, w: FontWeight.w900, c: C.green, h: 1.1)),
-      const SizedBox(height: 4),
-      Text('Sign up today. Your ElderZha journey begins on launch day.',
-          style: poppins(12.5, w: FontWeight.w600, c: C.ink, h: 1.35)),
-    ];
   }
 
   String _rs(double v) =>
