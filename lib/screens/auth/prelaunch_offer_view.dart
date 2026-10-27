@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/ez_dates.dart';
 
@@ -77,7 +78,7 @@ class _PrelaunchOfferViewState extends State<PrelaunchOfferView> {
           child: Stack(children: [
             // Yellow top, fading into the page colour.
             Container(
-              height: 300,
+              height: 270,
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
@@ -125,11 +126,7 @@ class _PrelaunchOfferViewState extends State<PrelaunchOfferView> {
   Widget _top() {
     final hey = widget.name.isEmpty ? 'Hey there!' : 'Hey ${widget.name}!';
     return Column(children: [
-      Image.asset('assets/images/logo.png',
-          height: 40,
-          errorBuilder: (_, __, ___) =>
-              Text('ElderZha', style: poppins(22, w: FontWeight.w800, c: C.ink))),
-      const SizedBox(height: 8),
+      const SizedBox(height: 14),
       Row(children: [
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -200,8 +197,7 @@ class _PrelaunchOfferViewState extends State<PrelaunchOfferView> {
             ]),
           ),
           const Spacer(),
-          Text('Early members only',
-              style: poppins(11, w: FontWeight.w600, c: C.txm)),
+          const _EarlyBadge(),
         ]),
         const SizedBox(height: 10),
         Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
@@ -328,28 +324,11 @@ class _PrelaunchOfferViewState extends State<PrelaunchOfferView> {
       (Icons.sentiment_satisfied_alt_rounded, Color(0xFFEF8F00), 'Happiness'),
       (Icons.verified_user_rounded, Color(0xFF22A85A), 'Independence'),
     ];
-    return SizedBox(
-      height: 62,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: items.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (_, i) => Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: C.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: C.bd),
-          ),
-          child: Row(children: [
-            Icon(items[i].$1, color: items[i].$2, size: 24),
-            const SizedBox(width: 8),
-            Text(items[i].$3,
-                style: poppins(12.5, w: FontWeight.w700, c: C.ink)),
-          ]),
-        ),
-      ),
-    );
+    return Column(children: [
+      _Marquee(items: items.sublist(0, 4), reverse: false),
+      const SizedBox(height: 8),
+      _Marquee(items: items.sublist(4), reverse: true),
+    ]);
   }
 
   // ── Pinned bottom bar ─────────────────────────────────────────────────────
@@ -475,6 +454,147 @@ class _PrelaunchOfferViewState extends State<PrelaunchOfferView> {
                 '₹${widget.regularPrice}. Cancel anytime from your profile settings.'),
             const SizedBox(height: 4),
           ]),
+        ),
+      ),
+    );
+  }
+}
+
+/// "EARLY MEMBERS ONLY" — a pulsing orange badge with a sweeping shine, so the
+/// eye goes to it first.
+class _EarlyBadge extends StatefulWidget {
+  const _EarlyBadge();
+  @override
+  State<_EarlyBadge> createState() => _EarlyBadgeState();
+}
+
+class _EarlyBadgeState extends State<_EarlyBadge>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 1800))
+    ..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (_, __) {
+        final t = Curves.easeInOut.transform(_c.value);
+        return Transform.scale(
+          scale: 1 + .07 * t,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                  colors: [Color(0xFFFF6D00), Color(0xFFE53935)]),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                    color: const Color(0xFFFF6D00).withOpacity(.25 + .3 * t),
+                    blurRadius: 6 + 10 * t,
+                    spreadRadius: 1 + 2 * t),
+              ],
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.stars_rounded, color: Colors.white, size: 16),
+              const SizedBox(width: 5),
+              Text('EARLY MEMBERS',
+                  style: poppins(10.5, w: FontWeight.w800, c: Colors.white)),
+            ]),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// A row of feature chips that glides by on its own (left, or right when
+/// [reverse]). It pauses while a finger is on it and picks up again after.
+class _Marquee extends StatefulWidget {
+  final List<(IconData, Color, String)> items;
+  final bool reverse;
+  const _Marquee({required this.items, required this.reverse});
+  @override
+  State<_Marquee> createState() => _MarqueeState();
+}
+
+class _MarqueeState extends State<_Marquee>
+    with SingleTickerProviderStateMixin {
+  final _ctrl = ScrollController();
+  late final Ticker _ticker = createTicker(_onTick);
+  Duration _last = Duration.zero;
+  bool _held = false;
+  Timer? _resume;
+  static const _pxPerSecond = 34.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker.start();
+  }
+
+  void _onTick(Duration now) {
+    final dt = (now - _last).inMicroseconds / 1e6;
+    _last = now;
+    if (_held || !_ctrl.hasClients) return;
+    _ctrl.jumpTo(_ctrl.offset + _pxPerSecond * dt);
+  }
+
+  void _hold() {
+    _resume?.cancel();
+    _held = true;
+  }
+
+  void _release() {
+    _resume?.cancel();
+    _resume = Timer(const Duration(milliseconds: 1500), () => _held = false);
+  }
+
+  @override
+  void dispose() {
+    _resume?.cancel();
+    _ticker.dispose();
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final items = widget.items;
+    return SizedBox(
+      height: 52,
+      child: Listener(
+        onPointerDown: (_) => _hold(),
+        onPointerUp: (_) => _release(),
+        onPointerCancel: (_) => _release(),
+        child: ListView.builder(
+          controller: _ctrl,
+          reverse: widget.reverse,
+          scrollDirection: Axis.horizontal,
+          // Endless: the same chips repeat, so it never runs out.
+          itemBuilder: (_, i) {
+            final it = items[i % items.length];
+            return Container(
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: C.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: C.bd),
+              ),
+              child: Row(children: [
+                Icon(it.$1, color: it.$2, size: 24),
+                const SizedBox(width: 8),
+                Text(it.$3, style: poppins(13, w: FontWeight.w700, c: C.ink)),
+              ]),
+            );
+          },
         ),
       ),
     );
