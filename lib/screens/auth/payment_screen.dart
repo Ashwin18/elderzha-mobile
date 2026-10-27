@@ -806,7 +806,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
           Text(_planName(plan),
               style: poppins(18, w: FontWeight.w800, c: C.ink)),
           Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Text(_amount(plan),
+            Text(
+                (sel && _promoApplied != null && _promoFullAmount != null)
+                    ? '₹${_formatAmount(_promoFullAmount!)}'
+                    : _amount(plan),
                 style: poppins(30, w: FontWeight.w900, c: C.ink, h: 1.15)),
             Padding(
                 padding: const EdgeInsets.only(bottom: 5, left: 3),
