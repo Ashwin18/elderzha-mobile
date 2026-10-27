@@ -4,6 +4,7 @@ import '../theme/app_theme.dart';
 import '../services/services.dart';
 import '../services/plan_state.dart';
 import '../screens/challenge/challenge_screens.dart';
+import '../screens/alarms/alarm_setup_screen.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/community/community_screen.dart';
 import '../screens/reminders/reminder_screen.dart';
@@ -75,12 +76,12 @@ class _MainScaffoldState extends State<MainScaffold>
     );
     WidgetsBinding.instance.addPostFrameCallback((_) => _guardSubscription());
     // If launch day arrives while the app is open, start Day 1 right then.
-    PlanState.trial.addListener(_maybeStartChallenge);
+    PlanState.trial.addListener(_maybeStartGates);
   }
 
   @override
   void dispose() {
-    PlanState.trial.removeListener(_maybeStartChallenge);
+    PlanState.trial.removeListener(_maybeStartGates);
     _spikePulseController.dispose();
     super.dispose();
   }
@@ -95,20 +96,33 @@ class _MainScaffoldState extends State<MainScaffold>
     // once the full app is open (never during the Early Bird countdown).
     await PlanState.restoreTrial();
     await PlanState.loadStatus();
-    await _maybeStartChallenge();
+    await _maybeStartGates();
   }
 
   bool _challengeOpen = false;
 
-  Future<void> _maybeStartChallenge() async {
+  // Once the full app is open, each user gets two compulsory first-time steps,
+  // in this order: (1) alarm + family setup (skipped during Early Bird
+  // sign-up), then (2) Day 1 of the 100-Day Challenge. Neither can be skipped.
+  Future<void> _maybeStartGates() async {
     if (!mounted || _challengeOpen || PlanState.prelaunch) return;
-    final st = await ChallengeState.load();
-    if (!mounted || st == null || st['baseline_done'] == true) return;
-    if (PlanState.prelaunch || PlanState.lapsed.value) return;
     _challengeOpen = true;
-    await Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => const ChallengeScreen(compulsory: true)));
-    _challengeOpen = false;
+    try {
+      final info = await OnboardingInfo.fetch();
+      if (!mounted || PlanState.prelaunch || PlanState.lapsed.value) return;
+      if (info != null && info['alarm_setup_done'] == false) {
+        await Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => const AlarmSetupScreen(afterLaunch: true)));
+        if (!mounted) return;
+      }
+      final st = await ChallengeState.load();
+      if (!mounted || st == null || st['baseline_done'] == true) return;
+      if (PlanState.prelaunch || PlanState.lapsed.value) return;
+      await Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => const ChallengeScreen(compulsory: true)));
+    } finally {
+      _challengeOpen = false;
+    }
     ChallengeState.load();
   }
 

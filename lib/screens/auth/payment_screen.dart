@@ -37,6 +37,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   String? _promoFirstDebit;       // 'YYYY-MM-DD' first payment (trial)
   String? _promoLaunch;           // 'YYYY-MM-DD' app opens (trial)
   bool _checkingPromo = false;
+  bool _preLaunchSignup = false; // alarm/family setup is skipped before launch
   bool _paymentHandled = false;
 
   @override
@@ -64,8 +65,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
     setState(() => _loadingPlans = true);
     final results = await Future.wait(
         [_subService.getActivePlans(), _subService.getRazorpayCredentials()]);
+    final preLaunch = await OnboardingInfo.skipAlarmSetup();
     if (!mounted) return;
     setState(() {
+      _preLaunchSignup = preLaunch;
       _plans = _extractList(results[0]);
       _rzpKey = results[1]?['key_id'] ??
           results[1]?['RAZORPAY_KEY'] ??
@@ -336,15 +339,22 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     children: [
                       Row(children: [
                         GestureDetector(
-                          onTap: () => Navigator.pushReplacementNamed(
-                              context, AppRoutes.alarmSetup),
-                          child: Container(
+                          // Before launch there is no alarm setup to go back
+                          // to, so the arrow is hidden.
+                          onTap: _preLaunchSignup
+                              ? null
+                              : () => Navigator.pushReplacementNamed(
+                                  context, AppRoutes.alarmSetup),
+                          child: Opacity(
+                            opacity: _preLaunchSignup ? 0 : 1,
+                            child: Container(
                             width: 40,
                             height: 40,
                             decoration: const BoxDecoration(
                                 color: C.white, shape: BoxShape.circle),
                             child: const Icon(Icons.arrow_back_ios_new_rounded,
                                 size: 16, color: C.ink),
+                          ),
                           ),
                         ),
                         Expanded(

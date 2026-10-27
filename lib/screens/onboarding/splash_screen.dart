@@ -161,7 +161,10 @@ class _SplashScreenState extends State<SplashScreen>
       return;
     }
     if (!isAlarmSet) {
-      Navigator.pushReplacementNamed(context, AppRoutes.alarmSetup);
+      final skip = await OnboardingInfo.skipAlarmSetup();
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(
+          context, skip ? AppRoutes.payment : AppRoutes.alarmSetup);
       return;
     }
 

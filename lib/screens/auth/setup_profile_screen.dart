@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
+import '../../services/onboarding_info.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_routes.dart';
 
@@ -110,7 +111,11 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
     if (!mounted) return;
 
     if (res['status'] == true || res['data'] != null) {
-      Navigator.pushReplacementNamed(context, AppRoutes.alarmSetup);
+      // Before launch, skip alarm + family setup (done when the full app opens).
+      final skip = await OnboardingInfo.skipAlarmSetup();
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(
+          context, skip ? AppRoutes.payment : AppRoutes.alarmSetup);
     } else {
       _snack(res['message'] ?? 'Could not submit profile');
     }

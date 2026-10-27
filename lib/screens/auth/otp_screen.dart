@@ -261,10 +261,14 @@ class _OtpScreenState extends State<OtpScreen> with CodeAutoFill {
       }
 
       // Step 2 — Alarm set up?
-      if (!isAlarmSet) {
+      // Before launch, Early Bird sign-ups skip alarm + family setup — they
+      // do it when the full app opens.
+      if (!isAlarmSet && !await OnboardingInfo.skipAlarmSetup()) {
+        if (!mounted) return;
         Navigator.pushReplacementNamed(context, AppRoutes.alarmSetup);
         return;
       }
+      if (!mounted) return;
 
       // Step 3 — Profile + alarm both done, feature showcase already shown
       // earlier in this flow — go straight to payment.

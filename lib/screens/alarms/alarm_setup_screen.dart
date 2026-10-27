@@ -17,7 +17,12 @@ import '../../services/services.dart';
 const MethodChannel _alarmSetupChannel = MethodChannel('alarm_service');
 
 class AlarmSetupScreen extends StatefulWidget {
-  const AlarmSetupScreen({super.key});
+  const AlarmSetupScreen({super.key, this.afterLaunch = false});
+
+  /// true = shown once when the full app opens for someone who skipped this
+  /// during Early Bird sign-up. It cannot be left, and finishing returns to
+  /// the app instead of going on to payment.
+  final bool afterLaunch;
   @override
   State<AlarmSetupScreen> createState() => _AlarmSetupScreenState();
 }
@@ -1468,6 +1473,10 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
       );
       if (!mounted) return;
     }
+    if (widget.afterLaunch) {
+      Navigator.of(context).pop(true);
+      return;
+    }
     Navigator.pushReplacementNamed(context, AppRoutes.payment);
   }
 
@@ -1675,7 +1684,12 @@ class _AlarmSetupScreenState extends State<AlarmSetupScreen> {
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => PopScope(
+        canPop: !widget.afterLaunch,
+        child: _buildWizard(context),
+      );
+
+  Widget _buildWizard(BuildContext context) {
     return Scaffold(
       backgroundColor: C.bg,
       body: Column(
