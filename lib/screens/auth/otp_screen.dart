@@ -12,7 +12,6 @@ import '../../alaram/alarm_permission_service.dart';
 import '../../api/models/fetch_profile_model.dart';
 import '../../services/services.dart';
 import '../../services/plan_state.dart';
-import 'benefits_showcase_screen.dart';
 import '../../providers/auth_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_routes.dart';
@@ -240,22 +239,18 @@ class _OtpScreenState extends State<OtpScreen> with CodeAutoFill {
       }
 
       // ── NEW USER — go through setup steps ───────────────────────────────────
-      // Step 1 — Profile complete? Show the feature showcase first — this is
-      // the very first thing a brand new user sees, right after OTP succeeds.
+      // Step 1 — Profile complete? New users go straight to profile setup
+      // (the feature showcase screens were removed).
       if (!isProfileUpdated) {
         final profile = auth.user;
-        Navigator.pushReplacement(
+        Navigator.pushReplacementNamed(
           context,
-          MaterialPageRoute(
-            builder: (_) => BenefitsShowcaseScreen(
-              userName: profile?['name']?.toString() ?? profile?['first_name']?.toString(),
-              profileArgs: {
-                ..._profileArgs,
-                if (profile?['name'] != null) 'name': profile?['name'],
-                if (profile?['gender'] != null) 'gender': profile?['gender'],
-              },
-            ),
-          ),
+          AppRoutes.setupProfile,
+          arguments: {
+            ..._profileArgs,
+            if (profile?['name'] != null) 'name': profile?['name'],
+            if (profile?['gender'] != null) 'gender': profile?['gender'],
+          },
         );
         return;
       }
@@ -270,8 +265,7 @@ class _OtpScreenState extends State<OtpScreen> with CodeAutoFill {
       }
       if (!mounted) return;
 
-      // Step 3 — Profile + alarm both done, feature showcase already shown
-      // earlier in this flow — go straight to payment.
+      // Step 3 — Profile + alarm both done — go straight to payment.
       Navigator.pushReplacementNamed(context, AppRoutes.payment);
     } catch (e) {
       // Never leave the screen stuck on "loading" forever — reset

@@ -399,15 +399,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             _trialBreakdown(),
                           const SizedBox(height: 14),
                           ..._plans.map<Widget>(_planCard),
-                          if (_promoApplied != null && _promoIsTrial) ...[
-                            const SizedBox(height: 4),
-                            _setupAmountNotice(),
-                          ],
                           const SizedBox(height: 24),
 
                           // Pay button
                           GestureDetector(
-                            onTap: _paying ? null : _pay,
+                            onTap: _paying ? null : _onPayTap,
                             child: Container(
                               width: double.infinity,
                               height: 50,
@@ -535,7 +531,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           Expanded(
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Have a promo code?',
+              Text('Do you have a Promocode to activate free trial?',
                   style: poppins(15, w: FontWeight.w800, c: C.ink)),
               Text('Enter it below to unlock your special offer.',
                   style: poppins(12, c: C.txm, h: 1.35)),
@@ -665,34 +661,65 @@ class _PaymentScreenState extends State<PaymentScreen> {
           ),
       ]);
 
-  // Explains the small AutoPay set-up amount charged by the bank/UPI app.
-  Widget _setupAmountNotice() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: C.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: C.yellow, width: 1.5),
-      ),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Icon(Icons.info_outline_rounded, color: C.yellowDeep, size: 24),
-        const SizedBox(width: 10),
-        Expanded(
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('About the AutoPay set-up amount',
-                style: poppins(13.5, w: FontWeight.w800, c: C.ink)),
-            const SizedBox(height: 4),
-            Text(
-                'To set up AutoPay, your bank needs a small amount of '
-                '₹1 to ₹5 (depends on your bank). Once the set-up is done, '
-                'the same amount is refunded to you.',
-                style: poppins(12, w: FontWeight.w600, c: C.txm, h: 1.45)),
-          ]),
+  // Trial users: explain the small AutoPay set-up amount in a popup first.
+  Future<void> _onPayTap() async {
+    if (_promoApplied != null && _promoIsTrial) {
+      final go = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => Dialog(
+          backgroundColor: C.white,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 22, 20, 16),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: const BoxDecoration(
+                    color: C.yellow, shape: BoxShape.circle),
+                child: const Icon(Icons.info_outline_rounded,
+                    color: C.yellowDeep, size: 30),
+              ),
+              const SizedBox(height: 14),
+              Text('About the AutoPay set-up amount',
+                  textAlign: TextAlign.center,
+                  style: poppins(17, w: FontWeight.w800, c: C.ink)),
+              const SizedBox(height: 10),
+              Text(
+                  'To set up AutoPay, your bank needs a small amount of '
+                  '₹1 to ₹5 (depends on your bank). Once the set-up is done, '
+                  'the same amount is refunded to you.',
+                  textAlign: TextAlign.center,
+                  style: poppins(13.5, w: FontWeight.w600, c: C.txm, h: 1.5)),
+              const SizedBox(height: 18),
+              GestureDetector(
+                onTap: () => Navigator.pop(ctx, true),
+                child: Container(
+                  width: double.infinity,
+                  height: 48,
+                  decoration: BoxDecoration(
+                      color: C.ink, borderRadius: BorderRadius.circular(14)),
+                  child: Center(
+                      child: Text('OK, continue',
+                          style: poppins(14,
+                              w: FontWeight.w700, c: Colors.white))),
+                ),
+              ),
+              const SizedBox(height: 6),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text('Cancel',
+                    style: poppins(13, w: FontWeight.w600, c: C.txl)),
+              ),
+            ]),
+          ),
         ),
-      ]),
-    );
+      );
+      if (go != true || !mounted) return;
+    }
+    _pay();
   }
 
   Widget _autoPayBox() {

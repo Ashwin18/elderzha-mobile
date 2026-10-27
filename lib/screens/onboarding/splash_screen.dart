@@ -8,7 +8,6 @@ import '../../services/plan_state.dart';
 import '../../utils/join_date_helper.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_routes.dart';
-import '../auth/benefits_showcase_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -169,10 +168,7 @@ class _SplashScreenState extends State<SplashScreen>
     }
 
     // Profile + alarm done, never reached/completed payment.
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const BenefitsShowcaseScreen()),
-    );
+    Navigator.pushReplacementNamed(context, AppRoutes.payment);
   }
 
   @override
