@@ -399,6 +399,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             _trialBreakdown(),
                           const SizedBox(height: 14),
                           ..._plans.map<Widget>(_planCard),
+                          if (_promoApplied != null && _promoIsTrial) ...[
+                            const SizedBox(height: 4),
+                            _setupAmountNotice(),
+                          ],
                           const SizedBox(height: 24),
 
                           // Pay button
@@ -661,6 +665,36 @@ class _PaymentScreenState extends State<PaymentScreen> {
           ),
       ]);
 
+  // Explains the small AutoPay set-up amount charged by the bank/UPI app.
+  Widget _setupAmountNotice() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: C.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: C.yellow, width: 1.5),
+      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Icon(Icons.info_outline_rounded, color: C.yellowDeep, size: 24),
+        const SizedBox(width: 10),
+        Expanded(
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('About the AutoPay set-up amount',
+                style: poppins(13.5, w: FontWeight.w800, c: C.ink)),
+            const SizedBox(height: 4),
+            Text(
+                'To set up AutoPay, your bank needs a small amount of '
+                '₹1 to ₹5 (depends on your bank). Once the set-up is done, '
+                'the same amount is refunded to you.',
+                style: poppins(12, w: FontWeight.w600, c: C.txm, h: 1.45)),
+          ]),
+        ),
+      ]),
+    );
+  }
+
   Widget _autoPayBox() {
     final first = parseYmd(_promoFirstDebit);
     final plan = _rs(_promoFullAmount ?? _planAmount);
@@ -805,14 +839,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
             child: Text(
                 'Free until ${fmtDay(first)}. Then $amt a month by AutoPay. '
                 'Cancel before then and you will not be charged.',
-                style: poppins(11, c: C.txl, h: 1.4)),
-          ),
-          const SizedBox(height: 4),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-                'Your bank may ask for a small verification amount to set up '
-                'AutoPay. It is refunded automatically.',
                 style: poppins(11, c: C.txl, h: 1.4)),
           ),
         ],
