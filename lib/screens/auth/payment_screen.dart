@@ -11,6 +11,7 @@ import '../../services/services.dart';
 import '../../services/plan_state.dart';
 import '../../utils/ez_dates.dart';
 import 'prelaunch_offer_view.dart';
+import '../../widgets/free_trial_dialog.dart';
 
 class PaymentScreen extends StatefulWidget {
   const PaymentScreen({super.key});
@@ -707,59 +708,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   // Trial users: explain the small AutoPay set-up amount in a popup first.
   Future<void> _onPayTap() async {
     if (_promoApplied != null && _promoIsTrial) {
-      final go = await showDialog<bool>(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => Dialog(
-          backgroundColor: C.white,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 22, 20, 16),
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: const BoxDecoration(
-                    color: C.yellow, shape: BoxShape.circle),
-                child: const Icon(Icons.info_outline_rounded,
-                    color: C.yellowDeep, size: 30),
-              ),
-              const SizedBox(height: 14),
-              Text('About the AutoPay set-up amount',
-                  textAlign: TextAlign.center,
-                  style: poppins(17, w: FontWeight.w800, c: C.ink)),
-              const SizedBox(height: 10),
-              Text(
-                  'To set up AutoPay, your bank needs a small amount of '
-                  '₹1 to ₹5 (depends on your bank). Once the set-up is done, '
-                  'the same amount is refunded to you.',
-                  textAlign: TextAlign.center,
-                  style: poppins(13.5, w: FontWeight.w600, c: C.txm, h: 1.5)),
-              const SizedBox(height: 18),
-              GestureDetector(
-                onTap: () => Navigator.pop(ctx, true),
-                child: Container(
-                  width: double.infinity,
-                  height: 48,
-                  decoration: BoxDecoration(
-                      color: C.ink, borderRadius: BorderRadius.circular(14)),
-                  child: Center(
-                      child: Text('OK, continue',
-                          style: poppins(14,
-                              w: FontWeight.w700, c: Colors.white))),
-                ),
-              ),
-              const SizedBox(height: 6),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: Text('Cancel',
-                    style: poppins(13, w: FontWeight.w600, c: C.txl)),
-              ),
-            ]),
-          ),
-        ),
-      );
+      final go = await showFreeTrialDialog(context);
       if (go != true || !mounted) return;
     }
     _pay();
