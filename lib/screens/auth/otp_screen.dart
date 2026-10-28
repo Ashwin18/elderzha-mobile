@@ -232,6 +232,13 @@ class _OtpScreenState extends State<OtpScreen> with CodeAutoFill {
       // They land on Home with the blurred "Renew" prompt over it (alarms
       // paused) rather than on a separate payment screen.
       if (isProfileUpdated && isAlarmSet && !isPlanActive) {
+        // Never subscribed (no plan on the account at all): nothing has
+        // "ended" — send them to the subscribe / pre-register page instead.
+        if (!_truthy(res['is_plan_purchased'])) {
+          if (!mounted) return;
+          Navigator.pushReplacementNamed(context, AppRoutes.payment);
+          return;
+        }
         await PlanState.markLapsed();
         if (!mounted) return;
         Navigator.pushReplacementNamed(context, AppRoutes.home);

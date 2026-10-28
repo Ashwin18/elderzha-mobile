@@ -127,7 +127,11 @@ class _SplashScreenState extends State<SplashScreen>
     }
 
     final isProfileUpdated = truthy(mergedFlags['is_profile_updated'] ?? mergedFlags['isProfileUpdate']);
-    final isAlarmSet = truthy(mergedFlags['daily_alarm_set']);
+    // The user-details reply names this flag medicalSetting_status; login calls it
+    // daily_alarm_set. Read either so both entry paths agree.
+    final isAlarmSet = truthy(mergedFlags['daily_alarm_set'] ??
+        mergedFlags['medicalSetting_status']);
+    final isPlanPurchased = truthy(mergedFlags['is_plan_purchased']);
     final isPlanActiveFlag = truthy(mergedFlags['is_plan_active']);
 
     // Active plan → Home directly, regardless of anything else,
@@ -147,6 +151,12 @@ class _SplashScreenState extends State<SplashScreen>
     // steps or the "Welcome" framing meant for first-time signup.
     // Home opens with the blurred "Renew" prompt over it; alarms are paused.
     if (isProfileUpdated && isAlarmSet) {
+      // Never subscribed: nothing has "ended" — go to the subscribe page.
+      if (!isPlanPurchased) {
+        if (!mounted) return;
+        Navigator.pushReplacementNamed(context, AppRoutes.payment);
+        return;
+      }
       await PlanState.markLapsed();
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, AppRoutes.home);
