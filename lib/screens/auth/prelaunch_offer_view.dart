@@ -65,12 +65,11 @@ class _PrelaunchOfferViewState extends State<PrelaunchOfferView> {
 
   int get _trialDays =>
       widget.firstDebit.difference(widget.launch).inDays.clamp(1, 365);
-  DateTime get _trialEnd => widget.firstDebit.subtract(const Duration(days: 1));
 
   @override
   Widget build(BuildContext context) {
     final h = MediaQuery.of(context).size.height;
-    final tight = h < 690; // small phones: drop the feature strip
+    final tight = h < 730; // small phones: drop the feature strip
     return Scaffold(
       backgroundColor: C.bg,
       body: Column(children: [
@@ -104,14 +103,6 @@ class _PrelaunchOfferViewState extends State<PrelaunchOfferView> {
                     const SizedBox(height: 12),
                     _featureStrip(),
                   ],
-                  const SizedBox(height: 6),
-                  TextButton(
-                    onPressed: _showDetails,
-                    child: Text('How does pre-registering work?',
-                        style: poppins(13,
-                                w: FontWeight.w700, c: C.yellowDeep)
-                            .copyWith(decoration: TextDecoration.underline)),
-                  ),
                 ]),
               ),
             ),
@@ -262,52 +253,59 @@ class _PrelaunchOfferViewState extends State<PrelaunchOfferView> {
         ),
       );
 
-  // ── Today → launch → first payment ────────────────────────────────────────
+  // ── Today → launch → first payment, in plain sentences (no tap needed) ───
   Widget _timeline() {
-    Widget node(IconData i, Color c, String top, String bottom) => Expanded(
-          child: Column(children: [
-            Container(
+    Widget step(IconData i, Color c, String title, String line,
+            {bool last = false}) =>
+        IntrinsicHeight(
+          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            SizedBox(
               width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                  color: c,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: C.white, width: 3)),
-              child: Icon(i, size: 20, color: Colors.white),
+              child: Column(children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(color: c, shape: BoxShape.circle),
+                  child: Icon(i, size: 20, color: Colors.white),
+                ),
+                if (!last)
+                  Expanded(
+                      child: Container(width: 3, color: C.yellowBorder)),
+              ]),
             ),
-            const SizedBox(height: 6),
-            Text(top,
-                textAlign: TextAlign.center,
-                style: poppins(12.5, w: FontWeight.w800, c: C.ink, h: 1.2)),
-            Text(bottom,
-                textAlign: TextAlign.center,
-                style: poppins(11, w: FontWeight.w600, c: C.txm, h: 1.25)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(top: 1, bottom: last ? 0 : 12),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title,
+                          style: poppins(14.5, w: FontWeight.w800, c: C.ink, h: 1.2)),
+                      Text(line,
+                          style: poppins(13, w: FontWeight.w600, c: C.txm, h: 1.35)),
+                    ]),
+              ),
+            ),
           ]),
         );
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(8, 14, 8, 12),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
       decoration: BoxDecoration(
         color: C.yellowLight,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: C.yellowBorder, width: 1.5),
       ),
-      child: Stack(children: [
-        // connecting line behind the three circles
-        Positioned(
-          top: 19,
-          left: 52,
-          right: 52,
-          child: Container(height: 3, color: C.yellowBorder),
-        ),
-        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          node(Icons.how_to_reg_rounded, C.green, 'Today', '₹0 to join'),
-          node(Icons.celebration_rounded, C.orange,
-              fmtDayShort(widget.launch), '$_trialDays-day free trial'),
-          node(Icons.autorenew_rounded, C.blue, fmtDayShort(widget.firstDebit),
-              '₹${widget.offerPrice}/month starts'),
-        ]),
+      child: Column(children: [
+        step(Icons.how_to_reg_rounded, C.green, 'Today',
+            'Join free. Set up AutoPay once. Nothing is charged for the plan.'),
+        step(Icons.celebration_rounded, C.orange, fmtDay(widget.launch),
+            'The app opens. Your $_trialDays-day free trial starts.'),
+        step(Icons.autorenew_rounded, C.blue, fmtDay(widget.firstDebit),
+            '₹${widget.offerPrice} a month begins. Cancel anytime from your profile.',
+            last: true),
       ]),
     );
   }
@@ -395,69 +393,6 @@ class _PrelaunchOfferViewState extends State<PrelaunchOfferView> {
               style: poppins(10.5, c: C.txl)),
         ]),
       );
-
-  // ── Details sheet (kept out of the main screen) ───────────────────────────
-  void _showDetails() {
-    Widget row(IconData i, Color c, String t, String s) => Padding(
-          padding: const EdgeInsets.only(bottom: 14),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(color: c, shape: BoxShape.circle),
-              child: Icon(i, size: 20, color: Colors.white),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(t, style: poppins(14, w: FontWeight.w800, c: C.ink)),
-                    Text(s, style: poppins(12.5, c: C.txm, h: 1.4)),
-                  ]),
-            ),
-          ]),
-        );
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: C.white,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
-      builder: (_) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Container(
-                width: 44,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                    color: C.bd2, borderRadius: BorderRadius.circular(4))),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text('How pre-registering works',
-                  style: poppins(18, w: FontWeight.w800, c: C.ink)),
-            ),
-            const SizedBox(height: 14),
-            row(Icons.how_to_reg_rounded, C.green, 'Today: pre-register',
-                'Nothing is charged for the plan. You set up AutoPay once. '
-                'Your bank may take ₹1 to ₹5 for the set-up and refunds it.'),
-            row(Icons.celebration_rounded, C.orange,
-                '${fmtDay(widget.launch)}: app opens',
-                'Your $_trialDays-day free trial runs until ${fmtDay(_trialEnd)} '
-                'and every feature unlocks.'),
-            row(Icons.autorenew_rounded, C.blue,
-                '${fmtDay(widget.firstDebit)}: subscription starts',
-                '₹${widget.offerPrice} a month by AutoPay instead of '
-                '₹${widget.regularPrice}. Cancel anytime from your profile settings.'),
-            const SizedBox(height: 4),
-          ]),
-        ),
-      ),
-    );
-  }
 }
 
 /// "EARLY MEMBERS ONLY" — a pulsing orange badge with a sweeping shine, so the

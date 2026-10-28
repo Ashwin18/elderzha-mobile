@@ -78,9 +78,9 @@ Future<bool?> showFreeTrialDialog(BuildContext context) {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                    'To set up AutoPay, your bank needs a small amount of '
-                    '₹1 to ₹5 (depends on your bank). Once the set-up is done, '
-                    'the same amount is refunded to you.',
+                    'Only a small verification amount of Rs 1 to Rs 5 will be '
+                    'debited from your account and it will be refunded within '
+                    '3 working days.',
                     style: poppins(13, w: FontWeight.w600, c: C.txm, h: 1.45)),
               ),
             ]),
