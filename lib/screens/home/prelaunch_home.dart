@@ -13,7 +13,6 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/plan_state.dart';
 import '../../theme/app_theme.dart';
-import '../../utils/app_routes.dart';
 import '../../utils/ez_dates.dart';
 
 class PreLaunchHome extends StatefulWidget {
@@ -267,22 +266,6 @@ class _PreLaunchHomeState extends State<PreLaunchHome> {
                         const SizedBox(height: 6),
                         _line(Icons.cancel_outlined, C.txm,
                             'Cancel any time before then and you will not be charged'),
-                        const SizedBox(height: 14),
-                        GestureDetector(
-                          onTap: () => Navigator.of(context)
-                              .pushNamed(AppRoutes.autopaySettings),
-                          child: Container(
-                            width: double.infinity,
-                            height: 44,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                                color: C.ink,
-                                borderRadius: BorderRadius.circular(14)),
-                            child: Text('Manage AutoPay',
-                                style: poppins(13,
-                                    w: FontWeight.w700, c: Colors.white)),
-                          ),
-                        ),
                       ]),
                 ),
                 const SizedBox(height: 10),

@@ -198,41 +198,48 @@ class _ConnectedPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(22, 14, 22, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Stay Active,\nStay Connected', style: _headline),
-          const SizedBox(height: 10),
-          Text(
-            'From daily reminders to fun activities, ElderZha keeps you engaged every day.',
-            style: _body,
-          ),
-          const SizedBox(height: 18),
-          for (var i = 0; i < _items.length; i += 2)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: IntrinsicHeight(
-                child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  Expanded(child: _FeatureCard(_items[i])),
-                  const SizedBox(width: 12),
-                  Expanded(child: _FeatureCard(_items[i + 1])),
-                ]),
-              ),
+    // Everything fits on one screen: the content is laid out at the page
+    // width and, if a small phone is short on height, scaled down to fit
+    // instead of scrolling.
+    return LayoutBuilder(builder: (context, box) {
+      final w = box.maxWidth - 40;
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 8),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.topCenter,
+          child: SizedBox(
+            width: w,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Stay Active,\nStay Connected', style: _headline),
+                const SizedBox(height: 8),
+                Text(
+                  'From daily reminders to fun activities, ElderZha keeps you engaged every day.',
+                  style: poppins(15, w: FontWeight.w500, c: C.txm, h: 1.4),
+                ),
+                const SizedBox(height: 14),
+                for (var i = 0; i < _items.length; i += 2)
+                  Padding(
+                    padding: EdgeInsets.only(bottom: i == _items.length - 2 ? 0 : 10),
+                    child: IntrinsicHeight(
+                      child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(child: _FeatureCard(_items[i])),
+                            const SizedBox(width: 10),
+                            Expanded(child: _FeatureCard(_items[i + 1])),
+                          ]),
+                    ),
+                  ),
+              ],
             ),
-          const SizedBox(height: 4),
-          Center(
-            child: Text(
-              'Small steps today, a bigger happier tomorrow.',
-              textAlign: TextAlign.center,
-              style: poppins(14.5, w: FontWeight.w600, c: C.yellowDeep, h: 1.35)
-                  .copyWith(fontStyle: FontStyle.italic),
-            ),
           ),
-        ],
-      ),
-    );
+        ),
+      );
+    });
   }
 }
 
@@ -242,31 +249,35 @@ class _FeatureCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
+        padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
         decoration: _card(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                color: item.$2,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                      color: item.$2.withOpacity(.35),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4)),
-                ],
+            Row(children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: item.$2,
+                  borderRadius: BorderRadius.circular(13),
+                  boxShadow: [
+                    BoxShadow(
+                        color: item.$2.withOpacity(.35),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3)),
+                  ],
+                ),
+                child: Icon(item.$1, color: Colors.white, size: 22),
               ),
-              child: Icon(item.$1, color: Colors.white, size: 27),
-            ),
-            const SizedBox(height: 12),
-            Text(item.$3,
-                style: poppins(15, w: FontWeight.w800, c: C.ink, h: 1.2)),
-            const SizedBox(height: 4),
-            Text(item.$4, style: poppins(13, c: C.txm, h: 1.35)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(item.$3,
+                    style: poppins(13.5, w: FontWeight.w800, c: C.ink, h: 1.15)),
+              ),
+            ]),
+            const SizedBox(height: 8),
+            Text(item.$4, style: poppins(12, c: C.txm, h: 1.3)),
           ],
         ),
       );
