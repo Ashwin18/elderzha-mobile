@@ -53,15 +53,10 @@ class _HomeScreenGateState extends State<HomeScreen> {
       valueListenable: PlanState.trial,
       builder: (context, _, __) => PlanState.prelaunch
           ? const PreLaunchHome()
-          : Column(children: [
-              Expanded(
-                child: FullHomeScreen(
-                  onOpenReminder: widget.onOpenReminder,
-                  onOpenSpike: widget.onOpenSpike,
-                ),
-              ),
-              const ChallengeBanner(),
-            ]),
+          : FullHomeScreen(
+              onOpenReminder: widget.onOpenReminder,
+              onOpenSpike: widget.onOpenSpike,
+            ),
     );
   }
 }
@@ -738,6 +733,9 @@ class _HomeScreenState extends State<FullHomeScreen>
                     child: _todayWellbeingCard(auth.userName),
                   ),
                   const SizedBox(height: 10),
+                  // 100-Day Challenge progress: sits right under the
+                  // wellbeing card (not pinned above the bottom bar).
+                  const ChallengeBanner(),
                   KeyedSubtree(key: _stepsSectionKey, child: _stepsSection()),
                   if (_todayPollCount > 0 || _todayActivityCount > 0) ...[
                     const SizedBox(height: 12),

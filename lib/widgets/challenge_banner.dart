@@ -4,7 +4,7 @@ import '../screens/challenge/challenge_screens.dart';
 import '../services/challenge_service.dart';
 import '../theme/app_theme.dart';
 
-/// Slim strip at the bottom of Home: "Day 12 of 100". Hidden until the user
+/// Slim strip in the Home list, under "A day in my life": "Day 12 of 100". Hidden until the user
 /// has done their Day 1 ratings. On Day 100 it turns into the check-in prompt.
 class ChallengeBanner extends StatelessWidget {
   const ChallengeBanner({super.key});
@@ -42,7 +42,7 @@ class ChallengeBanner extends StatelessWidget {
             ChallengeState.load();
           },
           child: Container(
-            margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            margin: const EdgeInsets.only(bottom: 10),
             padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
             decoration: BoxDecoration(
               color: C.ink,
