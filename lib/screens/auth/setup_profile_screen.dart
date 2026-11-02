@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/onboarding_info.dart';
 import '../../services/referral_service.dart';
+import '../../services/feature_flags.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_routes.dart';
 
@@ -35,6 +36,7 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_seeded) return;
+    FeatureFlags.load();
     final args = ModalRoute.of(context)?.settings.arguments;
     if (args is Map) {
       _phone = args['phone']?.toString() ?? '';
@@ -300,12 +302,21 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
                         _genderChip('other', '🧑', 'Other'),
                       ],
                     ),
-                    _label('Referral code optional'),
-                    inpField(
-                      Icons.card_giftcard_rounded,
-                      'Enter a friend\'s code',
-                      ctrl: _refCtrl,
-                      type: TextInputType.text,
+                    ValueListenableBuilder<bool>(
+                      valueListenable: FeatureFlags.newFeatures,
+                      builder: (_, on, __) => !on
+                          ? const SizedBox.shrink()
+                          : Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _label('Referral code optional'),
+                                inpField(
+                                  Icons.card_giftcard_rounded,
+                                  'Enter a friend\'s code',
+                                  ctrl: _refCtrl,
+                                  type: TextInputType.text,
+                                ),
+                              ]),
                     ),
                     const SizedBox(height: 24),
                     GestureDetector(

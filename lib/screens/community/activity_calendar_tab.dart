@@ -21,6 +21,7 @@ import '../../services/services.dart';
 import '../../widgets/community_media.dart';
 import '../../widgets/content_share_card.dart';
 import '../../utils/ez_dates.dart';
+import '../../services/feature_flags.dart';
 import 'activity_participate_screen.dart';
 
 class ActivityCalendarTab extends StatefulWidget {
@@ -59,7 +60,10 @@ class _ActivityCalendarTabState extends State<ActivityCalendarTab> {
   Future<void> _load() async {
     setState(() { _loading = true; _error = null; });
     final res = await _communitySvc.getActivityCalendar(forceRefresh: true);
-    final reg = await _activitySvc.getRegisteredIds();
+    await FeatureFlags.load();
+    final reg = FeatureFlags.newFeatures.value
+        ? await _activitySvc.getRegisteredIds()
+        : <int>{};
     if (!mounted) return;
     _registered = reg;
     if (res != null && res['status'] == true) {
@@ -219,19 +223,19 @@ class _ActivityCalendarTabState extends State<ActivityCalendarTab> {
               ),
             ]),
             const SizedBox(height: 10),
-            ..._laterToday.map((d) => _ActivityBannerCard(day: d, svc: _activitySvc, onReturn: _load, registered: _registered, onRegister: _toggleRegister)),
+            ..._laterToday.map((d) => _ActivityBannerCard(day: d, svc: _activitySvc, onReturn: _load, registered: _registered, onRegister: FeatureFlags.newFeatures.value ? _toggleRegister : null)),
           ],
 
           const SizedBox(height: 26),
           Text('COMING UP', style: poppins(11, w: FontWeight.w700, c: C.txl)),
           const SizedBox(height: 10),
-          ..._upcoming.map((d) => _ActivityBannerCard(day: d, svc: _activitySvc, onReturn: _load, registered: _registered, onRegister: _toggleRegister)),
+          ..._upcoming.map((d) => _ActivityBannerCard(day: d, svc: _activitySvc, onReturn: _load, registered: _registered, onRegister: FeatureFlags.newFeatures.value ? _toggleRegister : null)),
 
           if (_history.isNotEmpty) ...[
             const SizedBox(height: 26),
             Text('HISTORY', style: poppins(11, w: FontWeight.w700, c: C.txl)),
             const SizedBox(height: 10),
-            ..._history.map((d) => _ActivityBannerCard(day: d, svc: _activitySvc, onReturn: _load, registered: _registered, onRegister: _toggleRegister)),
+            ..._history.map((d) => _ActivityBannerCard(day: d, svc: _activitySvc, onReturn: _load, registered: _registered, onRegister: FeatureFlags.newFeatures.value ? _toggleRegister : null)),
           ],
         ],
       ),

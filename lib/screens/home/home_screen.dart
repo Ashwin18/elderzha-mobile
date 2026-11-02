@@ -14,6 +14,7 @@ import '../../alaram/alarm_history_service.dart';
 import '../../alaram/alarm_permission_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_routes.dart';
+import '../../services/feature_flags.dart';
 import '../../utils/notification_list.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/services.dart';
@@ -132,6 +133,7 @@ class _HomeScreenState extends State<FullHomeScreen>
   @override
   void initState() {
     super.initState();
+    FeatureFlags.load();
     _loadAll();
     _initSteps();
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowHomeTour());
@@ -743,8 +745,14 @@ class _HomeScreenState extends State<FullHomeScreen>
                   ],
                   const SizedBox(height: 14),
                   KeyedSubtree(key: _quickActionsKey, child: _quickActions()),
-                  const SizedBox(height: 14),
-                  _referCard(),
+                  ValueListenableBuilder<bool>(
+                    valueListenable: FeatureFlags.newFeatures,
+                    builder: (_, on, __) => on
+                        ? Padding(
+                            padding: const EdgeInsets.only(top: 14),
+                            child: _referCard())
+                        : const SizedBox.shrink(),
+                  ),
                   if (_homeActivities.isNotEmpty) ...[
                     const SizedBox(height: 14),
                     _secLabel(
