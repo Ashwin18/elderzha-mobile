@@ -21,6 +21,23 @@ import 'api_client.dart';
 class ActivityService {
   final _api = ApiClient();
 
+  // ── Register for an upcoming activity (reminder before it opens) ──
+  Future<Set<int>> getRegisteredIds() async {
+    final res = await _api.safeGet('/user/activity/registrations');
+    final d = res?['data'];
+    if (d is List) {
+      return d.map((e) => int.tryParse(e.toString()) ?? -1).where((e) => e > 0).toSet();
+    }
+    return <int>{};
+  }
+
+  /// Returns true when the server accepted the change.
+  Future<bool> setRegistered(int activityId, bool register) async {
+    final res = await _api.safePost('/user/activity/register',
+        data: {'activity_id': activityId, 'register': register});
+    return res != null && res['status'] == true;
+  }
+
   // ── GET /user/active/daily/acivity ───────────────────────
   // Returns check-in question master data (moods, places, people, etc.)
   Future<Map<String, dynamic>?> getDailyActivityMaster() async =>

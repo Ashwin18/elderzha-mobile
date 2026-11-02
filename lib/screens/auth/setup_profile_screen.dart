@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../services/onboarding_info.dart';
+import '../../services/referral_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_routes.dart';
 
@@ -21,6 +22,7 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
   final _nameCtrl = TextEditingController();
   final _dobCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
+  final _refCtrl = TextEditingController();
   final _picker = ImagePicker();
 
   String _phone = '';
@@ -57,6 +59,7 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
     _nameCtrl.dispose();
     _dobCtrl.dispose();
     _emailCtrl.dispose();
+    _refCtrl.dispose();
     super.dispose();
   }
 
@@ -98,6 +101,18 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
     }
 
     setState(() => _saving = true);
+    // A friend's referral code (optional). Checked first so a typo can be
+    // fixed right here instead of being silently lost.
+    final refCode = _refCtrl.text.trim();
+    if (refCode.isNotEmpty) {
+      final err = await ReferralService.applyCode(refCode);
+      if (!mounted) return;
+      if (err != null) {
+        setState(() => _saving = false);
+        _snack(err);
+        return;
+      }
+    }
     final res = await context.read<AuthProvider>().updateProfile(
           name: _nameCtrl.text.trim(),
           phone: _phone,
@@ -284,6 +299,13 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
                         const SizedBox(width: 8),
                         _genderChip('other', '🧑', 'Other'),
                       ],
+                    ),
+                    _label('Referral code optional'),
+                    inpField(
+                      Icons.card_giftcard_rounded,
+                      'Enter a friend\'s code',
+                      ctrl: _refCtrl,
+                      type: TextInputType.text,
                     ),
                     const SizedBox(height: 24),
                     GestureDetector(

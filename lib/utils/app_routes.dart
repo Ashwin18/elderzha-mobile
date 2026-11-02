@@ -26,4 +26,5 @@ class AppRoutes {
   static const offers = '/offers';
   static const community = '/community';
   static const coupons = '/coupons';
+  static const refer = '/refer';
 }

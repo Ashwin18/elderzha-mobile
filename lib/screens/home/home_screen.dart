@@ -743,6 +743,8 @@ class _HomeScreenState extends State<FullHomeScreen>
                   ],
                   const SizedBox(height: 14),
                   KeyedSubtree(key: _quickActionsKey, child: _quickActions()),
+                  const SizedBox(height: 14),
+                  _referCard(),
                   if (_homeActivities.isNotEmpty) ...[
                     const SizedBox(height: 14),
                     _secLabel(
@@ -1087,6 +1089,36 @@ class _HomeScreenState extends State<FullHomeScreen>
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: poppins(8, w: FontWeight.w700, c: C.txm)),
+          ]),
+        ),
+      );
+
+  Widget _referCard() => GestureDetector(
+        onTap: () => Navigator.of(context).pushNamed(AppRoutes.refer),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: C.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: C.yellow, width: 1.5),
+          ),
+          child: Row(children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: const BoxDecoration(color: C.yellowLight, shape: BoxShape.circle),
+              child: const Center(child: Text('🤝', style: TextStyle(fontSize: 22))),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Refer a Friend',
+                    style: poppins(14.5, w: FontWeight.w800, c: C.ink)),
+                Text('Invite your friends to ElderZha',
+                    style: poppins(12, c: C.txm)),
+              ]),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: C.ink),
           ]),
         ),
       );

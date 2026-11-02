@@ -58,6 +58,7 @@ import 'screens/offers/offer_details_screen.dart';
 import 'screens/policy/privacy_policy_screen.dart';
 import 'screens/policy/terms_screen.dart';
 import 'screens/profile/support_screen.dart';
+import 'screens/profile/refer_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  FCM + local notifications globals
@@ -746,6 +747,7 @@ class _ElderZhaAppState extends State<ElderZhaApp> {
         AppRoutes.addMember: (_) => const AddMemberScreen(),
         AppRoutes.editProfile: (_) => const EditProfileScreen(),
         AppRoutes.polls: (_) => const PollsScreen(),
+        AppRoutes.refer: (_) => const ReferScreen(),
         AppRoutes.offers: (_) => const OffersScreen(),
         AppRoutes.community: (ctx) {
           final args = ModalRoute.of(ctx)?.settings.arguments;

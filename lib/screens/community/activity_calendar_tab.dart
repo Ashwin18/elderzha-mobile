@@ -20,6 +20,7 @@ import '../../theme/app_theme.dart';
 import '../../services/services.dart';
 import '../../widgets/community_media.dart';
 import '../../widgets/content_share_card.dart';
+import '../../utils/ez_dates.dart';
 import 'activity_participate_screen.dart';
 
 class ActivityCalendarTab extends StatefulWidget {
@@ -36,6 +37,7 @@ class _ActivityCalendarTabState extends State<ActivityCalendarTab> {
   String? _error;
   List<Map<String, dynamic>> _days = [];
   Timer? _tickTimer;
+  Set<int> _registered = {};
 
   @override
   void initState() {
@@ -57,7 +59,9 @@ class _ActivityCalendarTabState extends State<ActivityCalendarTab> {
   Future<void> _load() async {
     setState(() { _loading = true; _error = null; });
     final res = await _communitySvc.getActivityCalendar(forceRefresh: true);
+    final reg = await _activitySvc.getRegisteredIds();
     if (!mounted) return;
+    _registered = reg;
     if (res != null && res['status'] == true) {
       final data = res['data'];
       setState(() {
@@ -138,6 +142,35 @@ class _ActivityCalendarTabState extends State<ActivityCalendarTab> {
     });
   }
 
+  // The soonest activity that hasn't opened yet (today later, or a future
+  // day). Used for the "Next activity on ..." card when nothing is on now.
+  Map<String, dynamic>? get _nextActivity {
+    final items = _days
+        .where((d) => d['status'] == 'locked' && d['activity'] is Map)
+        .toList();
+    if (items.isEmpty) return null;
+    items.sort((a, b) =>
+        '${a['date']} ${a['time'] ?? ''}'.compareTo('${b['date']} ${b['time'] ?? ''}'));
+    return items.first;
+  }
+
+  Future<void> _toggleRegister(int id) async {
+    final on = !_registered.contains(id);
+    setState(() => on ? _registered.add(id) : _registered.remove(id));
+    final ok = await _activitySvc.setRegistered(id, on);
+    if (!mounted) return;
+    if (!ok) {
+      setState(() => on ? _registered.remove(id) : _registered.add(id));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Could not update. Please try again.')));
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(on
+            ? 'Registered. We will remind you before it starts.'
+            : 'Registration removed.')));
+  }
+
   List<Map<String, dynamic>> get _history =>
       _days.where((d) => d['status'] == 'completed' || d['status'] == 'missed')
           .toList()
@@ -172,7 +205,7 @@ class _ActivityCalendarTabState extends State<ActivityCalendarTab> {
                   onReturn: _load,
                 ))
           else
-            _NoActivityTodayCard(),
+            _NoActivityTodayCard(next: _nextActivity),
 
           if (_laterToday.isNotEmpty) ...[
             const SizedBox(height: 26),
@@ -186,19 +219,19 @@ class _ActivityCalendarTabState extends State<ActivityCalendarTab> {
               ),
             ]),
             const SizedBox(height: 10),
-            ..._laterToday.map((d) => _ActivityBannerCard(day: d, svc: _activitySvc, onReturn: _load)),
+            ..._laterToday.map((d) => _ActivityBannerCard(day: d, svc: _activitySvc, onReturn: _load, registered: _registered, onRegister: _toggleRegister)),
           ],
 
           const SizedBox(height: 26),
           Text('COMING UP', style: poppins(11, w: FontWeight.w700, c: C.txl)),
           const SizedBox(height: 10),
-          ..._upcoming.map((d) => _ActivityBannerCard(day: d, svc: _activitySvc, onReturn: _load)),
+          ..._upcoming.map((d) => _ActivityBannerCard(day: d, svc: _activitySvc, onReturn: _load, registered: _registered, onRegister: _toggleRegister)),
 
           if (_history.isNotEmpty) ...[
             const SizedBox(height: 26),
             Text('HISTORY', style: poppins(11, w: FontWeight.w700, c: C.txl)),
             const SizedBox(height: 10),
-            ..._history.map((d) => _ActivityBannerCard(day: d, svc: _activitySvc, onReturn: _load)),
+            ..._history.map((d) => _ActivityBannerCard(day: d, svc: _activitySvc, onReturn: _load, registered: _registered, onRegister: _toggleRegister)),
           ],
         ],
       ),
@@ -212,10 +245,12 @@ class _ActivityCalendarTabState extends State<ActivityCalendarTab> {
 // status-appropriate label) opens ActivityParticipateScreen for
 // the full content, reply form, and other responses.
 class _ActivityBannerCard extends StatelessWidget {
-  const _ActivityBannerCard({required this.day, required this.svc, required this.onReturn});
+  const _ActivityBannerCard({required this.day, required this.svc, required this.onReturn, this.registered = const {}, this.onRegister});
   final Map<String, dynamic> day;
   final ActivityService svc;
   final VoidCallback onReturn;
+  final Set<int> registered;
+  final Future<void> Function(int id)? onRegister;
 
   String? _scheduledTimeLabel() {
     final raw = day['time']?.toString();
@@ -240,10 +275,15 @@ class _ActivityBannerCard extends StatelessWidget {
     final replySubmitted = activity['reply_submitted'] == true;
     final isLocked = status == 'locked';
 
+    final actId = int.tryParse(activity['id']?.toString() ?? '');
+    final canRegister = isLocked && actId != null && onRegister != null;
+    final isReg = actId != null && registered.contains(actId);
     String buttonLabel;
     if (isLocked) {
       final t = _scheduledTimeLabel();
-      buttonLabel = t != null ? 'Opens at $t' : 'Coming up';
+      buttonLabel = canRegister
+          ? (isReg ? '✓ Registered · reminder set' : 'Register now')
+          : (t != null ? 'Opens at $t' : 'Coming up');
     } else if (status == 'completed' || status == 'missed') {
       buttonLabel = 'View responses';
     } else if (replySubmitted) {
@@ -328,12 +368,19 @@ class _ActivityBannerCard extends StatelessWidget {
                     maxLines: 2, overflow: TextOverflow.ellipsis,
                     style: poppins(12, c: C.txm, h: 1.4)),
               ],
+              if (canRegister && _scheduledTimeLabel() != null) ...[
+                const SizedBox(height: 6),
+                Text('Opens ${fmtDayShort(parseYmd(day['date']) ?? DateTime.now())} at ${_scheduledTimeLabel()}',
+                    style: poppins(11.5, w: FontWeight.w600, c: C.yellowDeep)),
+              ],
               const SizedBox(height: 10),
               SizedBox(
                 width: double.infinity,
                 height: 40,
                 child: ElevatedButton(
-                  onPressed: isLocked
+                  onPressed: canRegister
+                      ? () => onRegister!(actId!)
+                      : isLocked
                       ? null
                       : () async {
                           await Navigator.push(
@@ -345,13 +392,16 @@ class _ActivityBannerCard extends StatelessWidget {
                           onReturn();
                         },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: isLocked ? C.bg2 : C.ink,
+                    backgroundColor: canRegister
+                        ? (isReg ? C.bg2 : C.yellow)
+                        : isLocked ? C.bg2 : C.ink,
                     disabledBackgroundColor: C.bg2,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
                     elevation: 0,
                   ),
                   child: Text(buttonLabel,
-                      style: poppins(12.5, w: FontWeight.w700, c: isLocked ? C.txl : C.yellow)),
+                      style: poppins(12.5, w: FontWeight.w700,
+                          c: canRegister ? C.ink : isLocked ? C.txl : C.yellow)),
                 ),
               ),
               if (!isLocked) ...[
@@ -786,18 +836,51 @@ class _VideoThumb extends StatelessWidget {
 
 // ── No activity assigned for today ──────────────────────────────────────
 class _NoActivityTodayCard extends StatelessWidget {
+  const _NoActivityTodayCard({this.next});
+  final Map<String, dynamic>? next;
+
+  String? _when() {
+    final n = next;
+    if (n == null) return null;
+    final d = parseYmd(n['date']);
+    if (d == null) return null;
+    String out = fmtDayShort(d);
+    final raw = n['time']?.toString() ?? '';
+    final parts = raw.split(':');
+    final h = parts.length >= 2 ? int.tryParse(parts[0]) : null;
+    final m = parts.length >= 2 ? int.tryParse(parts[1]) : null;
+    if (h != null && m != null) {
+      final h12 = h % 12 == 0 ? 12 : h % 12;
+      out += ' · $h12:${m.toString().padLeft(2, '0')} ${h >= 12 ? 'PM' : 'AM'}';
+    }
+    return out;
+  }
+
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(24),
-    decoration: BoxDecoration(color: C.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: C.bd)),
-    child: Column(children: [
-      const Text('🌤️', style: TextStyle(fontSize: 40)),
-      const SizedBox(height: 10),
-      Text('No activity right now', style: poppins(14, w: FontWeight.w700, c: C.ink)),
-      const SizedBox(height: 4),
-      Text('Check back tomorrow for something new', style: poppins(12, c: C.txl)),
-    ]),
-  );
+  Widget build(BuildContext context) {
+    final when = _when();
+    final title = (next?['activity'] as Map?)?['title']?.toString();
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(color: C.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: C.bd)),
+      child: Column(children: [
+        const Text('🌤️', style: TextStyle(fontSize: 40)),
+        const SizedBox(height: 10),
+        Text(when != null ? 'Next activity on $when' : 'No upcoming activities yet',
+            textAlign: TextAlign.center,
+            style: poppins(14.5, w: FontWeight.w800, c: C.ink)),
+        if (when != null && title != null && title.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(title, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis,
+              style: poppins(12.5, w: FontWeight.w600, c: C.yellowDeep)),
+        ],
+        const SizedBox(height: 4),
+        Text(when != null ? 'Register below to get a reminder' : 'Check back soon for something new',
+            style: poppins(12, c: C.txl)),
+      ]),
+    );
+  }
 }
 
 // ── Locked future day — completely hidden content, just a countdown ─────

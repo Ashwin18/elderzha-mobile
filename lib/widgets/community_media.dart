@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
@@ -241,14 +242,14 @@ class _VideoPreviewState extends State<_VideoPreview> {
             _loading
                 ? const CircularProgressIndicator(color: C.yellow)
                 : Container(
-                    width: 16,
-                    height: 16,
+                    width: 60,
+                    height: 60,
                     decoration: const BoxDecoration(
-                      color: Colors.black45,
+                      color: Colors.black54,
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.play_arrow_rounded,
-                        color: Colors.white, size: 9),
+                        color: Colors.white, size: 38),
                   ),
           ],
         ),
@@ -268,6 +269,12 @@ class _VideoPreviewState extends State<_VideoPreview> {
   }
 }
 
+/// Full-screen player for admin-uploaded videos. It adapts to the video:
+///  - Portrait / Shorts-style (taller than wide): fills the screen top to
+///    bottom, staying upright.
+///  - Landscape: turns the phone sideways automatically and fills the width.
+/// The app is normally locked to portrait, so the orientation is changed
+/// only while this page is open and put back when it closes.
 class _FullScreenVideo extends StatefulWidget {
   const _FullScreenVideo({required this.url});
   final String url;
@@ -279,64 +286,146 @@ class _FullScreenVideo extends StatefulWidget {
 class _FullScreenVideoState extends State<_FullScreenVideo> {
   late final VideoPlayerController _controller;
   bool _ready = false;
+  bool _failed = false;
+  bool _showControls = true;
 
   @override
   void initState() {
     super.initState();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     _controller = VideoPlayerController.networkUrl(Uri.parse(widget.url))
       ..initialize().then((_) {
         if (!mounted) return;
+        final v = _controller.value;
+        // Pick the orientation from the real video size (rotation-aware
+        // because video_player already reports the displayed aspect).
+        if (v.aspectRatio > 1.05) {
+          SystemChrome.setPreferredOrientations(const [
+            DeviceOrientation.landscapeLeft,
+            DeviceOrientation.landscapeRight,
+          ]);
+        }
+        _controller.addListener(_onTick);
         setState(() => _ready = true);
         _controller.play();
+      }).catchError((_) {
+        if (mounted) setState(() => _failed = true);
       });
+  }
+
+  void _onTick() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    _controller.removeListener(_onTick);
     _controller.dispose();
+    SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
+  }
+
+  void _toggle() {
+    setState(() {
+      _controller.value.isPlaying ? _controller.pause() : _controller.play();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: Center(
-        child: !_ready
-            ? const CircularProgressIndicator(color: C.yellow)
-            : GestureDetector(
-                onTap: () => setState(() {
-                  _controller.value.isPlaying
-                      ? _controller.pause()
-                      : _controller.play();
-                }),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    AspectRatio(
-                      aspectRatio: _controller.value.aspectRatio,
-                      child: VideoPlayer(_controller),
-                    ),
-                    if (!_controller.value.isPlaying)
-                      Container(
-                        width: 64,
-                        height: 64,
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(.56),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.play_arrow_rounded,
-                            color: Colors.white, size: 42),
-                      ),
-                  ],
+      body: Stack(fit: StackFit.expand, children: [
+        if (_failed)
+          const Center(
+            child: Text('This video could not be played.',
+                style: TextStyle(color: Colors.white70, fontSize: 15)),
+          )
+        else if (!_ready)
+          const Center(child: CircularProgressIndicator(color: C.yellow))
+        else
+          LayoutBuilder(builder: (context, box) {
+            final v = _controller.value;
+            final screenAr = box.maxWidth / box.maxHeight;
+            // A tall video on a tall phone: fill the screen (tiny crop at
+            // most). Anything else: show the whole picture.
+            final fill = v.aspectRatio < 1 && (screenAr - v.aspectRatio).abs() < 0.2;
+            return GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => setState(() => _showControls = !_showControls),
+              child: SizedBox.expand(
+                child: FittedBox(
+                  fit: fill ? BoxFit.cover : BoxFit.contain,
+                  clipBehavior: Clip.hardEdge,
+                  child: SizedBox(
+                    width: v.size.width == 0 ? 1 : v.size.width,
+                    height: v.size.height == 0 ? 1 : v.size.height,
+                    child: VideoPlayer(_controller),
+                  ),
                 ),
               ),
-      ),
+            );
+          }),
+        if (_ready && _showControls) ...[
+          Center(
+            child: GestureDetector(
+              onTap: _toggle,
+              child: Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(.55),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                    _controller.value.isPlaying
+                        ? Icons.pause_rounded
+                        : Icons.play_arrow_rounded,
+                    color: Colors.white,
+                    size: 48),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: VideoProgressIndicator(
+                  _controller,
+                  allowScrubbing: true,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  colors: const VideoProgressColors(
+                    playedColor: C.yellow,
+                    bufferedColor: Colors.white30,
+                    backgroundColor: Colors.white24,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+        // Close button — always reachable.
+        Positioned(
+          left: 8,
+          top: 0,
+          child: SafeArea(
+            child: IconButton(
+              iconSize: 30,
+              onPressed: () => Navigator.of(context).maybePop(),
+              icon: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: const BoxDecoration(
+                    color: Colors.black54, shape: BoxShape.circle),
+                child: const Icon(Icons.close_rounded, color: Colors.white),
+              ),
+            ),
+          ),
+        ),
+      ]),
     );
   }
 }
@@ -364,9 +453,11 @@ class _YoutubePreviewState extends State<_YoutubePreview> {
     if (uri.queryParameters['v']?.isNotEmpty == true) {
       return uri.queryParameters['v'];
     }
-    final embed = uri.pathSegments.indexOf('embed');
-    if (embed >= 0 && uri.pathSegments.length > embed + 1) {
-      return uri.pathSegments[embed + 1];
+    for (final key in const ['embed', 'shorts', 'live']) {
+      final i = uri.pathSegments.indexOf(key);
+      if (i >= 0 && uri.pathSegments.length > i + 1) {
+        return uri.pathSegments[i + 1];
+      }
     }
     return null;
   }
@@ -410,25 +501,38 @@ class _YoutubePreviewState extends State<_YoutubePreview> {
       );
     }
 
-    // Stage 2 — tapped: load and play the real inline player.
+    // Stage 2 — tapped: load and play the real inline player. The box is
+    // 16:9 at whatever width the screen gives it (not a fixed height), and
+    // the player's own full-screen button turns the phone sideways.
     if (_tapped && _controller != null) {
-      return Container(
-        margin: const EdgeInsets.only(top: 10),
-        height: widget.height,
-        width: double.infinity,
-        clipBehavior: Clip.hardEdge,
-        decoration: BoxDecoration(
-          color: Colors.black,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: YoutubePlayer(
+      return YoutubePlayerBuilder(
+        onEnterFullScreen: () => SystemChrome.setPreferredOrientations(const [
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]),
+        onExitFullScreen: () {
+          SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
+          SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+        },
+        player: YoutubePlayer(
           controller: _controller!,
+          aspectRatio: 16 / 9,
           showVideoProgressIndicator: true,
           progressIndicatorColor: C.yellow,
           progressColors: const ProgressBarColors(
             playedColor: C.yellow,
             handleColor: C.yellowDark,
           ),
+        ),
+        builder: (context, player) => Container(
+          margin: const EdgeInsets.only(top: 10),
+          width: double.infinity,
+          clipBehavior: Clip.hardEdge,
+          decoration: BoxDecoration(
+            color: Colors.black,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: player,
         ),
       );
     }
@@ -442,14 +546,15 @@ class _YoutubePreviewState extends State<_YoutubePreview> {
       onTap: () => _startPlayback(id),
       child: Container(
         margin: const EdgeInsets.only(top: 10),
-        height: widget.height,
         width: double.infinity,
         clipBehavior: Clip.hardEdge,
         decoration: BoxDecoration(
           color: Colors.black,
           borderRadius: BorderRadius.circular(14),
         ),
-        child: Stack(
+        child: AspectRatio(
+          aspectRatio: 16 / 9,
+          child: Stack(
           fit: StackFit.expand,
           children: [
             Image.network(
@@ -460,17 +565,18 @@ class _YoutubePreviewState extends State<_YoutubePreview> {
             Container(color: Colors.black.withOpacity(.18)),
             Center(
               child: Container(
-                width: 16,
-                height: 16,
+                width: 60,
+                height: 60,
                 decoration: const BoxDecoration(
                   color: Color(0xFFE62117),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.play_arrow_rounded,
-                    color: Colors.white, size: 9),
+                    color: Colors.white, size: 38),
               ),
             ),
           ],
+        ),
         ),
       ),
     );
