@@ -410,10 +410,9 @@ class _CommunityScreenState extends State<CommunityScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Spark',
-                                style: poppins(20, w: FontWeight.w700, c: C.ink)),
-                            Text('Adding a extra sparkle to your day',
-                                style: poppins(11.5, w: FontWeight.w600, c: C.yellowDeep)),
+                            Text('Spark', style: pageHeading),
+                            Text('Adding an extra sparkle to my life',
+                                style: pageTagline),
                           ],
                         )),
                   ]),

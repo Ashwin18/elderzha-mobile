@@ -167,11 +167,6 @@ class _HomeScreenState extends State<FullHomeScreen>
           title: 'Steps, tracked automatically',
           message: "No setup needed — we count your steps in the background, all day.",
         ),
-        CoachMarkStep(
-          targetKey: _quickActionsKey,
-          title: 'Quick actions',
-          message: 'Check in, connect with family and more — right from here.',
-        ),
       ],
     );
   }
@@ -733,16 +728,16 @@ class _HomeScreenState extends State<FullHomeScreen>
                     child: _todayWellbeingCard(auth.userName),
                   ),
                   const SizedBox(height: 10),
-                  // 100-Day Challenge progress: sits right under the
-                  // wellbeing card (not pinned above the bottom bar).
-                  const ChallengeBanner(),
                   KeyedSubtree(key: _stepsSectionKey, child: _stepsSection()),
                   if (_todayPollCount > 0 || _todayActivityCount > 0) ...[
                     const SizedBox(height: 12),
                     _todayAtGlanceStrip(),
                   ],
                   const SizedBox(height: 14),
-                  KeyedSubtree(key: _quickActionsKey, child: _quickActions()),
+                  // 100-Day Challenge replaces the old Check-in / Reminder /
+                  // Spark quick-action tiles (those stay in the bottom bar
+                  // and the "A day in my life" card).
+                  const ChallengeBanner(),
                   ValueListenableBuilder<bool>(
                     valueListenable: FeatureFlags.newFeatures,
                     builder: (_, on, __) => on

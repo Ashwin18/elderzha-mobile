@@ -329,7 +329,7 @@ class _LaunchOfferPage extends StatelessWidget {
               Row(children: [
                 Expanded(child: _LaunchOfferCard(emoji: '🚨', title: 'SOS alert', subtitle: 'Quick help,\nwhen it matters')),
                 const SizedBox(width: 12),
-                Expanded(child: _LaunchOfferCard(emoji: '🎁', title: 'Local offers', subtitle: 'Special deals,\nnear you')),
+                Expanded(child: _LaunchOfferCard(emoji: '🎁', title: 'Offers', subtitle: 'Special deals,\nnear you')),
               ]),
               const SizedBox(height: 22),
               Text('More care. More moments. ♥',
@@ -375,7 +375,7 @@ class BenefitsList extends StatelessWidget {
     (Icons.menu_book_rounded, Color(0xFFFAECE7), Color(0xFF712B13), 'Daily diary', 'Log your mood and your day', false),
     (Icons.family_restroom_rounded, Color(0xFFFBEAF0), Color(0xFF72243E), 'Family tree', 'See your whole family, visually', false),
     (Icons.sos_rounded, Color(0xFFFAEEDA), Color(0xFF854F0B), 'SOS alert', 'One tap to reach family instantly', true),
-    (Icons.card_giftcard_rounded, Color(0xFFFAEEDA), Color(0xFF854F0B), 'Local offers', 'Deals from stores near you', true),
+    (Icons.card_giftcard_rounded, Color(0xFFFAEEDA), Color(0xFF854F0B), 'Offers', 'Deals from stores near you', true),
   ];
 
   @override

@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/app_theme.dart';
 import '../../services/api_client.dart';
 import '../../widgets/location_disclosure_dialog.dart';
+import '../../main.dart' show showLocalNotice;
 
 /// Fall detection now runs as a NATIVE Android foreground service —
 /// survives the app being swiped from Recent Apps (does not survive
@@ -110,6 +111,55 @@ class _FallSettingsScreenState extends State<FallSettingsScreen>
     }
     await Future.delayed(const Duration(milliseconds: 300));
     await _refresh();
+    if (!mounted) return;
+    final title = value ? 'Fall Detection is ON' : 'Fall Detection is OFF';
+    final body = value
+        ? 'We will alert you and your SOS contact if a fall is detected.'
+        : 'Fall alerts are paused. Turn it on again any time for extra safety.';
+    showLocalNotice(title, body);
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        contentPadding: const EdgeInsets.fromLTRB(22, 24, 22, 8),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: value ? const Color(0xFFDDF5E6) : C.bg2,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(value ? Icons.shield_rounded : Icons.shield_outlined,
+                size: 34, color: value ? const Color(0xFF2E7D32) : C.txm),
+          ),
+          const SizedBox(height: 14),
+          Text(title,
+              textAlign: TextAlign.center,
+              style: poppins(18, w: FontWeight.w800, c: C.ink)),
+          const SizedBox(height: 8),
+          Text(body,
+              textAlign: TextAlign.center,
+              style: poppins(13.5, c: C.txm, h: 1.45)),
+        ]),
+        actionsAlignment: MainAxisAlignment.center,
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        actions: [
+          SizedBox(
+            width: double.infinity,
+            height: 46,
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(ctx),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: C.ink,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+              child: Text('OK', style: poppins(14, w: FontWeight.w800, c: C.yellow)),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Shows a clear in-app explanation before the OS location permission
@@ -275,6 +325,51 @@ class _FallSettingsScreenState extends State<FallSettingsScreen>
     }
   }
 
+  Widget _sensitivityCard(String level) {
+    final sel = _sensitivity == level;
+    final (icon, label, text) = switch (level) {
+      'low' => (Icons.directions_walk_rounded, 'Low', 'Fewer false alerts, but may miss some falls.'),
+      'high' => (Icons.airline_seat_flat_rounded, 'High', 'More sensitive, but may trigger false alerts.'),
+      _ => (Icons.accessibility_new_rounded, 'Medium', 'Balanced for everyday use. Recommended for most users.'),
+    };
+    return GestureDetector(
+      onTap: () => _setSensitivity(level),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(6, 12, 6, 10),
+        decoration: BoxDecoration(
+          color: sel ? const Color(0xFFFFF3C4) : C.bg2,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: sel ? C.yellow : Colors.transparent, width: 2),
+        ),
+        child: Column(children: [
+          Text(label, style: poppins(14, w: FontWeight.w800, c: C.ink)),
+          const SizedBox(height: 8),
+          Icon(icon, size: 38, color: sel ? C.yellowDeep : C.txm),
+          const SizedBox(height: 8),
+          Text(text,
+              textAlign: TextAlign.center,
+              style: poppins(10.5, c: C.txm, h: 1.35)),
+          const SizedBox(height: 10),
+          Container(
+            width: 22,
+            height: 22,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: sel ? C.ink : C.txl, width: 2),
+            ),
+            child: sel
+                ? Center(
+                    child: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: const BoxDecoration(color: C.ink, shape: BoxShape.circle)))
+                : null,
+          ),
+        ]),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -293,10 +388,9 @@ class _FallSettingsScreenState extends State<FallSettingsScreen>
                     size: 18, color: C.ink)),
               const SizedBox(width: 10),
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Fall Detection',
-                    style: poppins(18, w: FontWeight.w700, c: C.ink)),
-                Text('Auto SOS when a fall is detected',
-                    style: poppins(12, c: C.yellowDeep)),
+                Text('Fall Detection', style: pageHeading),
+                Text('Extra alert when you need support.\nIn-hand buzzer for your safety alert.',
+                    style: pageTagline),
               ]),
             ]),
           )),
@@ -339,6 +433,34 @@ class _FallSettingsScreenState extends State<FallSettingsScreen>
                     ]),
                   ),
 
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF3C4),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: const BoxDecoration(color: C.yellow, shape: BoxShape.circle),
+                        child: const Icon(Icons.priority_high_rounded, size: 20, color: C.ink),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text('Fall detection may trigger false alerts.',
+                              style: poppins(13.5, w: FontWeight.w800, c: C.ink)),
+                          const SizedBox(height: 2),
+                          Text(
+                              'Accuracy can vary between phones and movements. Turn it on only if you are comfortable with this, and you can switch it off anytime.',
+                              style: poppins(12, c: C.txm, h: 1.4)),
+                        ]),
+                      ),
+                    ]),
+                  ),
+
                   const SizedBox(height: 14),
 
                   // ── Fall Detection Sensitivity ──
@@ -372,31 +494,12 @@ class _FallSettingsScreenState extends State<FallSettingsScreen>
                             child: CircularProgressIndicator(color: C.yellowDark, strokeWidth: 2),
                           ))
                         else
-                          Row(children: [
+                          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                             for (final level in ['low', 'medium', 'high'])
                               Expanded(
                                 child: Padding(
                                   padding: EdgeInsets.only(right: level != 'high' ? 8 : 0),
-                                  child: GestureDetector(
-                                    onTap: () => _setSensitivity(level),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(vertical: 12),
-                                      decoration: BoxDecoration(
-                                        color: _sensitivity == level ? C.yellow : C.bg2,
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                          color: _sensitivity == level ? C.yellowDark : C.bd,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        level[0].toUpperCase() + level.substring(1),
-                                        textAlign: TextAlign.center,
-                                        style: poppins(12.5,
-                                            w: FontWeight.w800,
-                                            c: _sensitivity == level ? C.ink : C.txm),
-                                      ),
-                                    ),
-                                  ),
+                                  child: _sensitivityCard(level),
                                 ),
                               ),
                           ]),

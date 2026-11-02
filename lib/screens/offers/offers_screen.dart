@@ -102,11 +102,9 @@ class _OffersScreenState extends State<OffersScreen> {
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Offers',
-                        style: poppins(24, w: FontWeight.w800, c: C.ink)),
-                    Text('Coupons, stores and wellness deals',
-                        style:
-                            poppins(12, w: FontWeight.w600, c: C.yellowDeep)),
+                    Text('Offers', style: pageHeading),
+                    Text('Find offers that make everyday life easier',
+                        style: pageTagline),
                   ]),
             ),
           ),

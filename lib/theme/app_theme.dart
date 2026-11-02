@@ -185,3 +185,9 @@ Widget inpField(IconData icon, String hint,
         ),
       ),
     );
+
+
+/// One heading + tagline style for every page header (Reminders, Spark,
+/// Offers, Fall Detection, Family members) so they all match.
+TextStyle get pageHeading => poppins(24, w: FontWeight.w800, c: C.ink);
+TextStyle get pageTagline => poppins(12, w: FontWeight.w600, c: C.yellowDeep, h: 1.3);

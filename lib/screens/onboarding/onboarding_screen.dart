@@ -299,7 +299,7 @@ class _SafetyPage extends StatelessWidget {
           Text('More Safety.\nMore Possibilities.', style: _headline),
           const SizedBox(height: 10),
           Text(
-            'Get peace of mind with Fall Detection and discover local offers — both included with your sign up!',
+            'Get peace of mind with Fall Detection and discover offers — both included with your sign up!',
             style: _body,
           ),
           const SizedBox(height: 18),
@@ -313,8 +313,8 @@ class _SafetyPage extends StatelessWidget {
           const _PremiumCard(
             Icons.card_giftcard_rounded,
             Color(0xFF7C4DDB),
-            'Local Offers',
-            'Exclusive deals & offers near you.',
+            'Offers',
+            'Find offers that make everyday life easier.',
           ),
           SizedBox(
             height: 250,

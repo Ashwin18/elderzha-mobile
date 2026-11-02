@@ -217,6 +217,30 @@ Future<void> _onNotifTap(NotificationResponse res) async {
   }
 }
 
+/// Shows a notification on this phone right away (used for in-app
+/// confirmations such as "Fall detection is ON").
+Future<void> showLocalNotice(String title, String body) async {
+  try {
+    await _ensureLocalNotificationsReady();
+    await _localNotifs.show(
+      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      title,
+      body,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _channel.id,
+          _channel.name,
+          channelDescription: _channel.description,
+          importance: Importance.max,
+          priority: Priority.high,
+          icon: '@drawable/ic_notification',
+        ),
+        iOS: const DarwinNotificationDetails(),
+      ),
+    );
+  } catch (_) {}
+}
+
 Future<void> _ensureLocalNotificationsReady({
   void Function(NotificationResponse)? onTap,
 }) async {

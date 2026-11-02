@@ -287,16 +287,10 @@ class _ReminderScreenState extends State<ReminderScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Reminders',
-                          style: GoogleFonts.poppins(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.ink)),
-                      Text('Create personal event reminders',
-                          style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.yellowDeep)),
+                      Text('Reminders', style: pageHeading),
+                      Text(
+                          "Don't miss any Birthdays / Special days / Appointments / Events",
+                          style: pageTagline),
                     ],
                   ),
                 ),

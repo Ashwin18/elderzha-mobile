@@ -177,20 +177,14 @@ class _FamilyMembersScreenState extends State<FamilyMembersScreen> {
   @override
   Widget build(BuildContext context) {
     return YellowHeaderScaffold(
-      headerHeight: 140,
+      headerHeight: 165,
       headerContent: Padding(
         padding: const EdgeInsets.fromLTRB(18, 48, 18, 0),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Family members',
-              style: GoogleFonts.poppins(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.ink)),
-          Text('Birthdays & anniversaries auto-reminded yearly',
-              style: GoogleFonts.poppins(
-                  fontSize: 11,
-                  color: AppColors.yellowDeep,
-                  fontWeight: FontWeight.w500)),
+          Text('Family members', style: pageHeading),
+          Text(
+              'Never miss the special days of your special ones.\nNever miss a chance to show your love.',
+              style: pageTagline),
         ]),
       ),
       body: _loading
