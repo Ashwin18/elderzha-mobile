@@ -15,6 +15,7 @@ import '../../alaram/alarm_permission_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_routes.dart';
 import '../../services/feature_flags.dart';
+import '../../widgets/seeds_earned_dialog.dart';
 import '../../utils/notification_list.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/services.dart';
@@ -128,7 +129,14 @@ class _HomeScreenState extends State<FullHomeScreen>
   @override
   void initState() {
     super.initState();
-    FeatureFlags.load();
+    FeatureFlags.load().then((_) {
+      final u = FeatureFlags.unseenSeeds;
+      if (u > 0 && mounted && FeatureFlags.newFeatures.value) {
+        FeatureFlags.unseenSeeds = 0;
+        showSeedsEarnedDialog(context, u,
+            onViewReferrals: () => Navigator.of(context).pushNamed(AppRoutes.refer));
+      }
+    });
     _loadAll();
     _initSteps();
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowHomeTour());
@@ -1104,20 +1112,22 @@ class _HomeScreenState extends State<FullHomeScreen>
             border: Border.all(color: C.yellow, width: 1.5),
           ),
           child: Row(children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: const BoxDecoration(color: C.yellowLight, shape: BoxShape.circle),
-              child: const Center(child: Text('🤝', style: TextStyle(fontSize: 22))),
-            ),
+            const SeedBadge(size: 46),
             const SizedBox(width: 12),
             Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Refer a Friend',
-                    style: poppins(14.5, w: FontWeight.w800, c: C.ink)),
-                Text('Invite your friends to ElderZha',
-                    style: poppins(12, c: C.txm)),
-              ]),
+              child: ValueListenableBuilder<int>(
+                valueListenable: FeatureFlags.seedsPerReferral,
+                builder: (_, per, __) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Refer a Friend',
+                          style: poppins(14.5, w: FontWeight.w800, c: C.ink)),
+                      Text('Earn $per Zha Seeds',
+                          style: poppins(12, w: FontWeight.w600, c: C.txm)),
+                      Text('+ 1 tree per successful referral',
+                          style: poppins(11.5, w: FontWeight.w700, c: C.green)),
+                    ]),
+              ),
             ),
             const Icon(Icons.chevron_right_rounded, color: C.ink),
           ]),
